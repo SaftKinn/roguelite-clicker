@@ -11,3 +11,6 @@ save.json
 # Video-Aufnahmen (lokal behalten, nicht ins Repo)
 media/clips/
 *.mp4
+
+# Treiber-Screenshots aus dem run-Skill (werden bei jedem Lauf neu erzeugt)
+.claude/skills/*/shots/
