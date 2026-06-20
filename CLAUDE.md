@@ -52,10 +52,11 @@ Schweigen hier ist der Fehlermodus, der Kontinuität bricht. Lieber updaten.
 ## Was das Projekt ist
 
 Ein 2D-Roguelite × Tower-Defense × Clicker (Python + Pygame). Der Spieler ist ein
-stationärer Turm in der Bildschirmmitte; Mausklick feuert Geschosse, Gegner
-spawnen wellenweise und laufen auf den Turm zu. Nach jeder Welle wählt man ein
-In-Run-Upgrade; Münzen kaufen dauerhafte Verbesserungen. **Sieg = Welle 100
-schaffen.** Danach (geplant) ein Rebirth, der neue Waffen freischaltet.
+stationärer Turm in der Bildschirmmitte; Halten der linken Maustaste feuert
+automatisch (Angriffstempo), Treffer heilen (Lifesteal). Gegner spawnen wellenweise
+und laufen auf den Turm zu. Gegner-Kills geben XP; bei jedem
+Level-up wählt man eine von drei Karten; Münzen kaufen dauerhafte Verbesserungen.
+**Sieg = Welle 100 schaffen.** Danach (geplant) ein Rebirth, der neue Waffen freischaltet.
 
 Vollständiges Design in `architecture.md`, Plan in `roadmap.md`. **Bei
 Design-Unklarheit gewinnt `architecture.md` — und wer eine Entscheidung ändert,
@@ -71,7 +72,8 @@ pip install pygame    # einzige Pflicht-Abhängigkeit; numpy optional
 Verifikation erfolgt durch **Starten des Spiels** — es gibt keine Tests/Linter.
 
 Dev-Tasten (nur im `PLAYING`-State): **F1** alle Gegner töten · **F2** zu Welle 9
-· **F3** zu Welle 49 · **F11** Fullscreen · **ESC** Pause/zurück.
+· **F3** zu Welle 49 · **F4** zu Welle 99 (→ SuperBoss/​Sieg testen) · **F5** Levelup
+erzwingen (Karten testen) · **F11** Fullscreen · **ESC** Pause/zurück.
 
 ---
 

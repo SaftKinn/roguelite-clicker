@@ -13,10 +13,11 @@ mit Abwägung in `docs/decisions/`.
 ## 1. Overview & Design-Prinzipien
 
 2D-Roguelite × Tower-Defense × Clicker (Python + Pygame). Der Spieler ist ein
-**stationärer Turm** in der Bildschirmmitte; per Mausklick werden Geschosse in
-Mausrichtung gefeuert. Gegner spawnen wellenweise vom Rand und laufen auf den
-Turm zu. Nach jeder Welle wählt man ein In-Run-Upgrade; verdiente Münzen kaufen
-dauerhafte Verbesserungen.
+**stationärer Turm** in der Bildschirmmitte; **Halten der linken Maustaste** feuert
+automatisch im Angriffstempo Geschosse Richtung Maus, und Treffer heilen den Spieler
+(Lifesteal, ADR 009). Gegner spawnen wellenweise vom Rand und laufen auf den
+Turm zu. Kills geben XP; bei jedem **Level-up** wählt man eine von drei Karten
+(ADR 008); verdiente Münzen kaufen dauerhafte Verbesserungen.
 
 **Rückgrat ist die Roguelite-Run-Struktur** (Welle → Upgrade wählen → stärker
 werden → sterben/neu). Tower-Defense liefert die Gegnerwellen, Clicker die
@@ -48,7 +49,8 @@ Diese Doku ist auf Deutsch.
   Begründung und verworfene Alternativen: ADR 001.
 - **Zielplattform:** Windows-Desktop als `.exe` (z. B. itch.io). Verpacken
   später via PyInstaller (Phase 4). Browser-Version (pygbag) ist Backlog.
-- **Fenster:** fest **1280×720**, mit `pygame.SCALED`. 60 FPS Ziel.
+- **Fenster:** fest **1280×720**, mit `pygame.SCALED`. **75 FPS** Ziel (= 1.25x
+  Spielgeschwindigkeit, alles frame-basiert; ADR 007/008).
 - **Kein Build-Schritt, keine Tests, kein Linter, keine `requirements.txt`.**
 - **Kein Git** im Repo initialisiert (Stand Phase 0). Committen nur auf
   ausdrückliche Aufforderung.
@@ -81,7 +83,7 @@ ein `game/`-Package mit Entitäts- und UI-Modulen. Diese Struktur bleibt bewusst
 | `game/player.py` | `Player` (Turm): HP, Schaden nehmen, Turm-Sprite + HP-Bar zeichnen. |
 | `game/enemy.py` | Alle Gegnerklassen mit Lazy-Sprite-Pattern (siehe §4). |
 | `game/projectile.py` | `Projectile` (Spieler-Geschoss): Bewegung, Kanonenkugel-Sprite/Fallback. |
-| `game/upgrade_menu.py` | In-Run-Upgrades (`UPGRADES`) + Auswahl-Overlay nach jeder Welle. |
+| `game/upgrade_menu.py` | In-Run-Karten (`UPGRADES`) + Auswahl-Overlay bei Level-up. |
 | `game/main_menu.py` | `MainMenu`, `OptionsMenu`, `ImprovementsMenu`, `DIFFICULTIES`, `IMPROVEMENTS`, wiederverwendbare `Button`-Klasse. |
 | `game/save_data.py` | Laden/Speichern von `save.json` (Merge mit `_DEFAULT`). |
 | `game/sounds.py` | Prozedural erzeugte SFX + Musik-Wiedergabe. |
@@ -111,23 +113,28 @@ Draw-Phase** darauf. **Beim Hinzufügen von Verhalten muss man typischerweise an
 allen drei Stellen denselben State behandeln.**
 
 States: `MAIN_MENU`, `OPTIONS`, `IMPROVEMENTS`, `PLAYING`, `WAVE_CLEAR`,
-`UPGRADE`, `PAUSED`, `GAME_OVER`.
+`UPGRADE`, `PAUSED`, `GAME_OVER`, `VICTORY`.
 
-Geplant (Phase 2): ein **Sieg-Zustand** (`VICTORY` o. ä.) beim Erreichen von
-Welle 100.
+`VICTORY` (seit Phase 2): erreicht, sobald Welle `WIN_WAVE` (100) geräumt ist
+(SuperBoss besiegt). Eigener Sieg-Screen; R = neuer Lauf, M = Menü — Event/Draw
+teilen sich die Logik mit `GAME_OVER`, die Update-Phase ist (wie `GAME_OVER`) ein
+No-Op.
 
 ### 3.2 Laufzustand `gs`
 
 Der laufende Spielzustand lebt im Dict **`gs`** (erzeugt von
 `fresh_game_state()`): `wave`, `enemies`, `projectiles`, `enemy_projectiles`,
 `pending_shots`, `stats`, `coins`, `obtained`, `spawn_remaining`, `spawn_timer`,
-`wave_clear_timer`, `banner` u. a. `gs is None` bedeutet „kein aktiver Lauf"
+`wave_clear_timer`, `banner`, `fire_timer` (Auto-Feuer, ADR 009), sowie XP/Level
+(`xp`, `level`, `xp_to_next`, `pending_levelups`; ADR 008) u. a. `gs is None` bedeutet
+„kein aktiver Lauf"
 (`run_active` im Hauptmenü). Beide Wege ins Menü — Pause→Menü **und**
-GAME_OVER→Menü — setzen `gs = None`, damit der **Verbesserungen-Shop** dort
-erreichbar ist; permanente Käufe ergeben nur außerhalb eines Laufs Sinn.
+Beide Run-Enden ins Menü (GAME_OVER **und** VICTORY) — setzen `gs = None`, damit
+der **Verbesserungen-Shop** dort erreichbar ist; permanente Käufe ergeben nur
+außerhalb eines Laufs Sinn.
 
 `gs["stats"]` hält die In-Run-Werte: `damage`, `bullet_speed`, `bullet_size`,
-`pierce`, `multishot`.
+`pierce`, `multishot`, `attack_speed` (Schüsse/Sek., ADR 009).
 
 ---
 
@@ -164,22 +171,42 @@ Pro Frame im `PLAYING`-State (vereinfacht):
 1. **Spawnen:** Timer zählt; bei Ablauf spawnt `spawn_enemy_for_wave()` einen
    Gegner, bis `spawn_remaining` aufgebraucht ist. Spawn-Intervall hängt vom
    Schwierigkeitsgrad ab (`diff_mod["spawn_bonus"]`).
-2. **Update:** alle Geschosse, Gegner-Geschosse, Gegner und FX bewegen sich;
-   ausgewählte Klicks (`pending_shots`) werden zu `Projectile`s.
+2. **Update:** alle Geschosse, Gegner-Geschosse, Gegner und FX bewegen sich.
+   **Auto-Feuer (ADR 009):** bei gehaltener LMB feuert der Turm im Takt
+   `FPS / attack_speed` Richtung Maus (`gs["fire_timer"]`); Doppelschuss-Nachzügler
+   laufen über `pending_shots`.
 3. **Kollisionen:** `check_projectile_hits()` (Spieler-Geschoss → Gegner, mit
-   Pierce-/Multishot-Logik), `check_enemy_contact()` (Gegner → Turm). Nahkämpfer
-   **stoppen vor dem Turm und greifen auf Cooldown an** (`melee_attack()`,
-   `ATTACK_DAMAGE`/`ATTACK_COOLDOWN`); Kontakt **tötet den Gegner nicht** — nur
-   Projektile töten ihn. Boss/SuperBoss bleiben bei Berührung sofort tödlich.
+   Pierce-/Multishot-Logik; je Treffer **Lifesteal** `LIFESTEAL_PER_HIT` HP),
+   `check_enemy_contact()` (Gegner → Turm). Nahkämpfer **stoppen vor dem Turm und
+   greifen auf Cooldown an** (`melee_attack()`, `ATTACK_DAMAGE`/`ATTACK_COOLDOWN`);
+   Kontakt **tötet den Gegner nicht** — nur Projektile töten ihn. Boss/SuperBoss
+   bleiben bei Berührung sofort tödlich.
 4. **Münzen/FX:** Kills geben Münzen (`coin_value_for_wave()`, optional ×1.5 bei
    `gold_boost`), erzeugen `DamageNumber`-FX.
-5. **Wellen-Ende:** keine Gegner mehr + `spawn_remaining == 0` → `WAVE_CLEAR` →
-   nach Delay `UPGRADE`. Tod des Turms → `GAME_OVER`.
+5. **XP/Level (ADR 008):** Jeder Kill gibt XP (`enemy.coin_value`); erreicht `xp` die
+   wellenabhängige Schwelle `xp_to_next(level, wave)`, gibt es einen Levelup
+   (`pending_levelups`). Bei offenem Levelup geht `PLAYING` → `UPGRADE` (1-aus-3-Karte,
+   **keine** Wellen-Erhöhung) und danach zurück. Karten kommen **nur** aus Level-ups.
+6. **Wellen-Ende:** keine Gegner mehr + `spawn_remaining == 0` → `WAVE_CLEAR` → nach
+   kurzem Delay **direkt zur nächsten Welle** (`WAVE_CLEAR` rückt `wave` vor, setzt
+   Boss-Banner/-Musik). War es Welle `WIN_WAVE` (100), stattdessen → `VICTORY` (Sieg).
+   Tod des Turms → `GAME_OVER`. **Spawn-Gate:** pro Welle max. `MAX_ENEMIES_PER_WAVE`
+   Gegner gesamt, und es wird nur nachgespawnt, solange weniger als
+   `MAX_CONCURRENT_ENEMIES` leben (deckelt Performance + Belagerungs-DPS).
 
 **Wichtig: Simulation und Rendering sind nicht getrennt** — jede Entität hat
 `update()` und `draw()` und läuft im Immediate-Mode-Stil von Pygame. Das ist für
 dieses Spiel bewusst akzeptiert (kein Determinismus-/Netcode-Bedarf). Kein
 Golden-Rule-Zwang zur Trennung.
+
+**Kamera-Zoom & Sprite-Größe (ADR 007):** Die **Welt** (Terrain + Entitäten +
+Schaden-FX) wird in ein `world_surf` gezeichnet; `blit_world_zoomed()` skaliert deren
+zentralen `1/CAMERA_ZOOM`-Ausschnitt formatfüllend auf den Screen. **HUD, Banner,
+Menüs und Cursor** werden danach **unskaliert** direkt auf den Screen gezeichnet.
+Skaliert wird um die Bildmitte (= Turm), daher bleiben Schussrichtungen korrekt.
+Zusätzlich vergrößert `SPRITE_SCALE` alle Einheiten-/Geschoss-Sprites beim Laden
+(`sprite_loader._px()`); Hitboxen (`RADIUS`) bleiben unverändert. **Spieltempo** =
+`constants.FPS` (75 = 1.25x), da alles frame-basiert ist.
 
 ---
 
@@ -216,8 +243,9 @@ aufgefüllt). „Harter" Zustand (überlebt Programm-Neustart):
 
 Zwei getrennte Upgrade-Systeme:
 
-1. **In-Run-Upgrades** (`upgrade_menu.py`): temporär, nur aktueller Lauf. Wirken
-   über `apply_upgrade()` auf `gs["stats"]` bzw. den `Player`.
+1. **In-Run-Karten** (`upgrade_menu.py`): temporär, nur aktueller Lauf; Auswahl **bei
+   Level-up** (XP-getrieben, ADR 008). Wirken über `apply_upgrade()` auf `gs["stats"]`
+   bzw. den `Player`.
 2. **Permanente Verbesserungen** (`main_menu.py`, `ImprovementsMenu`): mit Münzen
    gekauft, persistiert. `_ONE_TIME` (einmalig) und `_INFINITE` (stufenweise,
    Preis ×`_COST_MULT`). Angewendet via `apply_permanent_bonuses()` zu Laufbeginn
@@ -231,9 +259,13 @@ einen Rebirth — siehe §8 und ADR 004.
 
 ## 8. Run-Modell & Rebirth (Sieg-Bedingung)
 
-**MVP-Sieg:** **Welle 100 erreichen und den SuperBoss besiegen = gewonnen.** Es
-gibt dann einen Sieg-Bildschirm; der Lauf endet sauber. (Vorher war das Spiel
-endlos.)
+**MVP-Sieg (seit Phase 2):** **Welle `WIN_WAVE` (100) räumen = den SuperBoss
+besiegen = gewonnen.** Der `VICTORY`-State zeigt einen Sieg-Screen; `best_wave`/
+`best_coins`/`total_coins` werden gebucht, der Lauf endet sauber (R = neuer Lauf,
+M = Menü). Damit Welle 100 überhaupt erreichbar bleibt, deckelt Phase 2 die
+Gegnerzahl (`MAX_ENEMIES_PER_WAVE` gesamt + `MAX_CONCURRENT_ENEMIES` gleichzeitig);
+Schwierigkeit kommt spät v. a. über HP/Speed-Skalierung statt Masse. Begründung:
+ADR 006. (Vorher war das Spiel endlos.)
 
 **Rebirth (Part 2, nicht im MVP):** Nach dem Sieg wird das Spiel **komplett
 zurückgesetzt** (Run, Münzen, permanente Verbesserungen). Als Belohnung wählt man
