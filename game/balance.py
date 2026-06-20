@@ -48,6 +48,7 @@ MAX_CONCURRENT_ENEMIES = 30    # max. gleichzeitig lebende Gegner — deckelt Pe
 # Elite-Gegner: jeder Nicht-Boss-Typ kann als Elite spawnen (zäher Brocken, egal welcher Typ).
 ELITE_SPAWN_CHANCE = 0.10          # Wahrscheinlichkeit je Nicht-Boss-Spawn, ein Elite zu sein
 ELITE_HP_MULT      = 10            # Elite-HP = normale Gegner-HP × diesem Faktor
+ELITE_REWARD_MULT  = 5             # Elite gibt Münzen UND XP × diesem Faktor (lohnendes Ziel)
 ELITE_COLOR        = (255, 60, 60) # Ring-Markierung um Elites (damit sie erkennbar sind)
 
 

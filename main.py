@@ -22,7 +22,8 @@ from game.balance     import (BASE_SPAWN_INTERVAL, MELEE_REACH,
                               BASE_ATTACK_SPEED, UPGRADE_ATTACK_SPEED, LIFESTEAL_PER_HIT,
                               PERMANENT_DAMAGE_PER_LEVEL, PERMANENT_HP_PER_LEVEL,
                               GOLD_BOOST_MULT, DOPPELSCHUSS_DELAY,
-                              ELITE_SPAWN_CHANCE, ELITE_HP_MULT, ELITE_COLOR)
+                              ELITE_SPAWN_CHANCE, ELITE_HP_MULT, ELITE_REWARD_MULT,
+                              ELITE_COLOR)
 
 WAVE_CLEAR_DELAY    = 70    # kürzere Pause zwischen Wellen (knackiger, ADR 008)
 CONTACT_DIST        = PLAYER_RADIUS + ENEMY_RADIUS
@@ -53,11 +54,13 @@ def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
     elif kind == "tanker": enemy = Lancer(base_speed, base_hp)
     elif kind == "monk":   enemy = Monk(base_speed, base_hp)
     else:                  enemy = Warrior(speed=base_speed, max_hp=base_hp)
-    # Elite: mit ELITE_SPAWN_CHANCE wird ein Nicht-Boss-Gegner zum zähen Brocken (×ELITE_HP_MULT HP)
+    # Elite: mit ELITE_SPAWN_CHANCE wird ein Nicht-Boss-Gegner zum zähen Brocken (×ELITE_HP_MULT HP).
+    # coin_value skaliert mit ELITE_REWARD_MULT → mehr Münzen UND XP (coin_value speist beides).
     if random.random() < ELITE_SPAWN_CHANCE:
-        enemy.max_hp *= ELITE_HP_MULT
-        enemy.hp      = enemy.max_hp
-        enemy.elite   = True
+        enemy.max_hp     *= ELITE_HP_MULT
+        enemy.hp          = enemy.max_hp
+        enemy.coin_value *= ELITE_REWARD_MULT
+        enemy.elite       = True
     return enemy
 
 

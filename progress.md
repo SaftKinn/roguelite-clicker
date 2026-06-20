@@ -139,8 +139,8 @@ Datentabellen-Eintrag mehr).
 - **Wellen-Skalierung (Phase 2):** ✅ Geklärt → Hybrid-Cap (ADR 006). Folge-Frage:
   konkretes **Balance-Feintuning** (HP/Speed-Kurve + Belagerungs-DPS) nach einem
   echten 1→100-Durchlauf — offen bis zum Playtest.
-- **Elite-Reward (ADR 011):** Elites geben aktuell denselben XP/Münz-Wert wie normale
-  Gegner — 10× HP ohne Mehr-Beute fühlt sich evtl. nach Bremsklotz an. Skalieren?
+- **Elite-Reward (ADR 011):** ✅ Umgesetzt → `ELITE_REWARD_MULT=5` (×5 Münzen **und** XP).
+  Folge-Frage: ist ×5 gegen ×10 HP der richtige Punkt? (Playtest-Regler.)
 - **Autoaim-Priorisierung (ADR 010):** zielt simpel auf den **nächsten** Gegner. Reicht
   das, oder braucht es „gefährlichster/zähester zuerst" (z. B. Elites priorisieren)?
 - **Genre-Identität:** Mit Passiv-Combat ist der „Clicker"-Anteil weg — woher kommt die
@@ -202,6 +202,9 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   Mehr-Reward bewusst noch offen.
 - **D22** — Anti-Snowball: XP-Kurve versteilt `XP_BASE 5→8`, `XP_PER_LEVEL 3→7` (gegen
   „Durchlaufen ab Lvl 10"; reine Werte, Playtest).
+- **D23** — Elite-Reward skaliert: `ELITE_REWARD_MULT=5` über `enemy.coin_value` (×5
+  Münzen UND XP, da `coin_value` beides speist). ×5 statt ×10 (HP-linear), um die
+  Anti-Snowball-XP-Kurve nicht auszuhebeln. Löst die offene Reward-Frage aus ADR 011.
 
 ## Phase → ADR map
 

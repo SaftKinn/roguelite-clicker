@@ -18,6 +18,9 @@ Ziel zu konzentrieren — unabhängig vom Gegnertyp.
   deutlich zäher als ein Archer-Elite, „10×" wirkt konsistent pro Typ.
 - **Bosse ausgenommen:** Der Würfel sitzt im Nicht-Boss-Zweig (nach den `wave % 10/50`-
   Returns) — Boss/SuperBoss werden nie Elite (deren HP ist ohnehin extrem).
+- **Reward skaliert:** `enemy.coin_value *= ELITE_REWARD_MULT` (×5). Da `coin_value`
+  sowohl Münzen (`coin_value_for_wave × coin_value × gold_mult`) als auch den XP-Drop
+  speist, gibt ein Elite konsistent ×5 Münzen **und** XP — ein Regler für beides.
 - **Sichtbar:** roter Ring (`ELITE_COLOR`) um den Gegner in der Draw-Schleife, damit der
   zähe Brocken nicht wie ein Bug („stirbt nicht") wirkt.
 - **Robustheit:** `elite = False` ist **Klassenattribut** auf `Warrior` — alle fünf
@@ -28,15 +31,16 @@ Ziel zu konzentrieren — unabhängig vom Gegnertyp.
   Laufzeit-Flag + HP-Faktor ist schlanker und „egal welcher Typ".
 - **Elite mit eigenem Sprite/Tint statt Ring:** mehr Render-Arbeit pro Klasse; der Ring
   ist typ-unabhängig und sofort erkennbar. Tint als spätere Politur offen.
-- **Auch mehr Reward (XP/Münzen) für Elites:** bewusst **noch nicht** umgesetzt — ein
-  Elite gibt aktuell denselben `coin_value` wie ein normaler Gegner. Offener Regler.
+- **Reward über die HP linear (×10) skalieren:** gewählt wurde **×5** (`ELITE_REWARD_MULT`),
+  nicht ×10 — voller HP-proportionaler XP-Drop würde die Anti-Snowball-XP-Kurve (ADR 010/
+  D22) wieder aushebeln. ×5 macht Elites lohnend, ohne das Leveling zu überfüttern.
 
 ## Consequences
 - **Positiv:** Mikro-Spannung pro Welle ohne neue Gegnertypen; ein einziger Regler
   (`ELITE_SPAWN_CHANCE`) steuert die Häufigkeit, ein zweiter (`ELITE_HP_MULT`) die Härte.
-- **Negativ / Bindung:** Elites geben (noch) keinen Mehr-Reward → 10× HP für gleichen
-  Münz-/XP-Wert ist **schlechter Value** und könnte sich nach „Bremsklotz" statt „Beute"
-  anfühlen. Reward-Skalierung für Elites ist die naheliegende Folge-Entscheidung. Bei
+- **Negativ / Bindung:** Reward (×5) vs. HP (×10) ist eine Balance-Wette — zu niedrig
+  fühlt sich der Elite nach „Bremsklotz", zu hoch nach XP-Jackpot an, der die
+  Anti-Snowball-Kurve aushebelt. `ELITE_REWARD_MULT` ist der Playtest-Regler dafür. Bei
   hoher `attack_speed` + Pierce/Multishot können Elites trotzdem schnell fallen — Härte
   per Playtest gegen die Spieler-DPS kalibrieren.
 - **Verifikation:** Headless geprüft — Spawnrate ~0.103 über 4000 Spawns, HP = 10× der
