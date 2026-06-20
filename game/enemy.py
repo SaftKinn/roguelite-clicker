@@ -11,7 +11,7 @@ from . import balance
 class EnemyProjectile:
     SPEED        = 3.5
     RADIUS       = 4
-    DAMAGE       = 8
+    DAMAGE       = 16   # Archer-Pfeilschaden (tödlicher, ADR 008)
     _COLOR_OUTER = (180, 130,  40)
     _COLOR_INNER = (255, 210, 100)
     _arrow_surf  = None

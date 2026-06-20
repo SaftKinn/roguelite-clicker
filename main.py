@@ -14,14 +14,16 @@ from game.terrain      import Terrain
 from game import save_data  as sd
 from game import ui_loader
 from game.balance     import (BASE_SPAWN_INTERVAL, MELEE_REACH,
+                              WIN_WAVE, MAX_CONCURRENT_ENEMIES, CAMERA_ZOOM,
                               enemies_for_wave, enemy_hp_for_wave,
-                              enemy_speed_for_wave, coin_value_for_wave,
+                              enemy_speed_for_wave, coin_value_for_wave, xp_to_next,
                               UPGRADE_DAMAGE, UPGRADE_BULLET_SPEED,
                               UPGRADE_BULLET_SIZE, UPGRADE_MAX_HP, MULTISHOT_ANGLES,
+                              BASE_ATTACK_SPEED, UPGRADE_ATTACK_SPEED, LIFESTEAL_PER_HIT,
                               PERMANENT_DAMAGE_PER_LEVEL, PERMANENT_HP_PER_LEVEL,
                               GOLD_BOOST_MULT, DOPPELSCHUSS_DELAY)
 
-WAVE_CLEAR_DELAY    = 120
+WAVE_CLEAR_DELAY    = 70    # kürzere Pause zwischen Wellen (knackiger, ADR 008)
 CONTACT_DIST        = PLAYER_RADIUS + ENEMY_RADIUS
 
 
@@ -81,8 +83,12 @@ def spawn_projectiles(origin: pygame.math.Vector2, mouse_pos: tuple,
 
 
 def check_projectile_hits(projectiles: list, enemies: list,
-                          dmg_numbers: list, kills: list) -> bool:
-    """Gibt True zurück wenn mindestens ein (nicht-tödlicher) Treffer erfolgte."""
+                          dmg_numbers: list, kills: list, player=None) -> bool:
+    """Gibt True zurück wenn mindestens ein (nicht-tödlicher) Treffer erfolgte.
+
+    Lifesteal (ADR 009): je Treffer an einem Gegner heilt der Spieler
+    `LIFESTEAL_PER_HIT` HP (bis max_hp).
+    """
     any_hit = False
     for proj in projectiles:
         if not proj.alive:
@@ -92,6 +98,8 @@ def check_projectile_hits(projectiles: list, enemies: list,
                 continue
             if proj.pos.distance_to(enemy.pos) < proj.radius + enemy.radius:
                 enemy.take_damage(proj.damage)
+                if player is not None and LIFESTEAL_PER_HIT:
+                    player.hp = min(player.max_hp, player.hp + LIFESTEAL_PER_HIT)
                 dmg_numbers.append(
                     DamageNumber(enemy.pos.x, enemy.pos.y - 14, proj.damage)
                 )
@@ -124,6 +132,7 @@ def apply_upgrade(upgrade_id: str, stats: dict, player=None) -> None:
     if   upgrade_id == "damage":    stats["damage"]       += UPGRADE_DAMAGE
     elif upgrade_id == "speed":     stats["bullet_speed"] += UPGRADE_BULLET_SPEED
     elif upgrade_id == "size":      stats["bullet_size"]  += UPGRADE_BULLET_SIZE
+    elif upgrade_id == "attackspeed": stats["attack_speed"] *= (1 + UPGRADE_ATTACK_SPEED)
     elif upgrade_id == "multishot": stats["multishot"]     = True
     elif upgrade_id == "pierce":    stats["pierce"]        = True
     elif upgrade_id == "max_hp" and player is not None:
@@ -137,8 +146,12 @@ def fresh_game_state(wave: int = 1) -> dict:
                 enemies=[], projectiles=[], enemy_projectiles=[],
                 pending_shots=[],
                 obtained=set(), coins=0,
+                # XP/Level (ADR 008): Karten kommen jetzt aus Level-ups, nicht pro Welle
+                xp=0, level=1, xp_to_next=xp_to_next(1, wave), pending_levelups=0,
+                fire_timer=0,   # Cooldown bis zum nächsten Auto-Schuss (ADR 009)
                 stats=dict(damage=10, bullet_speed=10, bullet_size=5,
-                           pierce=False, multishot=False),
+                           pierce=False, multishot=False,
+                           attack_speed=BASE_ATTACK_SPEED),
                 banner=None)
 
 
@@ -150,7 +163,8 @@ _HUD_H = 38   # Höhe der HUD-Labels
 
 
 def draw_hud(screen: pygame.Surface, font: pygame.font.Font,
-             wave: int, remaining: int, coins: int) -> None:
+             wave: int, remaining: int, coins: int,
+             level: int = 1, xp: int = 0, xp_to_next: int = 1) -> None:
     pad = 70   # extra Breite links+rechts im Label (Platz für die Caps)
 
     # Welle – Ribbon (gelb, Zeile 2)
@@ -180,6 +194,19 @@ def draw_hud(screen: pygame.Surface, font: pygame.font.Font,
                 (cx + icon_size + 6,
                  cy + (icon_size - cth) // 2))
 
+    # Level + XP-Bar (unten zentriert, ADR 008)
+    bar_w, bar_h = 420, 12
+    bar_x = (SCREEN_WIDTH - bar_w) // 2
+    bar_y = SCREEN_HEIGHT - bar_h - 12
+    ratio = max(0.0, min(1.0, xp / xp_to_next)) if xp_to_next > 0 else 0.0
+    pygame.draw.rect(screen, (18, 20, 34), (bar_x, bar_y, bar_w, bar_h), border_radius=6)
+    if ratio > 0:
+        pygame.draw.rect(screen, (90, 200, 255),
+                         (bar_x, bar_y, int(bar_w * ratio), bar_h), border_radius=6)
+    pygame.draw.rect(screen, (70, 95, 130), (bar_x, bar_y, bar_w, bar_h), width=1, border_radius=6)
+    lbl = font.render(f"Lvl {level}   {xp}/{xp_to_next} XP", True, (190, 225, 255))
+    screen.blit(lbl, (SCREEN_WIDTH // 2 - lbl.get_width() // 2, bar_y - lbl.get_height() - 2))
+
 
 def draw_game_over(screen, font_big, font, wave, coins_earned, best_wave, new_record):
     overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -204,6 +231,29 @@ def draw_game_over(screen, font_big, font, wave, coins_earned, best_wave, new_re
         screen.blit(surf, (cx - surf.get_width() // 2, y))
 
 
+def draw_victory(screen, font_big, font, wave, coins_earned, best_wave, new_record):
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((10, 12, 30, 205))
+    screen.blit(overlay, (0, 0))
+    cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+
+    rows = [
+        (font_big.render("SIEG!",                         True, (255, 220,  60)), cy - 100),
+        (font.render("SuperBoss in Welle 100 bezwungen",  True, (220, 220, 240)), cy - 24),
+        (font.render(f"+{coins_earned} Münzen verdient",  True, COLOR_COIN),      cy + 14),
+    ]
+    if new_record:
+        rows.append((font.render("★  NEUER REKORD!  ★",  True, (255, 220, 60)),  cy + 52))
+    else:
+        rows.append((font.render(f"Rekord: Welle {best_wave}",
+                                  True, (130, 130, 150)),                          cy + 52))
+    rows.append((font.render("R — Neuer Lauf   |   M — Hauptmenü",
+                              True, (120, 120, 140)),                              cy + 92))
+
+    for surf, y in rows:
+        screen.blit(surf, (cx - surf.get_width() // 2, y))
+
+
 def draw_boss_bar(screen: pygame.Surface, font: pygame.font.Font,
                   enemies: list) -> None:
     boss = next((e for e in enemies if isinstance(e, (Boss, SuperBoss)) and e.alive), None)
@@ -223,6 +273,27 @@ def draw_boss_bar(screen: pygame.Surface, font: pygame.font.Font,
 
 
 # ---------------------------------------------------------------------------
+# Kamera-Zoom (ADR 007)
+# ---------------------------------------------------------------------------
+
+def blit_world_zoomed(screen: pygame.Surface, world: pygame.Surface, zoom: float) -> None:
+    """Skaliert den zentralen 1/zoom-Ausschnitt der Welt formatfüllend auf den Screen.
+
+    Da um die Bildmitte (= Turm) skaliert wird, bleiben Schussrichtungen (Winkel vom
+    Turm zur Maus) erhalten — Zielen funktioniert unverändert. HUD/Menüs werden danach
+    unskaliert obendrauf gezeichnet.
+    """
+    if zoom == 1.0:
+        screen.blit(world, (0, 0))
+        return
+    w, h   = world.get_size()
+    cw, ch = int(w / zoom), int(h / zoom)
+    x, y   = (w - cw) // 2, (h - ch) // 2
+    crop   = world.subsurface((x, y, cw, ch))
+    pygame.transform.smoothscale(crop, (w, h), screen)
+
+
+# ---------------------------------------------------------------------------
 # Hauptschleife
 # ---------------------------------------------------------------------------
 
@@ -231,6 +302,7 @@ def main():
     screen   = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SCALED)
     pygame.display.set_caption(TITLE)
     clock    = pygame.time.Clock()
+    world_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))   # Welt wird hier gezeichnet, dann gezoomt geblittet
 
     # Custom cursor
     import os as _os
@@ -276,6 +348,7 @@ def main():
     diff_mod    = options_menu.get_modifiers()
     new_record          = False
     prev_state          = None
+    mouse_held          = False         # linke Maustaste gedrückt → Auto-Feuer (ADR 009)
     options_return_to   = "MAIN_MENU"   # wohin OPTIONS-Zurück geht
     state               = "MAIN_MENU"
 
@@ -312,12 +385,12 @@ def main():
                         pygame.mixer.music.unpause()
                     else:
                         running = False
-                if state == "GAME_OVER":
+                if state in ("GAME_OVER", "VICTORY"):
                     if event.key == pygame.K_r:
                         start_run()
                         state = "PLAYING"
                     elif event.key == pygame.K_m:
-                        gs      = None   # toten Lauf beenden → Shop im Menü wieder zugänglich
+                        gs      = None   # Lauf beenden → Shop im Menü wieder zugänglich
                         terrain = None
                         snd.start_menu_music()
                         state = "MAIN_MENU"
@@ -338,6 +411,16 @@ def main():
                         gs["wave"]            = 49
                         for e in gs["enemies"]: e.alive = False
                         gs["spawn_remaining"] = 0
+                    elif event.key == pygame.K_F4:
+                        # Auf Welle 99 springen (nächste Clear → SuperBoss Welle 100 → Sieg)
+                        gs["wave"]            = 99
+                        for e in gs["enemies"]: e.alive = False
+                        gs["spawn_remaining"] = 0
+                    elif event.key == pygame.K_F5:
+                        # Dev: einen Levelup erzwingen (Karten-Auswahl testen)
+                        gs["level"]            += 1
+                        gs["pending_levelups"] += 1
+                        gs["xp_to_next"]        = xp_to_next(gs["level"], gs["wave"])
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if state == "MAIN_MENU":
@@ -391,28 +474,19 @@ def main():
                         state = "MAIN_MENU"
 
                 elif state == "PLAYING":
-                    gs["projectiles"] += spawn_projectiles(pc, mouse_pos, gs["stats"])
-                    snd.play("shoot")
-                    if "doppelschuss" in save["bought"]:
-                        gs["pending_shots"].append((DOPPELSCHUSS_DELAY, mouse_pos))
+                    mouse_held = True          # Halten feuert; erster Schuss sofort
+                    gs["fire_timer"] = 0
 
                 elif state == "UPGRADE":
                     chosen = upgrade_menu.handle_click(mouse_pos)
                     if chosen:
                         apply_upgrade(chosen, gs["stats"], player)
                         gs["obtained"].add(chosen)
-                        gs["wave"]           += 1
-                        gs["spawn_remaining"] = enemies_for_wave(gs["wave"])
-                        gs["spawn_timer"]     = 0
-                        if gs["wave"] % 50 == 0:
-                            gs["banner"] = {"text": "SUPER BOSS!", "color": (220, 20, 40), "timer": 180}
-                            snd.play("boss_intro")
-                            snd.start_boss_music()
-                        elif gs["wave"] % 10 == 0:
-                            gs["banner"] = {"text": "BOSS WELLE!", "color": (255, 155, 25), "timer": 180}
-                            snd.play("boss_intro")
-                            snd.start_boss_music()
-                        state = "PLAYING"
+                        gs["pending_levelups"] = max(0, gs["pending_levelups"] - 1)
+                        if gs["pending_levelups"] > 0:
+                            upgrade_menu.roll(gs["obtained"])   # weitere Level-up-Karte
+                        else:
+                            state = "PLAYING"
 
             if event.type == pygame.MOUSEMOTION:
                 if state == "OPTIONS":
@@ -422,6 +496,7 @@ def main():
                         else:                  snd.set_music_vol(options_menu.music_volume)
 
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                mouse_held = False         # Maustaste losgelassen → Auto-Feuer stoppt
                 if state == "OPTIONS":
                     key = options_menu.stop_drag()
                     if key:
@@ -433,12 +508,25 @@ def main():
 
         if state == "PLAYING":
             gs["spawn_timer"] += 1
-            if gs["spawn_remaining"] > 0 and gs["spawn_timer"] >= spawn_interval:
+            # Concurrent-Cap: nur nachspawnen, wenn nicht schon zu viele am Turm stehen
+            if (gs["spawn_remaining"] > 0 and gs["spawn_timer"] >= spawn_interval
+                    and len(gs["enemies"]) < MAX_CONCURRENT_ENEMIES):
                 gs["enemies"].append(
                     spawn_enemy_for_wave(gs["wave"], diff_mod["hp_mult"])
                 )
                 gs["spawn_remaining"] -= 1
                 gs["spawn_timer"]      = 0
+
+            # Auto-Feuer beim Halten der Maustaste, getaktet vom Angriffstempo (ADR 009)
+            if gs["fire_timer"] > 0:
+                gs["fire_timer"] -= 1
+            if mouse_held and gs["fire_timer"] <= 0:
+                aim = pygame.mouse.get_pos()
+                gs["projectiles"] += spawn_projectiles(pc, aim, gs["stats"])
+                snd.play("shoot")
+                if "doppelschuss" in save["bought"]:
+                    gs["pending_shots"].append((DOPPELSCHUSS_DELAY, aim))
+                gs["fire_timer"] = max(1, round(FPS / gs["stats"]["attack_speed"]))
 
             # Doppelschuss: zweite Kugel nach 8 Frames
             next_pending = []
@@ -461,7 +549,7 @@ def main():
             for ep in gs["enemy_projectiles"]: ep.update()
 
             kills    = []
-            had_hits = check_projectile_hits(gs["projectiles"], gs["enemies"], dmg_numbers, kills)
+            had_hits = check_projectile_hits(gs["projectiles"], gs["enemies"], dmg_numbers, kills, player)
             if had_hits: snd.play("hit")
             check_enemy_contact(gs["enemies"], player, pc)
 
@@ -486,10 +574,18 @@ def main():
                 else:                               snd.play("kill")
                 val = int(coin_value_for_wave(gs["wave"]) * enemy.coin_value * gold_mult)
                 gs["coins"] += val
+                gs["xp"]    += enemy.coin_value   # XP-Drop = Münzwert des Gegners (ADR 008)
                 dmg_numbers.append(
                     DamageNumber(enemy.pos.x, enemy.pos.y - 28, val,
                                  color=COLOR_COIN, prefix="+")
                 )
+
+            # XP → Level-up(s): eine große XP-Charge kann mehrere Stufen auslösen
+            while gs["xp"] >= gs["xp_to_next"]:
+                gs["xp"]               -= gs["xp_to_next"]
+                gs["level"]            += 1
+                gs["pending_levelups"] += 1
+                gs["xp_to_next"]        = xp_to_next(gs["level"], gs["wave"])
 
             gs["enemies"]     = [e for e in gs["enemies"]     if e.alive]
             gs["projectiles"] = [p for p in gs["projectiles"] if p.alive]
@@ -508,9 +604,26 @@ def main():
                 snd.play("game_over")
                 state = "GAME_OVER"
             elif gs["spawn_remaining"] == 0 and not gs["enemies"]:
+                if gs["wave"] >= WIN_WAVE:
+                    # Welle 100 geräumt = SuperBoss besiegt → Sieg (ADR 004)
+                    new_record = (gs["wave"]  > save["best_wave"] or
+                                  gs["coins"] > save["best_coins"])
+                    save["best_wave"]   = max(save["best_wave"],  gs["wave"])
+                    save["best_coins"]  = max(save["best_coins"], gs["coins"])
+                    save["total_coins"] += gs["coins"]
+                    sd.save(save)
+                    snd.stop_music()
+                    snd.play("wave_clear")
+                    state = "VICTORY"
+                else:
+                    snd.play("wave_clear")
+                    state                  = "WAVE_CLEAR"
+                    gs["wave_clear_timer"] = 0
+            elif gs["pending_levelups"] > 0:
+                # Levelup mitten in der Welle → Karte wählen, dann weiterspielen (ADR 008)
                 snd.play("wave_clear")
-                state                  = "WAVE_CLEAR"
-                gs["wave_clear_timer"] = 0
+                upgrade_menu.roll(gs["obtained"])
+                state = "UPGRADE"
 
             if gs.get("banner") and gs["banner"]["timer"] > 0:
                 gs["banner"]["timer"] -= 1
@@ -526,8 +639,19 @@ def main():
 
             gs["wave_clear_timer"] += 1
             if gs["wave_clear_timer"] >= WAVE_CLEAR_DELAY:
-                upgrade_menu.roll(gs["obtained"])
-                state = "UPGRADE"
+                # Nächste Welle starten (Karten kommen jetzt aus Level-ups, nicht hier)
+                gs["wave"]           += 1
+                gs["spawn_remaining"] = enemies_for_wave(gs["wave"])
+                gs["spawn_timer"]     = 0
+                if gs["wave"] % 50 == 0:
+                    gs["banner"] = {"text": "SUPER BOSS!", "color": (220, 20, 40), "timer": 180}
+                    snd.play("boss_intro")
+                    snd.start_boss_music()
+                elif gs["wave"] % 10 == 0:
+                    gs["banner"] = {"text": "BOSS WELLE!", "color": (255, 155, 25), "timer": 180}
+                    snd.play("boss_intro")
+                    snd.start_boss_music()
+                state = "PLAYING"
 
         elif state == "UPGRADE":
             # Projektile & FX fliegen noch ab während Overlay einfadet
@@ -546,22 +670,26 @@ def main():
         elif state == "IMPROVEMENTS":
             impr_menu.draw(screen, mouse_pos, save)
         else:
+            # --- Welt in eigenes Surface zeichnen, dann gezoomt auf den Screen ---
             if terrain:
-                terrain.draw(screen)
+                terrain.draw(world_surf)
             else:
-                screen.fill(BG_COLOR)
+                world_surf.fill(BG_COLOR)
             if gs:
-                for e  in gs["enemies"]:            e.draw(screen)
-                for p  in gs["projectiles"]:        p.draw(screen)
-                for ep in gs["enemy_projectiles"]:  ep.draw(screen)
+                for e  in gs["enemies"]:            e.draw(world_surf)
+                for p  in gs["projectiles"]:        p.draw(world_surf)
+                for ep in gs["enemy_projectiles"]:  ep.draw(world_surf)
             if player:
-                player.draw(screen, mouse_pos)
+                player.draw(world_surf, mouse_pos)
             for dn in dmg_numbers:
-                dn.draw(screen, font_dmg)
+                dn.draw(world_surf, font_dmg)
+            blit_world_zoomed(screen, world_surf, CAMERA_ZOOM)
+
+            # --- HUD & Overlays unskaliert obendrauf ---
             if gs and player:
                 draw_hud(screen, font, gs["wave"],
                          len(gs["enemies"]) + gs["spawn_remaining"],
-                         gs["coins"])
+                         gs["coins"], gs["level"], gs["xp"], gs["xp_to_next"])
             if gs and state in ("PLAYING", "WAVE_CLEAR"):
                 draw_boss_bar(screen, font, gs["enemies"])
             if gs and gs.get("banner") and gs["banner"]["timer"] > 0:
@@ -573,7 +701,7 @@ def main():
                                     SCREEN_HEIGHT // 2 - 70))
             # Dev-Hint (linke untere Ecke)
             if gs and state == "PLAYING":
-                hint = font_dmg.render("F1 Clear  F2→W10  F3→W50", True, (55, 55, 75))
+                hint = font_dmg.render("F1 Clear  F2→W10  F3→W50  F4→W100  F5 Lvl+", True, (55, 55, 75))
                 screen.blit(hint, (6, SCREEN_HEIGHT - hint.get_height() - 6))
             if options_menu.show_fps:
                 fps_surf = font.render(f"FPS  {int(clock.get_fps())}", True, (80, 80, 100))
@@ -597,6 +725,10 @@ def main():
                 draw_game_over(screen, font_big, font,
                                gs["wave"], gs["coins"],
                                save["best_wave"], new_record)
+            elif state == "VICTORY":
+                draw_victory(screen, font_big, font,
+                             gs["wave"], gs["coins"],
+                             save["best_wave"], new_record)
 
         # Cursor immer zuletzt zeichnen
         mx, my = pygame.mouse.get_pos()

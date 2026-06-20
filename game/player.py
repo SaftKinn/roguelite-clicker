@@ -1,17 +1,18 @@
 import os
 import pygame
 from . import ui_loader
+from . import balance
 from .constants import SCREEN_WIDTH, SCREEN_HEIGHT
 
 COLOR_BODY  = ( 80, 160, 255)
 COLOR_INNER = (200, 230, 255)
 
 RADIUS   = 18
-MAX_HP   = 100
+MAX_HP   = 120   # Basis-HP des Turms (knackiger/tödlicher, ADR 008; HP kommt nun v. a. über Level-up-Karten)
 
 _TURM_PATH  = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                             "assets", "Tiny Swords (Free Pack)", "Turm.png")
-_TOWER_SIZE = 110
+_TOWER_SIZE = round(110 * balance.SPRITE_SCALE)   # Turm-Sprite global mitskaliert (SPRITE_SCALE)
 
 _SENTINEL   = object()
 _tower_surf = None
