@@ -7,19 +7,34 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-**Wende zum passiven Idle-TD (ADR 010):** Der Turm feuert **voll-automatisch** und
-**zielt selbst** auf den nächsten Gegner (Autoaim) — keine Maus-/Klick-Eingabe mehr im
-Kampf. Angriffstempo-Karte jetzt **additiv** (+0.2/s), Basis `BASE_ATTACK_SPEED=1.5`/s,
-LMB-Spam getötet. Dazu **Elite-Gegner (ADR 011):** 10% je Nicht-Boss-Spawn = 10× HP +
-roter Ring. Gegner-Sprites größer (`ENEMY_SPRITE_SCALE=1.25`), weniger/gestreckter Spawn
-(`BASE_SPAWN_INTERVAL=60`, `MAX_ENEMIES_PER_WAVE=30`), XP-Kurve versteilt gegen zu
-schnelles Scaling (`XP_BASE=8`, `XP_PER_LEVEL=7`). **Offen: Playtest** der neuen Werte —
-v.a. ob Elites (ohne Mehr-Reward) sich lohnend statt nervig anfühlen und ob das Scaling
-jetzt passt. Alles uncommitted.
+**Idle-TD-Balance steht, Endgame-Wand wieder hart.** Combat ist passiv (Auto-Feuer +
+Autoaim, ADR 010); Elites geben jetzt **×5 Münzen+XP** (`ELITE_REWARD_MULT`, ADR 011);
+Gegner-HP skaliert **super-linear** gegen die multiplikative Spielerkraft (ADR 012,
+SuperBoss W100 ~255k); **Stats-Overlay auf Taste C**. Alles committet bis `0722e1c`
+(dieser Wrap-up-Doku-Sync ist uncommitted). **Offen: ein echter 1→100-Playtest** — F4
+taugt NICHT dazu (friert Level/Stats ein). Hauptregler `ENEMY_HP_PER_WAVE_SQ` (0.9) gegen
+echte Welle-100-DPS, `ELITE_REWARD_MULT` (×5 vs ×10 HP).
 
 ## Last session
 
-2026-06-20 — Passiv-Combat + Elites + Anti-Snowball (ADR 010/011, Playtest-Session):
+2026-06-20 — Reward + Endgame-Scaling + Stats-Overlay (ADR 012, Playtest-Session):
+- **Elite-Reward (ADR 011 ergänzt):** `enemy.coin_value *= ELITE_REWARD_MULT=5` →
+  ×5 Münzen UND XP (`coin_value` speist beides); ×5 statt ×10 HP, um Anti-Snowball nicht
+  auszuhebeln. (Headless geprüft: Faktor 5; per `ELITE_SPAWN_CHANCE=0.5` temporär playtest-
+  bar gemacht, danach zurück auf 0.10.)
+- **Gegner-HP super-linear (ADR 012):** linear `30+Welle·10` → `Basis + Welle·12 +
+  Welle²·0.9` (benannte Konstanten). Grund: Spielerkraft multiplikativ, linear holt das nie
+  ein → Welle 100 war trivial (Level-17-Build via F4 schlug SuperBoss). W17→100 jetzt ~20×;
+  SuperBoss 25,7k→255k HP. **Erkenntnis: F4 ist Debug-Sprung, kein Endgame-Balance-Test.**
+- **Stats-Overlay (Taste C, D25):** `draw_stats_panel` zeigt Schaden/Angriffstempo/Kugel-
+  Stats/Multishot/Durchschlag/Lifesteal/HP; liest direkt aus `gs["stats"]`+`balance`
+  (selbst-dimensionierend). `show_stats`-Toggle, kein Dev-Key; Dev-Hint um „C Stats".
+- **Verifikation:** Treiber crashfrei bis Welle 100; HP-Kurve + Reward + Panel headless/
+  Render geprüft. Commits `9b3190c` (Reward) + `0722e1c` (Scaling+Panel), gepusht bis 9b3190c.
+- **Doku-Sync (dieser Wrap-up):** ADR 012 angelegt + README-Index; `architecture.md` §6
+  (super-lineare Formel) + §11 (Risiko aktualisiert); `CLAUDE.md` (Taste C, F4-Caveat).
+
+2026-06-20 — Passiv-Combat + Elites + Anti-Snowball (ADR 010/011, frühere Session-Phase):
 - **Voll-Auto-Feuer (ADR 010):** `mouse_held` komplett entfernt; Turm feuert bei
   `fire_timer<=0` **und** vorhandenem Ziel, sonst bleibt Timer ≤0 (Sofortschuss beim
   ersten Gegner). **Autoaim:** `nearest_enemy_pos(pc, enemies)` zielt auf den nächsten
@@ -111,14 +126,13 @@ jetzt passt. Alles uncommitted.
 
 ## Next concrete step
 
-**Playtest der Passiv-Combat-Werte:** echten Lauf spielen und Rückmeldung in
-`balance.py` übersetzen. Neue Regler dieser Session: `BASE_ATTACK_SPEED`,
-`UPGRADE_ATTACK_SPEED` (additiv), `ELITE_SPAWN_CHANCE`/`ELITE_HP_MULT`,
-`ENEMY_SPRITE_SCALE`, `BASE_SPAWN_INTERVAL`, `MAX_ENEMIES_PER_WAVE`, XP-Kurve
-(`XP_BASE`/`XP_PER_LEVEL`). Leitfragen: **scalt der Spieler jetzt langsam genug** (kein
-„Durchlaufen ab Lvl 10")? Fühlen sich **Elites lohnend statt nervig** an (ggf. Mehr-
-Reward nötig — siehe ADR 011)? Mit Autoaim ist Zielen weg → kommt die Spannung aus
-Gegnerdruck/Build genug?
+**Ein echter 1→100-Lauf (kein F4!):** Der einzige offene Punkt ist, ob die Balance über
+einen *durchgespielten* Lauf trägt — F4 friert Level/Stats ein und taugt nicht dafür.
+Leitfragen: legt ein echter Welle-100-Spieler (Level ~60+) den SuperBoss (255k HP) in
+fairer Zeit, oder ist `ENEMY_HP_PER_WAVE_SQ=0.9` zu hoch? Fühlen sich Elites mit ×5 Reward
+lohnend an? Scalt der Spieler über den ganzen Lauf rund (Anti-Snowball + super-lineare
+Gegner zusammen)? Rückmeldung → `balance.py`-Regler (`ENEMY_HP_PER_WAVE_SQ`,
+`ELITE_REWARD_MULT`, XP-Kurve).
 
 Danach **Phase 3 (Inhaltszuwachs):** naheliegend sind weitere Karten/Upgrades (Ideen-
 Liste aus Brainstorm: Crit, Explosiv-/Kettenschuss, DoT, Regen, Dornen, „Gelehrter"
@@ -136,9 +150,9 @@ Datentabellen-Eintrag mehr).
   (z. B. Schrot/Laser/Bumerang). Noch nicht final bestätigt.
 - **Waffen-Upgrades (Part 2):** Wie genau Waffen im Verbesserungsmenü upgradebar
   sind — offen.
-- **Wellen-Skalierung (Phase 2):** ✅ Geklärt → Hybrid-Cap (ADR 006). Folge-Frage:
-  konkretes **Balance-Feintuning** (HP/Speed-Kurve + Belagerungs-DPS) nach einem
-  echten 1→100-Durchlauf — offen bis zum Playtest.
+- **Wellen-Skalierung:** ✅ Zahl gekappt (Hybrid-Cap, ADR 006) + HP super-linear
+  (ADR 012). Folge-Frage: ist `ENEMY_HP_PER_WAVE_SQ=0.9` (SuperBoss 255k) gegen echte
+  Welle-100-Spieler-DPS richtig kalibriert? — offen bis zum echten 1→100-Playtest.
 - **Elite-Reward (ADR 011):** ✅ Umgesetzt → `ELITE_REWARD_MULT=5` (×5 Münzen **und** XP).
   Folge-Frage: ist ×5 gegen ×10 HP der richtige Punkt? (Playtest-Regler.)
 - **Autoaim-Priorisierung (ADR 010):** zielt simpel auf den **nächsten** Gegner. Reicht
@@ -205,7 +219,7 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **D23** — Elite-Reward skaliert: `ELITE_REWARD_MULT=5` über `enemy.coin_value` (×5
   Münzen UND XP, da `coin_value` beides speist). ×5 statt ×10 (HP-linear), um die
   Anti-Snowball-XP-Kurve nicht auszuhebeln. Löst die offene Reward-Frage aus ADR 011.
-- **D24** — **Gegner-HP super-linear** (echte Abwägung → ADR beim Wrap-up offen):
+- **D24** — **Gegner-HP super-linear** → **ADR 012**:
   `enemy_hp_for_wave` von linear `30+Welle·10` auf `ENEMY_HP_BASE + Welle·ENEMY_HP_PER_WAVE
   + Welle²·ENEMY_HP_PER_WAVE_SQ` (30/12/0.9). Grund: Spielerkraft skaliert multiplikativ,
   linear kann nie mithalten → Welle 100 war trivial (Level-17-Build via F4 schlug
@@ -224,7 +238,7 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 1** (`game/balance.py`) → ADR 002 (Tuning zentral, JSON später).
 - **Phase 2** (Welle 100 + Sieg) → ADR 004 (Run-Modell), ADR 006 (Wellen-Cap).
 - **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur),
-  ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner).
+  ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner), ADR 012 (HP-Scaling super-linear).
 - **Phase 4** (Verpacken) → ADR 001 (Python/Pygame → PyInstaller).
 - **Part 2** (Rebirth/Waffen) → ADR 004.
 
@@ -242,7 +256,8 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   **Sieg-Screen** und screenshottete alle Stufen (`shots/01..05`). Offen bleibt nur
   das **Balance-Feintuning** eines durchgespielten 1→100-Laufs (HP/Speed vs. DPS).
 - **Phase 3 — Inhaltszuwachs:** angefangen (2026-06-20). Erste Inhalte: Passiv-Combat +
-  Autoaim (ADR 010), Elite-Gegner (ADR 011). Noch offen: weitere Karten/Upgrades (Crit,
-  Explosiv/Kette, DoT, Regen, Dornen, Reroll …) + Elite-Reward; alles per Playtest balancen.
+  Autoaim (ADR 010), Elite-Gegner + Reward (ADR 011), super-lineares HP-Scaling (ADR 012),
+  Stats-Overlay (C). Noch offen: weitere Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen,
+  Dornen, Reroll …) + ein echter 1→100-Balance-Lauf; alles per Playtest.
 - **Phase 4 — Politur & `.exe`:** offen
 - **Part 2 — Rebirth/Waffen:** offen (Backlog)

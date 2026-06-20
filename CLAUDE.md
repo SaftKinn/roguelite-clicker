@@ -72,9 +72,12 @@ pip install pygame    # einzige Pflicht-Abhängigkeit; numpy optional
 
 Verifikation erfolgt durch **Starten des Spiels** — es gibt keine Tests/Linter.
 
+Spieler-Taste: **C** blendet im `PLAYING`-State die eigenen Stats ein/aus (Overlay).
+
 Dev-Tasten (nur im `PLAYING`-State): **F1** alle Gegner töten · **F2** zu Welle 9
-· **F3** zu Welle 49 · **F4** zu Welle 99 (→ SuperBoss/​Sieg testen) · **F5** Levelup
-erzwingen (Karten testen) · **F11** Fullscreen · **ESC** Pause/zurück.
+· **F3** zu Welle 49 · **F4** zu Welle 99 (→ SuperBoss/​Sieg testen; friert Level/Stats
+ein → **kein** Endgame-Balance-Test) · **F5** Levelup erzwingen (Karten testen) ·
+**F11** Fullscreen · **ESC** Pause/zurück.
 
 ---
 

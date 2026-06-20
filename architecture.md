@@ -217,8 +217,10 @@ Zusätzlich vergrößert `SPRITE_SCALE` alle Einheiten-/Geschoss-Sprites beim La
 ## 6. Content-Pipeline (Tuning vs. Verhalten)
 
 **Aktueller Zustand (seit Phase 1):** Tuning-Zahlen liegen zentral in
-`game/balance.py` — Wellen-Formeln (`enemies_for_wave`, `enemy_hp_for_wave`,
-`enemy_speed_for_wave`, `coin_value_for_wave`), Spawn-/Nahkampf-Konstanten,
+`game/balance.py` — Wellen-Formeln (`enemies_for_wave`; `enemy_hp_for_wave`
+**super-linear** = Basis + Welle·lin + Welle²·quad, damit es die multiplikative
+Spielerkraft einholt, ADR 012; `enemy_speed_for_wave`, `coin_value_for_wave`),
+Spawn-/Nahkampf-Konstanten,
 In-Run-Upgrade-Werte und Münz-Shop-Preise. Gegner sind weiter Klassen, der
 Gegner-Mix eine gewichtete Zufallswahl je Wellenbereich in
 `spawn_enemy_for_wave()`; die Upgrade-/Shop-**Listen** bleiben in
@@ -320,11 +322,12 @@ Dämpfungsfaktor.
 
 ## 11. Risiken & ehrliche Knackpunkte
 
-- **Wellen-Skalierung bricht bei Welle 100.** `enemies_for_wave` =
-  `5 + (Welle-1)·3` ergibt nahe Welle 99 fast 300 Gegner gleichzeitig —
-  Performance- und Balancing-Problem. „Welle 100 erreichbar machen" heißt:
-  Skalierung überarbeiten (Phase 2). Eventuell Caps, Spawn-Wellen statt
-  Dauerstrom, oder gestaffelte Spawns.
+- **Endgame-Balance noch nicht durch echten Lauf bestätigt.** Die Gegner*zahl* ist
+  gekappt (ADR 006: ≤`MAX_ENEMIES_PER_WAVE` gesamt, ≤`MAX_CONCURRENT_ENEMIES` gleichzeitig),
+  und Gegner-*HP* skaliert super-linear gegen die multiplikative Spielerkraft (ADR 012,
+  SuperBoss W100 ~255k HP). Offen: ob `ENEMY_HP_PER_WAVE_SQ` so kalibriert ist, dass ein
+  echter Welle-100-Spieler (Level ~60+) den SuperBoss in fairer Zeit legt — nur per
+  echtem 1→100-Playtest prüfbar (F4 friert Level/Stats ein, taugt nicht dafür).
 - **Performance bei vielen Entitäten.** Kollisionsprüfung ist O(Geschosse ×
   Gegner) ohne räumliche Optimierung. Bei großen Wellen beobachten.
 - **Python-Verpackung.** PyInstaller-`.exe` mit Pygame + vielen Assets kann
