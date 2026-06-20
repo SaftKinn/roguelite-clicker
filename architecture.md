@@ -13,15 +13,17 @@ mit Abwägung in `docs/decisions/`.
 ## 1. Overview & Design-Prinzipien
 
 2D-Roguelite × Tower-Defense × Clicker (Python + Pygame). Der Spieler ist ein
-**stationärer Turm** in der Bildschirmmitte; **Halten der linken Maustaste** feuert
-automatisch im Angriffstempo Geschosse Richtung Maus, und Treffer heilen den Spieler
-(Lifesteal, ADR 009). Gegner spawnen wellenweise vom Rand und laufen auf den
-Turm zu. Kills geben XP; bei jedem **Level-up** wählt man eine von drei Karten
-(ADR 008); verdiente Münzen kaufen dauerhafte Verbesserungen.
+**stationärer Turm** in der Bildschirmmitte; der Turm **feuert voll-automatisch** im
+Angriffstempo und **zielt selbst auf den nächsten Gegner** (Autoaim, ADR 010) — keine
+Maus-/Klick-Eingabe im Kampf. Treffer heilen den Spieler (Lifesteal, ADR 009). Gegner
+spawnen wellenweise vom Rand und laufen auf den Turm zu; ein Teil von ihnen sind zähe
+**Elites** (ADR 011). Kills geben XP; bei jedem **Level-up** wählt man eine von drei
+Karten (ADR 008); verdiente Münzen kaufen dauerhafte Verbesserungen.
 
 **Rückgrat ist die Roguelite-Run-Struktur** (Welle → Upgrade wählen → stärker
-werden → sterben/neu). Tower-Defense liefert die Gegnerwellen, Clicker die
-Schuss-Eingabe — beide sind „Würze", nicht der Kern. Der Spielspaß soll aus
+werden → sterben/neu). Tower-Defense liefert die Gegnerwellen; das Kämpfen läuft
+seit ADR 010 **passiv** (Auto-Feuer + Autoaim) — der „Clicker"-Anteil ist nur noch
+historisch im Namen, nicht mehr in der Eingabe. Der Spielspaß soll aus
 **Build-Vielfalt pro Run** (Upgrade-Kombos) und **dauerhafter Meta-Progression**
 entstehen.
 
@@ -170,11 +172,13 @@ Pro Frame im `PLAYING`-State (vereinfacht):
 
 1. **Spawnen:** Timer zählt; bei Ablauf spawnt `spawn_enemy_for_wave()` einen
    Gegner, bis `spawn_remaining` aufgebraucht ist. Spawn-Intervall hängt vom
-   Schwierigkeitsgrad ab (`diff_mod["spawn_bonus"]`).
+   Schwierigkeitsgrad ab (`diff_mod["spawn_bonus"]`). Jeder Nicht-Boss-Spawn wird mit
+   `ELITE_SPAWN_CHANCE` zum **Elite** (`ELITE_HP_MULT`-fache HP, roter Ring; ADR 011).
 2. **Update:** alle Geschosse, Gegner-Geschosse, Gegner und FX bewegen sich.
-   **Auto-Feuer (ADR 009):** bei gehaltener LMB feuert der Turm im Takt
-   `FPS / attack_speed` Richtung Maus (`gs["fire_timer"]`); Doppelschuss-Nachzügler
-   laufen über `pending_shots`.
+   **Voll-Auto-Feuer + Autoaim (ADR 010):** sobald `fire_timer <= 0` und ein Gegner
+   existiert, feuert der Turm auf den nächsten Gegner (`nearest_enemy_pos()`) im Takt
+   `FPS / attack_speed`; ohne Ziel bleibt der Timer ≤0 (sofortiger Schuss beim ersten
+   Gegner). Keine Maus-/Klick-Eingabe. Doppelschuss-Nachzügler laufen über `pending_shots`.
 3. **Kollisionen:** `check_projectile_hits()` (Spieler-Geschoss → Gegner, mit
    Pierce-/Multishot-Logik; je Treffer **Lifesteal** `LIFESTEAL_PER_HIT` HP),
    `check_enemy_contact()` (Gegner → Turm). Nahkämpfer **stoppen vor dem Turm und

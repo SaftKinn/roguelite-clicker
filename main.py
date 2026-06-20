@@ -21,7 +21,8 @@ from game.balance     import (BASE_SPAWN_INTERVAL, MELEE_REACH,
                               UPGRADE_BULLET_SIZE, UPGRADE_MAX_HP, MULTISHOT_ANGLES,
                               BASE_ATTACK_SPEED, UPGRADE_ATTACK_SPEED, LIFESTEAL_PER_HIT,
                               PERMANENT_DAMAGE_PER_LEVEL, PERMANENT_HP_PER_LEVEL,
-                              GOLD_BOOST_MULT, DOPPELSCHUSS_DELAY)
+                              GOLD_BOOST_MULT, DOPPELSCHUSS_DELAY,
+                              ELITE_SPAWN_CHANCE, ELITE_HP_MULT, ELITE_COLOR)
 
 WAVE_CLEAR_DELAY    = 70    # kürzere Pause zwischen Wellen (knackiger, ADR 008)
 CONTACT_DIST        = PLAYER_RADIUS + ENEMY_RADIUS
@@ -48,10 +49,16 @@ def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
     else:
         kinds, weights = ["basic", "rusher", "tanker", "monk"],[38, 30, 20, 12]
     kind = random.choices(kinds, weights=weights)[0]
-    if kind == "rusher": return Archer(base_speed, base_hp)
-    if kind == "tanker": return Lancer(base_speed, base_hp)
-    if kind == "monk":   return Monk(base_speed, base_hp)
-    return Warrior(speed=base_speed, max_hp=base_hp)
+    if   kind == "rusher": enemy = Archer(base_speed, base_hp)
+    elif kind == "tanker": enemy = Lancer(base_speed, base_hp)
+    elif kind == "monk":   enemy = Monk(base_speed, base_hp)
+    else:                  enemy = Warrior(speed=base_speed, max_hp=base_hp)
+    # Elite: mit ELITE_SPAWN_CHANCE wird ein Nicht-Boss-Gegner zum zähen Brocken (×ELITE_HP_MULT HP)
+    if random.random() < ELITE_SPAWN_CHANCE:
+        enemy.max_hp *= ELITE_HP_MULT
+        enemy.hp      = enemy.max_hp
+        enemy.elite   = True
+    return enemy
 
 
 def apply_permanent_bonuses(player: Player, stats: dict, save: dict) -> None:
@@ -80,6 +87,23 @@ def spawn_projectiles(origin: pygame.math.Vector2, mouse_pos: tuple,
                 for a in MULTISHOT_ANGLES]
     return [Projectile(origin, mouse_pos, damage=damage, speed=speed,
                        radius=radius, pierce=pierce)]
+
+
+def nearest_enemy_pos(origin: pygame.math.Vector2, enemies: list):
+    """Welt-Position des nächsten lebenden Gegners zu `origin` (für Autoaim), sonst None.
+
+    Gegner-`pos` ist in Weltkoordinaten wie der Turm — `spawn_projectiles` normalisiert
+    nur die Richtung, daher kann die Gegner-Position direkt als Ziel dienen (Zoom egal,
+    weil zentriert). Vergleich über Distanz-Quadrat (kein sqrt).
+    """
+    nearest, best = None, None
+    for e in enemies:
+        if not e.alive:
+            continue
+        d = origin.distance_squared_to(e.pos)
+        if best is None or d < best:
+            best, nearest = d, e
+    return (nearest.pos.x, nearest.pos.y) if nearest else None
 
 
 def check_projectile_hits(projectiles: list, enemies: list,
@@ -132,7 +156,7 @@ def apply_upgrade(upgrade_id: str, stats: dict, player=None) -> None:
     if   upgrade_id == "damage":    stats["damage"]       += UPGRADE_DAMAGE
     elif upgrade_id == "speed":     stats["bullet_speed"] += UPGRADE_BULLET_SPEED
     elif upgrade_id == "size":      stats["bullet_size"]  += UPGRADE_BULLET_SIZE
-    elif upgrade_id == "attackspeed": stats["attack_speed"] *= (1 + UPGRADE_ATTACK_SPEED)
+    elif upgrade_id == "attackspeed": stats["attack_speed"] += UPGRADE_ATTACK_SPEED
     elif upgrade_id == "multishot": stats["multishot"]     = True
     elif upgrade_id == "pierce":    stats["pierce"]        = True
     elif upgrade_id == "max_hp" and player is not None:
@@ -348,7 +372,6 @@ def main():
     diff_mod    = options_menu.get_modifiers()
     new_record          = False
     prev_state          = None
-    mouse_held          = False         # linke Maustaste gedrückt → Auto-Feuer (ADR 009)
     options_return_to   = "MAIN_MENU"   # wohin OPTIONS-Zurück geht
     state               = "MAIN_MENU"
 
@@ -473,10 +496,6 @@ def main():
                         snd.start_menu_music()
                         state = "MAIN_MENU"
 
-                elif state == "PLAYING":
-                    mouse_held = True          # Halten feuert; erster Schuss sofort
-                    gs["fire_timer"] = 0
-
                 elif state == "UPGRADE":
                     chosen = upgrade_menu.handle_click(mouse_pos)
                     if chosen:
@@ -496,7 +515,6 @@ def main():
                         else:                  snd.set_music_vol(options_menu.music_volume)
 
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                mouse_held = False         # Maustaste losgelassen → Auto-Feuer stoppt
                 if state == "OPTIONS":
                     key = options_menu.stop_drag()
                     if key:
@@ -520,13 +538,17 @@ def main():
             # Auto-Feuer beim Halten der Maustaste, getaktet vom Angriffstempo (ADR 009)
             if gs["fire_timer"] > 0:
                 gs["fire_timer"] -= 1
-            if mouse_held and gs["fire_timer"] <= 0:
-                aim = pygame.mouse.get_pos()
-                gs["projectiles"] += spawn_projectiles(pc, aim, gs["stats"])
-                snd.play("shoot")
-                if "doppelschuss" in save["bought"]:
-                    gs["pending_shots"].append((DOPPELSCHUSS_DELAY, aim))
-                gs["fire_timer"] = max(1, round(FPS / gs["stats"]["attack_speed"]))
+            # Voll-automatisches Feuer (kein Halten nötig): zielt per Autoaim auf den
+            # nächsten Gegner, sobald der fire_timer bereit ist. Ohne Ziel wird nicht
+            # geschossen — der Timer bleibt ≤0, also feuert der Turm sofort beim ersten Gegner.
+            if gs["fire_timer"] <= 0:
+                aim = nearest_enemy_pos(pc, gs["enemies"])
+                if aim:
+                    gs["projectiles"] += spawn_projectiles(pc, aim, gs["stats"])
+                    snd.play("shoot")
+                    if "doppelschuss" in save["bought"]:
+                        gs["pending_shots"].append((DOPPELSCHUSS_DELAY, aim))
+                    gs["fire_timer"] = max(1, round(FPS / gs["stats"]["attack_speed"]))
 
             # Doppelschuss: zweite Kugel nach 8 Frames
             next_pending = []
@@ -676,7 +698,12 @@ def main():
             else:
                 world_surf.fill(BG_COLOR)
             if gs:
-                for e  in gs["enemies"]:            e.draw(world_surf)
+                for e  in gs["enemies"]:
+                    e.draw(world_surf)
+                    if e.elite:   # roter Ring markiert Elites (10× HP, egal welcher Typ)
+                        pygame.draw.circle(world_surf, ELITE_COLOR,
+                                           (int(e.pos.x), int(e.pos.y)),
+                                           int(e.radius) + 6, 2)
                 for p  in gs["projectiles"]:        p.draw(world_surf)
                 for ep in gs["enemy_projectiles"]:  ep.draw(world_surf)
             if player:

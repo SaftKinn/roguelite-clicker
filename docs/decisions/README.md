@@ -48,3 +48,5 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 007 — ~2h-Rebalance + 1.25x Speed + Kamera-Zoom + größere Sprites](007-zweistunden-rebalance-zoom-speed.md)
 - [ADR 008 — XP/Level-System ersetzt Karten-pro-Welle + knackiger/tödlicher Rebalance](008-xp-level-system.md)
 - [ADR 009 — Auto-Feuer (Halten) + Angriffstempo-Karte + Lifesteal + steileres Gegner-Scaling](009-autofeuer-angriffstempo-lifesteal.md)
+- [ADR 010 — Voll-Auto-Feuer + Autoaim (Wende zum Idle-Tower-Defense)](010-vollauto-feuer-autoaim.md)
+- [ADR 011 — Elite-Gegner (10 % Chance, 10× HP)](011-elite-gegner.md)

@@ -65,6 +65,8 @@ class Warrior:
     COLOR_OUTLINE = (140,  20,  20)
     COLOR_HP_BAR  = (255,  80,  80)
 
+    elite = False   # Default; Elite-Instanzen setzen self.elite=True (10× HP, Ring-Markierung)
+
     _frames_r = None
     _frames_l = None
     _atk1_frames_r    = None

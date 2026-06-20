@@ -1,5 +1,7 @@
 # ADR 009 — Auto-Feuer (Halten) + Angriffstempo-Karte + Lifesteal + steileres Gegner-Scaling
-- **Status:** Accepted
+- **Status:** Accepted — **Feuer-Modell abgelöst von [ADR 010]** (Voll-Auto + Autoaim;
+  kein Halten/Maus-Zielen mehr, Angriffstempo-Karte jetzt additiv). **Lifesteal** und der
+  `attack_speed`-Stat (Schüsse/Sek.) gelten unverändert weiter.
 - **Date:** 2026-06-20
 - **Refs:** architecture.md §1, §5; ADR 008 (XP/Level); progress.md D14, D15
 

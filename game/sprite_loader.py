@@ -10,6 +10,10 @@ def _px(p: int) -> int:
     """Globale Sprite-Vergrößerung (SPRITE_SCALE, ADR 007) auf eine Ziel-Pixelgröße."""
     return max(1, round(p * balance.SPRITE_SCALE))
 
+def _epx(p: int) -> int:
+    """Wie _px, aber zusätzlich um ENEMY_SPRITE_SCALE — für Gegner-Körper (etwas größer als Turm)."""
+    return max(1, round(p * balance.SPRITE_SCALE * balance.ENEMY_SPRITE_SCALE))
+
 _ENEMY_PX = 48    # einheitliche Größe für alle normalen Gegner
 _BOSS_PX  = 96
 _SBOSS_PX = 144
@@ -22,7 +26,7 @@ def _load_strip(rel_path: str, frame_size: int, target_px: int) -> list[pygame.S
     return [
         pygame.transform.smoothscale(
             sheet.subsurface((i * frame_size, 0, frame_size, frame_size)),
-            (_px(target_px), _px(target_px))
+            (_epx(target_px), _epx(target_px))
         )
         for i in range(n)
     ]
@@ -59,7 +63,7 @@ def _load_black_strip(rel_path: str, frame_size: int, target_px: int) -> list[py
     return [
         pygame.transform.smoothscale(
             sheet.subsurface((i * frame_size, 0, frame_size, frame_size)),
-            (_px(target_px), _px(target_px))
+            (_epx(target_px), _epx(target_px))
         )
         for i in range(n)
     ]
@@ -72,7 +76,7 @@ def load_black_archer_run(px: int = 48):
     frames = [
         pygame.transform.smoothscale(
             sheet.subsurface((i * 192, 0, 192, 192)),
-            (_px(px), _px(px))
+            (_epx(px), _epx(px))
         )
         for i in range(n)
     ]
@@ -110,7 +114,7 @@ def load_black_warrior_run(px: int = 48):
     path = os.path.join(_BLACK_BASE, "Warrior", "Warrior_Run.png")
     sheet = pygame.image.load(path).convert_alpha()
     n = sheet.get_width() // 192
-    frames = [pygame.transform.smoothscale(sheet.subsurface((i*192, 0, 192, 192)), (_px(px), _px(px))) for i in range(n)]
+    frames = [pygame.transform.smoothscale(sheet.subsurface((i*192, 0, 192, 192)), (_epx(px), _epx(px))) for i in range(n)]
     return _both_dirs(frames)
 
 def load_black_warrior_attack(idx: int, px: int = 48):
@@ -118,7 +122,7 @@ def load_black_warrior_attack(idx: int, px: int = 48):
     path = os.path.join(_BLACK_BASE, "Warrior", f"Warrior_Attack{idx}.png")
     sheet = pygame.image.load(path).convert_alpha()
     n = sheet.get_width() // 192
-    frames = [pygame.transform.smoothscale(sheet.subsurface((i*192, 0, 192, 192)), (_px(px), _px(px))) for i in range(n)]
+    frames = [pygame.transform.smoothscale(sheet.subsurface((i*192, 0, 192, 192)), (_epx(px), _epx(px))) for i in range(n)]
     return _both_dirs(frames)
 
 _LANCER_ATK_NAMES = [
@@ -133,7 +137,7 @@ def load_black_lancer_run(px: int = 96):
     path = os.path.join(_BLACK_BASE, "Lancer", "Lancer_Run.png")
     sheet = pygame.image.load(path).convert_alpha()
     n = sheet.get_width() // 320
-    frames = [pygame.transform.smoothscale(sheet.subsurface((i*320, 0, 320, 320)), (_px(px), _px(px))) for i in range(n)]
+    frames = [pygame.transform.smoothscale(sheet.subsurface((i*320, 0, 320, 320)), (_epx(px), _epx(px))) for i in range(n)]
     return _both_dirs(frames)
 
 def load_black_lancer_attacks(px: int = 96):
@@ -143,7 +147,7 @@ def load_black_lancer_attacks(px: int = 96):
         path = os.path.join(_BLACK_BASE, "Lancer", name)
         sheet = pygame.image.load(path).convert_alpha()
         n = sheet.get_width() // 320
-        frames = [pygame.transform.smoothscale(sheet.subsurface((i*320, 0, 320, 320)), (_px(px), _px(px))) for i in range(n)]
+        frames = [pygame.transform.smoothscale(sheet.subsurface((i*320, 0, 320, 320)), (_epx(px), _epx(px))) for i in range(n)]
         result.append(_both_dirs(frames))
     return result
 

@@ -7,7 +7,7 @@ from .constants import FPS
 # Beschreibungs-Zahlen aus balance.py — eine Quelle der Wahrheit (Effekt + Text synchron).
 UPGRADES = [
     {"id": "damage",    "name": "Mehr Schaden",    "desc": f"+{balance.UPGRADE_DAMAGE} Schaden pro Kugel",       "icon": "Icon_05", "btn": "Red"},
-    {"id": "attackspeed", "name": "Angriffstempo", "desc": f"+{int(balance.UPGRADE_ATTACK_SPEED*100)}% Angriffstempo", "icon": "Icon_05", "btn": "Red"},
+    {"id": "attackspeed", "name": "Angriffstempo", "desc": f"+{balance.UPGRADE_ATTACK_SPEED}/s Angriffstempo", "icon": "Icon_05", "btn": "Red"},
     {"id": "speed",     "name": "Schnelle Kugeln", "desc": f"+{balance.UPGRADE_BULLET_SPEED} Kugelgeschwindigkeit", "icon": "Icon_05", "btn": "Red"},
     {"id": "size",      "name": "Große Kugeln",    "desc": f"+{balance.UPGRADE_BULLET_SIZE} Kugelradius",          "icon": "Icon_06", "btn": "Blue"},
     {"id": "multishot", "name": "Dreifachschuss",  "desc": f"{len(balance.MULTISHOT_ANGLES)} Kugeln pro Klick",    "icon": "Icon_05", "btn": "Red"},

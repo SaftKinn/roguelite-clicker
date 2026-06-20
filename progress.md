@@ -7,14 +7,37 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-Combat-Umbau (ADR 009): **Halten der LMB feuert automatisch** im Angriffstempo, neue
-rote **„Angriffstempo"-Karte** (+10%), **Lifesteal** (+1 HP/Treffer). **Aktuelle Werte
-nach Playtest-Tuning:** `BASE_ATTACK_SPEED=1.0`/s, `enemy_hp_for_wave = 30 + Welle·10`,
-`BASE_SPAWN_INTERVAL=40` (dichter). Davor: ADR 008 (XP/Level), ADR 007 (Zoom/Speed/Sprites).
-**Offen: weiterer Playtest** — Regler: `BASE_ATTACK_SPEED`, `UPGRADE_ATTACK_SPEED`,
-`LIFESTEAL_PER_HIT`, `enemy_hp_for_wave`, `BASE_SPAWN_INTERVAL`, XP-Kurve.
+**Wende zum passiven Idle-TD (ADR 010):** Der Turm feuert **voll-automatisch** und
+**zielt selbst** auf den nächsten Gegner (Autoaim) — keine Maus-/Klick-Eingabe mehr im
+Kampf. Angriffstempo-Karte jetzt **additiv** (+0.2/s), Basis `BASE_ATTACK_SPEED=1.5`/s,
+LMB-Spam getötet. Dazu **Elite-Gegner (ADR 011):** 10% je Nicht-Boss-Spawn = 10× HP +
+roter Ring. Gegner-Sprites größer (`ENEMY_SPRITE_SCALE=1.25`), weniger/gestreckter Spawn
+(`BASE_SPAWN_INTERVAL=60`, `MAX_ENEMIES_PER_WAVE=30`), XP-Kurve versteilt gegen zu
+schnelles Scaling (`XP_BASE=8`, `XP_PER_LEVEL=7`). **Offen: Playtest** der neuen Werte —
+v.a. ob Elites (ohne Mehr-Reward) sich lohnend statt nervig anfühlen und ob das Scaling
+jetzt passt. Alles uncommitted.
 
 ## Last session
+
+2026-06-20 — Passiv-Combat + Elites + Anti-Snowball (ADR 010/011, Playtest-Session):
+- **Voll-Auto-Feuer (ADR 010):** `mouse_held` komplett entfernt; Turm feuert bei
+  `fire_timer<=0` **und** vorhandenem Ziel, sonst bleibt Timer ≤0 (Sofortschuss beim
+  ersten Gegner). **Autoaim:** `nearest_enemy_pos(pc, enemies)` zielt auf den nächsten
+  lebenden Gegner (Welt-Koord. = direkt nutzbar, Zoom zentriert → Richtung identisch).
+- **LMB-Spam getötet:** kein `fire_timer=0`-Reset beim Klick mehr; allein der Timer taktet.
+- **Angriffstempo-Karte additiv:** `attack_speed += 0.2` (war `×1.10`); `BASE_ATTACK_SPEED
+  1.0→1.5`. Karten-Text aus `balance.py` → „+0.2/s Angriffstempo".
+- **Elite-Gegner (ADR 011):** `ELITE_SPAWN_CHANCE=0.10`, `ELITE_HP_MULT=10`, `ELITE_COLOR`.
+  Würfel im Nicht-Boss-Zweig von `spawn_enemy_for_wave` (Bosse ausgenommen); `elite`-
+  Klassenattribut auf `Warrior` (alle Subklassen erben); roter Ring in der Draw-Schleife.
+- **Sprites:** `ENEMY_SPRITE_SCALE=1.25` + neuer `_epx()` in `sprite_loader` — nur
+  Gegner-Körper, Turm (`_TOWER_SIZE`) und Projektile unberührt.
+- **Spawn:** `BASE_SPAWN_INTERVAL 40→60`, `MAX_ENEMIES_PER_WAVE 45→30` (weniger, gestreckter).
+- **Anti-Snowball:** `XP_BASE 5→8`, `XP_PER_LEVEL 3→7` — XP bis Lvl 10 ~1.7×, später Levelup
+  fast doppelt so teuer (gegen „ab Lvl 10 durchlaufen").
+- **Verifikation:** Treiber (hält nie die Maus!) läuft fehlerfrei + Screenshot zeigt
+  auto-abgefeuertes Projektil; Elite-Rate (0.103/4000), 10×-HP, Boss-Ausnahme + Elite-Ring
+  headless geprüft. Spielgefühl/Balance per **Playtest** offen.
 
 2026-06-20 — Playtest-Tuning (nach ADR 009, dieselbe Session):
 - `BASE_ATTACK_SPEED 0.60 → 1.0` /s (ADR-009-Rationale „bewusst langsam" verworfen).
@@ -88,15 +111,21 @@ nach Playtest-Tuning:** `BASE_ATTACK_SPEED=1.0`/s, `enemy_hp_for_wave = 30 + Wel
 
 ## Next concrete step
 
-**XP/Level-Balance per Playtest einstellen** (ADR 008): einen echten Lauf spielen
-(F5 zeigt den Karten-Screen sofort) und Rückmeldung in Knöpfe übersetzen — XP-Kurve
-(`XP_BASE/PER_LEVEL/PER_WAVE`), Karten-Stärke (`UPGRADE_*`) und Gegner-Letalität
-(`ATTACK_DAMAGE`, `enemy_speed_for_wave`, `MAX_ENEMIES_PER_WAVE`, Player `MAX_HP`).
-Leitfrage: fühlt sich der Lauf **knackig & tödlich** an, ohne zu schnell zu sterben?
-Alles zentral in `balance.py` (+ `player.py` HP).
+**Playtest der Passiv-Combat-Werte:** echten Lauf spielen und Rückmeldung in
+`balance.py` übersetzen. Neue Regler dieser Session: `BASE_ATTACK_SPEED`,
+`UPGRADE_ATTACK_SPEED` (additiv), `ELITE_SPAWN_CHANCE`/`ELITE_HP_MULT`,
+`ENEMY_SPRITE_SCALE`, `BASE_SPAWN_INTERVAL`, `MAX_ENEMIES_PER_WAVE`, XP-Kurve
+(`XP_BASE`/`XP_PER_LEVEL`). Leitfragen: **scalt der Spieler jetzt langsam genug** (kein
+„Durchlaufen ab Lvl 10")? Fühlen sich **Elites lohnend statt nervig** an (ggf. Mehr-
+Reward nötig — siehe ADR 011)? Mit Autoaim ist Zielen weg → kommt die Spannung aus
+Gegnerdruck/Build genug?
 
-Danach: **Committen** der offenen Session-Arbeit (Phase 2, Karten-Fix, Run-Skill,
-ADR 007/008) — Aufteilung mit dem User klären. Erst dann Phase 3 (Inhaltszuwachs).
+Danach **Phase 3 (Inhaltszuwachs):** naheliegend sind weitere Karten/Upgrades (Ideen-
+Liste aus Brainstorm: Crit, Explosiv-/Kettenschuss, DoT, Regen, Dornen, „Gelehrter"
++XP, Reroll, permanente Start-Boni). Drei Achsen sauber trennen — Damage / Speed-Sustain
+/ Spread — für echte Build-Entscheidungen. Viele dieser Karten brauchen kleine neue
+`gs["stats"]`-Felder + Logik in `check_projectile_hits()`/`update` (kein reiner
+Datentabellen-Eintrag mehr).
 
 (Optionaler Nachzügler: Basis-Stats in `fresh_game_state()` und ein eigenes
 `xp_value` je Gegnerklasse sind noch nicht in `balance.py`.)
@@ -110,6 +139,12 @@ ADR 007/008) — Aufteilung mit dem User klären. Erst dann Phase 3 (Inhaltszuwa
 - **Wellen-Skalierung (Phase 2):** ✅ Geklärt → Hybrid-Cap (ADR 006). Folge-Frage:
   konkretes **Balance-Feintuning** (HP/Speed-Kurve + Belagerungs-DPS) nach einem
   echten 1→100-Durchlauf — offen bis zum Playtest.
+- **Elite-Reward (ADR 011):** Elites geben aktuell denselben XP/Münz-Wert wie normale
+  Gegner — 10× HP ohne Mehr-Beute fühlt sich evtl. nach Bremsklotz an. Skalieren?
+- **Autoaim-Priorisierung (ADR 010):** zielt simpel auf den **nächsten** Gegner. Reicht
+  das, oder braucht es „gefährlichster/zähester zuerst" (z. B. Elites priorisieren)?
+- **Genre-Identität:** Mit Passiv-Combat ist der „Clicker"-Anteil weg — woher kommt die
+  aktive Spannung? (Build-Tiefe, Gegnerdruck, evtl. aktivierbare Fähigkeit?) Offen.
 
 ## Decision log
 
@@ -153,6 +188,20 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   „Nachjustiert"-Hinweis in ADR 009 ergänzt.
 - **D16** — Levelup-Karten-Screen 0.75 s klick-gesperrt (`LEVELUP_INPUT_LOCK_S`), damit
   gehaltenes Auto-Feuer keine Karte sofort fehl-wählt; Hover-Hint erst nach Ablauf.
+- **D17** — **Voll-Auto-Feuer + Autoaim** (kein Halten/Maus-Zielen mehr; Turm feuert auf
+  nächsten Gegner) → **ADR 010**. Löst das Feuer-Modell aus ADR 009 ab; LMB-Spam getötet
+  (kein `fire_timer`-Reset beim Klick). `mouse_held` komplett entfernt.
+- **D18** — Angriffstempo-Karte **additiv** `+0.2/s` (war `×1.10`) + `BASE_ATTACK_SPEED
+  1.0→1.5` (reine Werte/Feel, unter ADR 010; additiv = planbar, kein Snowball).
+- **D19** — Gegner-Sprites größer: `ENEMY_SPRITE_SCALE=1.25` via neuem `_epx()` —
+  getrennt vom Turm (`_TOWER_SIZE`) und von Projektilen (keine Abwägung, Playtest-Knopf).
+- **D20** — Weniger/gestreckter Spawn: `BASE_SPAWN_INTERVAL 40→60`, `MAX_ENEMIES_PER_WAVE
+  45→30` (reine Werte, Playtest).
+- **D21** — **Elite-Gegner**: 10% je Nicht-Boss-Spawn = `ELITE_HP_MULT=10`-fache HP +
+  roter Ring → **ADR 011**. `elite`-Klassenattribut auf `Warrior`; Bosse ausgenommen;
+  Mehr-Reward bewusst noch offen.
+- **D22** — Anti-Snowball: XP-Kurve versteilt `XP_BASE 5→8`, `XP_PER_LEVEL 3→7` (gegen
+  „Durchlaufen ab Lvl 10"; reine Werte, Playtest).
 
 ## Phase → ADR map
 
@@ -160,7 +209,8 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Gameplay-Politur** (Belagerung) → ADR 005.
 - **Phase 1** (`game/balance.py`) → ADR 002 (Tuning zentral, JSON später).
 - **Phase 2** (Welle 100 + Sieg) → ADR 004 (Run-Modell), ADR 006 (Wellen-Cap).
-- **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur).
+- **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur),
+  ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner).
 - **Phase 4** (Verpacken) → ADR 001 (Python/Pygame → PyInstaller).
 - **Part 2** (Rebirth/Waffen) → ADR 004.
 
@@ -177,6 +227,8 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   echten Spiel Menü → Lauf starten → F4/W99 → Upgrade wählen → Welle 100/SuperBoss →
   **Sieg-Screen** und screenshottete alle Stufen (`shots/01..05`). Offen bleibt nur
   das **Balance-Feintuning** eines durchgespielten 1→100-Laufs (HP/Speed vs. DPS).
-- **Phase 3 — Inhaltszuwachs:** offen
+- **Phase 3 — Inhaltszuwachs:** angefangen (2026-06-20). Erste Inhalte: Passiv-Combat +
+  Autoaim (ADR 010), Elite-Gegner (ADR 011). Noch offen: weitere Karten/Upgrades (Crit,
+  Explosiv/Kette, DoT, Regen, Dornen, Reroll …) + Elite-Reward; alles per Playtest balancen.
 - **Phase 4 — Politur & `.exe`:** offen
 - **Part 2 — Rebirth/Waffen:** offen (Backlog)

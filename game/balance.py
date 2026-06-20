@@ -18,14 +18,14 @@ vorgesehen — vorerst sind es Python-Konstanten.
 # Spielgeschwindigkeit (FPS 75, siehe constants.py). Alle Werte hier sind die
 # Stellschrauben für das Feintuning nach dem Playtest.
 
-BASE_SPAWN_INTERVAL = 40    # Grund-Ticks zwischen zwei Spawns (dichter; bei FPS 75 ≈ 0.53 s)
+BASE_SPAWN_INTERVAL = 60    # Grund-Ticks zwischen zwei Spawns (länger gestreckt; bei FPS 75 = 0.8 s)
 MELEE_REACH         = 6     # kleiner Puffer, damit der anhaltende Gegner sicher in Reichweite ist
 
 ATTACK_DAMAGE       = 22    # Nahkampf-Schaden pro Treffer (deutlich tödlicher, ADR 008)
 ATTACK_COOLDOWN     = 45    # Ticks zwischen Nahkampf-Treffern
 
 # Spieler-Feuer: Halten der linken Maustaste feuert automatisch im Angriffstempo (ADR 009).
-BASE_ATTACK_SPEED   = 1.0   # Schüsse pro Sekunde (Basis); Feuer-Intervall = FPS / attack_speed
+BASE_ATTACK_SPEED   = 1.5   # Schüsse pro Sekunde (Basis); Feuer-Intervall = FPS / attack_speed
 LIFESTEAL_PER_HIT   = 1     # HP, die der Spieler je Treffer an einem Gegner heilt (ADR 009)
 
 # ---------------------------------------------------------------------------
@@ -34,6 +34,7 @@ LIFESTEAL_PER_HIT   = 1     # HP, die der Spieler je Treffer an einem Gegner hei
 
 CAMERA_ZOOM  = 1.2    # Welt wird post-render um diesen Faktor zentriert herangezoomt
 SPRITE_SCALE = 1.1    # zusätzliche Vergrößerung aller Einheiten-/Geschoss-Sprites beim Laden
+ENEMY_SPRITE_SCALE = 1.25  # Gegner-Körper zusätzlich vergrößert (etwas größer als der Turm); Turm bleibt _TOWER_SIZE
 
 
 # ---------------------------------------------------------------------------
@@ -41,8 +42,13 @@ SPRITE_SCALE = 1.1    # zusätzliche Vergrößerung aller Einheiten-/Geschoss-Sp
 # ---------------------------------------------------------------------------
 
 WIN_WAVE               = 100   # Lauf endet als Sieg beim Räumen dieser Welle (SuperBoss)
-MAX_ENEMIES_PER_WAVE   = 45    # Obergrenze Gesamt-Gegner je Normalwelle (kürzere Wellen, ADR 008)
+MAX_ENEMIES_PER_WAVE   = 30    # Obergrenze Gesamt-Gegner je Normalwelle (weniger Gegner, Playtest)
 MAX_CONCURRENT_ENEMIES = 30    # max. gleichzeitig lebende Gegner — deckelt Perf + Belagerungs-DPS
+
+# Elite-Gegner: jeder Nicht-Boss-Typ kann als Elite spawnen (zäher Brocken, egal welcher Typ).
+ELITE_SPAWN_CHANCE = 0.10          # Wahrscheinlichkeit je Nicht-Boss-Spawn, ein Elite zu sein
+ELITE_HP_MULT      = 10            # Elite-HP = normale Gegner-HP × diesem Faktor
+ELITE_COLOR        = (255, 60, 60) # Ring-Markierung um Elites (damit sie erkennbar sind)
 
 
 # ---------------------------------------------------------------------------
@@ -68,8 +74,8 @@ def coin_value_for_wave(wave: int) -> int:    return 1 + wave // 3
 # (ersetzt das frühere Karten-Picken pro Welle). Die nötige XP wächst mit Stufe
 # UND Welle — späte Wellen verlangen mehr XP pro Levelup.
 
-XP_BASE      = 5    # Grund-XP für den ersten Levelup
-XP_PER_LEVEL = 3    # zusätzliche XP je bereits erreichter Stufe
+XP_BASE      = 8    # Grund-XP für den ersten Levelup
+XP_PER_LEVEL = 7    # zusätzliche XP je bereits erreichter Stufe (steiler: bremst schnelles Hochleveln)
 XP_PER_WAVE  = 2    # zusätzliche XP je Welle (macht spätere Levelups teurer)
 
 def xp_to_next(level: int, wave: int) -> int:
@@ -89,7 +95,7 @@ UPGRADE_DAMAGE       = 15           # "Mehr Schaden": +Schaden pro Kugel
 UPGRADE_BULLET_SPEED = 4            # "Schnelle Kugeln": +Kugelgeschwindigkeit
 UPGRADE_BULLET_SIZE  = 6            # "Große Kugeln": +Kugelradius
 UPGRADE_MAX_HP       = 40           # "Max HP": +Maximale HP (heilt zugleich um denselben Betrag)
-UPGRADE_ATTACK_SPEED = 0.10         # "Angriffstempo": +10% Feuerrate je Karte (multiplikativ, ADR 009)
+UPGRADE_ATTACK_SPEED = 0.2          # "Angriffstempo": +0.2 Schüsse/Sek. je Karte (additiv, ADR 009)
 MULTISHOT_ANGLES     = (-15, 0, 15) # "Dreifachschuss": Streuwinkel der Kugeln (Anzahl = len)
 
 

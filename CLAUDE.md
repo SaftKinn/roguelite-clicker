@@ -52,10 +52,11 @@ Schweigen hier ist der Fehlermodus, der Kontinuität bricht. Lieber updaten.
 ## Was das Projekt ist
 
 Ein 2D-Roguelite × Tower-Defense × Clicker (Python + Pygame). Der Spieler ist ein
-stationärer Turm in der Bildschirmmitte; Halten der linken Maustaste feuert
-automatisch (Angriffstempo), Treffer heilen (Lifesteal). Gegner spawnen wellenweise
-und laufen auf den Turm zu. Gegner-Kills geben XP; bei jedem
-Level-up wählt man eine von drei Karten; Münzen kaufen dauerhafte Verbesserungen.
+stationärer Turm in der Bildschirmmitte; der Turm feuert voll-automatisch und zielt
+selbst auf den nächsten Gegner (Autoaim, ADR 010), Treffer heilen (Lifesteal). Gegner
+spawnen wellenweise und laufen auf den Turm zu (ein Teil als zähe Elites, ADR 011).
+Gegner-Kills geben XP; bei jedem Level-up wählt man eine von drei Karten; Münzen kaufen
+dauerhafte Verbesserungen.
 **Sieg = Welle 100 schaffen.** Danach (geplant) ein Rebirth, der neue Waffen freischaltet.
 
 Vollständiges Design in `architecture.md`, Plan in `roadmap.md`. **Bei
