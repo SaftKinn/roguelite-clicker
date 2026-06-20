@@ -119,7 +119,9 @@ Der laufende Spielzustand lebt im Dict **`gs`** (erzeugt von
 `fresh_game_state()`): `wave`, `enemies`, `projectiles`, `enemy_projectiles`,
 `pending_shots`, `stats`, `coins`, `obtained`, `spawn_remaining`, `spawn_timer`,
 `wave_clear_timer`, `banner` u. a. `gs is None` bedeutet „kein aktiver Lauf"
-(steuert z. B., ob das Hauptmenü „Fortsetzen" anzeigt).
+(`run_active` im Hauptmenü). Beide Wege ins Menü — Pause→Menü **und**
+GAME_OVER→Menü — setzen `gs = None`, damit der **Verbesserungen-Shop** dort
+erreichbar ist; permanente Käufe ergeben nur außerhalb eines Laufs Sinn.
 
 `gs["stats"]` hält die In-Run-Werte: `damage`, `bullet_speed`, `bullet_size`,
 `pierce`, `multishot`.
@@ -128,7 +130,8 @@ Der laufende Spielzustand lebt im Dict **`gs`** (erzeugt von
 
 ## 4. Gegner: Lazy-Sprite-Pattern
 
-Alle Gegner erben von `Enemy`. Sprites werden **klassenweise** und **faul**
+Alle Gegner erben von der Basisklasse `Warrior` (die zugleich der Standard-
+Nahkämpfer ist). Sprites werden **klassenweise** und **faul**
 geladen: jede Klasse hat `_frames_r = None` / `_frames_l = None` als Klassen-Cache,
 und `_load_sprites()` (classmethod) lädt einmalig per `try/except`. Schlägt das
 Laden fehl, wird auf gezeichnete Primitive (Kreise) zurückgefallen —
@@ -139,12 +142,12 @@ deklarieren**, sonst greift sie über die MRO auf die der Basisklasse zu.
 
 Gegnertypen:
 
-- `Warrior` (Nahkampf, Standard)
-- `Archer` (Fernkampf, erzeugt `EnemyProjectile`) — im Code „rusher"
-- `Lancer` (Tank, 5 Richtungs-Angriffsanimationen) — im Code „tanker"
+- `Warrior` (Nahkampf, Standard) — zugleich die Basisklasse aller Gegner
+- `Archer` (Fernkampf, erzeugt `EnemyProjectile`) — Spawn-Key „rusher"
+- `Lancer` (Tank, 5 Richtungs-Angriffsanimationen) — Spawn-Key „tanker"
 - `Monk` (Heiler, heilt Nachbarn + Heal-FX)
-- `Boss` (alle 10 Wellen), `SuperBoss` (alle 50) — beide töten den Spieler mit
-  einem Treffer.
+- `Boss` (alle 10 Wellen), `SuperBoss` (alle 50) — beide nutzen die Lancer-Sprites
+  und töten den Spieler mit einem Treffer.
 
 Wave-Skalierung über die `*_for_wave()`-Funktionen oben in `main.py`. Einhängen
 neuer Gegner in `spawn_enemy_for_wave()`.
@@ -161,8 +164,10 @@ Pro Frame im `PLAYING`-State (vereinfacht):
 2. **Update:** alle Geschosse, Gegner-Geschosse, Gegner und FX bewegen sich;
    ausgewählte Klicks (`pending_shots`) werden zu `Projectile`s.
 3. **Kollisionen:** `check_projectile_hits()` (Spieler-Geschoss → Gegner, mit
-   Pierce-/Multishot-Logik), `check_enemy_contact()` (Gegner → Turm; Boss/SuperBoss
-   = sofort tödlich).
+   Pierce-/Multishot-Logik), `check_enemy_contact()` (Gegner → Turm). Nahkämpfer
+   **stoppen vor dem Turm und greifen auf Cooldown an** (`melee_attack()`,
+   `ATTACK_DAMAGE`/`ATTACK_COOLDOWN`); Kontakt **tötet den Gegner nicht** — nur
+   Projektile töten ihn. Boss/SuperBoss bleiben bei Berührung sofort tödlich.
 4. **Münzen/FX:** Kills geben Münzen (`coin_value_for_wave()`, optional ×1.5 bei
    `gold_boost`), erzeugen `DamageNumber`-FX.
 5. **Wellen-Ende:** keine Gegner mehr + `spawn_remaining == 0` → `WAVE_CLEAR` →

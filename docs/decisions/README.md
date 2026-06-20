@@ -43,3 +43,4 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 002 — Content-Tuning: zentrales Datenmodul jetzt, JSON später](002-tuning-data-modul.md)
 - [ADR 003 — Single-File-State-Machine beibehalten](003-single-file-state-machine.md)
 - [ADR 004 — Run-Modell: Sieg bei Welle 100, Rebirth als Part 2](004-run-modell-rebirth.md)
+- [ADR 005 — Gegner belagern den Turm, statt bei Kontakt zu sterben](005-gegner-belagerung-statt-kontakt-tod.md)

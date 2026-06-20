@@ -36,6 +36,11 @@ Wellen-Skalierung so überarbeiten, dass Welle 100 **erreichbar und nicht absurd
 ist (Performance: keine ~300 Gegner gleichzeitig). Sieg-Zustand/-Screen beim
 Besiegen des SuperBosses in Welle 100; Lauf endet sauber, `best_wave` korrekt.
 
+Beachten: Seit ADR 005 **belagern** Gegner den Turm und verschwinden nicht mehr
+durch Kontakt — sie stauen sich, bis der Spieler sie erschießt. Das verschärft
+sowohl die Performance- (gleichzeitige Gegner) als auch die Balance-Frage
+(`ATTACK_DAMAGE`/`ATTACK_COOLDOWN` vs. Spieler-DPS) und gehört hier mitgedacht.
+
 **Gate:** Mit Dev-Tasten (F3 → Welle 49, weiterspielen) lässt sich Welle 100
 erreichen, der SuperBoss besiegen, der Sieg-Screen erscheint, und der Lauf endet
 sauber (zurück ins Menü / Neustart möglich). Keine Performance-Einbrüche oder

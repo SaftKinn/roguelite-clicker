@@ -7,24 +7,44 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-Phase 0 abgeschlossen: Doc-System aufgesetzt (CLAUDE.md, architecture.md,
-roadmap.md, progress.md, docs/decisions/ mit ADR 001–004). Das Spiel selbst ist
-unverändert und spielbar.
+Phase 0 abgeschlossen (Doc-System, ADR 001–004). Erste Gameplay-Politur am Code
+(ADR 005): Gegner-Klassen nach ihren Sprites benannt, Tower-Defense-Kontaktverhalten
+umgestellt (Gegner belagern statt zu sterben), Archer-Schuss an den Release-Frame
+gekoppelt, einen durch den `game/`-Umzug entstandenen Sprite/Cannonball-Bug behoben
+und den Verbesserungen-Shop nach dem Tod wieder zugänglich gemacht. Spiel läuft und
+ist spielbar.
 
 ## Last session
 
-2026-06-20 — Doc-System per Interview eingerichtet. Vision, Scope, Kern-Mechanik,
-Architektur, Roadmap und die vier Grundsatz-Entscheidungen durchgesprochen und
-festgeschrieben. Noch kein Spiel-Code geändert.
+2026-06-20 — Code-Politur:
+- **Gegner-Rename** nach Sprite: `Enemy`→`Warrior` (Basisklasse), `Rusher`→`Archer`,
+  `Tanker`→`Lancer`; `Monk`/`Boss`/`SuperBoss` unverändert. Referenzen in `main.py`
+  mitgezogen. Spawn-Key-Strings (`"rusher"`/`"tanker"`) bewusst NICHT umbenannt.
+- **Belagerungs-Verhalten** (ADR 005): Nahkämpfer stoppen vor dem Turm und greifen
+  auf Cooldown an (`melee_attack()`); Kontakt tötet den Gegner nicht mehr — nur
+  Projektile. Welle endet erst, wenn der Spieler alle Gegner erschießt.
+- **Archer-Schuss** verlässt den Bogen erst am Release-Frame (`SHOOT_RELEASE_FRAME`)
+  statt beim Animationsstart.
+- **Bugfix:** Faule `import sprite_loader` in `game/enemy.py` (7×) und
+  `game/projectile.py` (1×) auf `from . import sprite_loader` umgestellt — nach dem
+  `game/`-Umzug schluckte der try/except den ImportError, daher fehlten
+  Gegner-Sprites und der Cannonball.
+- **Bugfix Shop nach Tod:** GAME_OVER→Menü setzt jetzt `gs/terrain = None` (wie
+  Pause→Menü). Vorher blieb der tote Lauf „aktiv", wodurch der Verbesserungen-Button
+  per `run_active` ausgegraut war. Münzen waren nie verloren (Zeile 506 schreibt sie
+  in `total_coins`) — reines UI-Gating.
+- **Doku-Sync:** `architecture.md` §3.2 (gs/Shop-Zugang), §4 (neue Klassennamen),
+  §5 (Belagerungs-Kontakt); `roadmap.md` Phase 2 (Belagerung beeinflusst Skalierung);
+  ADR 005 angelegt + im `docs/decisions/README.md`-Index ergänzt.
 
 ## Next concrete step
 
 **Phase 1 starten:** `game/balance.py` anlegen und die Tuning-Werte dorthin
 verschieben — zuerst die `*_for_wave()`-Funktionen + Konstanten aus `main.py`
 (`enemies_for_wave`, `enemy_hp_for_wave`, `enemy_speed_for_wave`,
-`coin_value_for_wave`, `BASE_SPAWN_INTERVAL`, Kontaktschaden-Wert).
-Spielbalance dabei
-NICHT ändern, nur verschieben. Danach In-Run-Upgrade-Werte
+`coin_value_for_wave`, `BASE_SPAWN_INTERVAL`, `MELEE_REACH` sowie die neuen
+Nahkampf-Konstanten `ATTACK_DAMAGE`/`ATTACK_COOLDOWN` aus `game/enemy.py`).
+Spielbalance dabei NICHT ändern, nur verschieben. Danach In-Run-Upgrade-Werte
 (`game/upgrade_menu.py`) und permanente Preise (`game/main_menu.py`).
 
 ## Open questions
@@ -51,10 +71,14 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   (`main.py` bleibt Root-Einstieg), `tools/` (generate_assets) und `media/clips/`
   ausgegliedert, `.gitignore` ergänzt. Umzug während Phase 0 passiert; Audio-Pfade
   (`assets/audio/` vs. altem `Gamesounds/`) noch nicht final konsolidiert.
+- **D7** — Gegner-Klassen nach Sprite benannt (`Warrior`/`Archer`/`Lancer`); reine
+  Umbenennung, die Spawn-Key-Strings `"rusher"`/`"tanker"` bleiben (keine Abwägung).
+- **D8** — Gegner belagern den Turm statt bei Kontakt zu sterben → **ADR 005**.
 
 ## Phase → ADR map
 
 - **Phase 0** (Doc-System) → ADR 001, 002, 003, 004 (alle hier festgehalten).
+- **Gameplay-Politur** (Belagerung) → ADR 005.
 - **Phase 1** (`game/balance.py`) → ADR 002 (Tuning zentral, JSON später).
 - **Phase 2** (Welle 100 + Sieg) → ADR 004 (Run-Modell).
 - **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur).

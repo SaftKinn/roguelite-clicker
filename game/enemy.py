@@ -19,7 +19,7 @@ class EnemyProjectile:
     def _get_arrow(cls):
         if cls._arrow_surf is None:
             try:
-                import sprite_loader
+                from . import sprite_loader
                 cls._arrow_surf = sprite_loader.load_arrow(20)
             except Exception:
                 cls._arrow_surf = False
@@ -104,7 +104,7 @@ class Warrior:
         if cls._frames_r is not None:
             return
         try:
-            import sprite_loader
+            from . import sprite_loader
             cls._frames_r, cls._frames_l         = sprite_loader.load_black_warrior_run(48)
             cls._atk1_frames_r, cls._atk1_frames_l = sprite_loader.load_black_warrior_attack(1, 48)
             cls._atk2_frames_r, cls._atk2_frames_l = sprite_loader.load_black_warrior_attack(2, 48)
@@ -234,7 +234,7 @@ class Archer(Warrior):
         if cls._frames_r is not None:
             return
         try:
-            import sprite_loader
+            from . import sprite_loader
             cls._frames_r, cls._frames_l = sprite_loader.load_black_archer_run(50)
             cls._shoot_frames_r, cls._shoot_frames_l = sprite_loader.load_black_archer_shoot(50)
         except Exception as exc:
@@ -337,7 +337,7 @@ class Lancer(Warrior):
         if cls._frames_r is not None:
             return
         try:
-            import sprite_loader
+            from . import sprite_loader
             cls._frames_r, cls._frames_l = sprite_loader.load_black_lancer_run(90)
             cls._lancer_atk               = sprite_loader.load_black_lancer_attacks(90)
         except Exception as exc:
@@ -424,7 +424,7 @@ class Monk(Warrior):
         if cls._frames_r is not None:
             return
         try:
-            import sprite_loader
+            from . import sprite_loader
             cls._frames_r, cls._frames_l          = sprite_loader.load_monk(44)
             cls._heal_frames_r, cls._heal_frames_l = sprite_loader.load_monk_heal(44)
             cls._heal_fx_frames                    = sprite_loader.load_heal_effect(cls._HEAL_FX_SIZE)
@@ -554,7 +554,7 @@ class Boss(Warrior):
         if cls._frames_r is not None:
             return
         try:
-            import sprite_loader
+            from . import sprite_loader
             cls._frames_r, cls._frames_l = sprite_loader.load_black_lancer_run(96)
             cls._lancer_atk               = sprite_loader.load_black_lancer_attacks(96)
         except Exception as exc:
@@ -640,7 +640,7 @@ class SuperBoss(Warrior):
         if cls._frames_r is not None:
             return
         try:
-            import sprite_loader
+            from . import sprite_loader
             cls._frames_r, cls._frames_l = sprite_loader.load_black_lancer_run(144)
             cls._lancer_atk               = sprite_loader.load_black_lancer_attacks(144)
         except Exception as exc:

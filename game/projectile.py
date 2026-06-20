@@ -38,7 +38,7 @@ class Projectile:
         key = ("ball", size)
         if key not in _surf_cache:
             try:
-                import sprite_loader
+                from . import sprite_loader
                 _surf_cache[key] = sprite_loader.load_cannonball(size)
             except Exception:
                 _surf_cache[key] = None

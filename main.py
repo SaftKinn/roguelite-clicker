@@ -320,6 +320,8 @@ def main():
                         start_run()
                         state = "PLAYING"
                     elif event.key == pygame.K_m:
+                        gs      = None   # toten Lauf beenden → Shop im Menü wieder zugänglich
+                        terrain = None
                         snd.start_menu_music()
                         state = "MAIN_MENU"
 
