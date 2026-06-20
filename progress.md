@@ -7,14 +7,24 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-Combat-Umbau (ADR 009): **Halten der LMB feuert automatisch** im Angriffstempo
-(Basis 0.60/s), neue rote **„Angriffstempo"-Karte** (+10%), **Lifesteal** (+1 HP/Treffer),
-steileres Gegner-HP-Scaling (·14/Welle). Davor: ADR 008 (XP/Level-System), ADR 007
-(Zoom/Speed/Sprites). **Offen: menschlicher Playtest** — Basis-Feuerrate ist bewusst
-langsam, frühes Spiel ggf. hart; Regler: `BASE_ATTACK_SPEED`, `UPGRADE_ATTACK_SPEED`,
-`LIFESTEAL_PER_HIT`, `enemy_hp_for_wave`, XP-Kurve.
+Combat-Umbau (ADR 009): **Halten der LMB feuert automatisch** im Angriffstempo, neue
+rote **„Angriffstempo"-Karte** (+10%), **Lifesteal** (+1 HP/Treffer). **Aktuelle Werte
+nach Playtest-Tuning:** `BASE_ATTACK_SPEED=1.0`/s, `enemy_hp_for_wave = 30 + Welle·10`,
+`BASE_SPAWN_INTERVAL=40` (dichter). Davor: ADR 008 (XP/Level), ADR 007 (Zoom/Speed/Sprites).
+**Offen: weiterer Playtest** — Regler: `BASE_ATTACK_SPEED`, `UPGRADE_ATTACK_SPEED`,
+`LIFESTEAL_PER_HIT`, `enemy_hp_for_wave`, `BASE_SPAWN_INTERVAL`, XP-Kurve.
 
 ## Last session
+
+2026-06-20 — Playtest-Tuning (nach ADR 009, dieselbe Session):
+- `BASE_ATTACK_SPEED 0.60 → 1.0` /s (ADR-009-Rationale „bewusst langsam" verworfen).
+- `enemy_hp_for_wave` Scaling `·14 → ·10` (ADR-009-„steileres Scaling" zurückgenommen).
+- `BASE_SPAWN_INTERVAL 58 → 40` (Gegner spawnen dichter).
+- **Levelup-Klick-Sperre:** `LEVELUP_INPUT_LOCK_S = 0.75` s — `UpgradeMenu` blockt Klicks
+  0.75 s nach Erscheinen des Karten-Screens (verhindert Fehlklick beim gehaltenen Feuer);
+  Hover-Hint erscheint erst nach Ablauf.
+- Code (ADR 006-009) + Tooling + Docs in 3 thematischen Commits (7de7165/099d8aa/488aea6);
+  dieses Tuning + die Klick-Sperre sind noch **uncommitted**.
 
 2026-06-20 — Combat-Umbau (ADR 009):
 - **Auto-Feuer:** `mouse_held` (LMB) statt Einzelklick; im `PLAYING`-Update feuert
@@ -138,6 +148,11 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **D14** — Auto-Feuer (LMB halten, Angriffstempo/s) statt Klick + „Angriffstempo"-Karte
   (+10%) + Lifesteal (1 HP/Treffer) + steileres Gegner-HP (·14/Welle) → **ADR 009**.
   Lifesteal pro Treffer (nicht pro Schadenspunkt); Angriffstempo multiplikativ.
+- **D15** — Playtest-Tuning (reine Werte): `BASE_ATTACK_SPEED 0.60→1.0`, Gegner-HP-Scaling
+  `·14→·10`, `BASE_SPAWN_INTERVAL 58→40`. Kehrt zwei ADR-009-Kalibrierungen um;
+  „Nachjustiert"-Hinweis in ADR 009 ergänzt.
+- **D16** — Levelup-Karten-Screen 0.75 s klick-gesperrt (`LEVELUP_INPUT_LOCK_S`), damit
+  gehaltenes Auto-Feuer keine Karte sofort fehl-wählt; Hover-Hint erst nach Ablauf.
 
 ## Phase → ADR map
 

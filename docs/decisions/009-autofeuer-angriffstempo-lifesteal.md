@@ -1,7 +1,13 @@
 # ADR 009 — Auto-Feuer (Halten) + Angriffstempo-Karte + Lifesteal + steileres Gegner-Scaling
 - **Status:** Accepted
 - **Date:** 2026-06-20
-- **Refs:** architecture.md §1, §5; ADR 008 (XP/Level); progress.md D14
+- **Refs:** architecture.md §1, §5; ADR 008 (XP/Level); progress.md D14, D15
+
+> **Nachjustiert (Playtest, gleiche Session, D15):** Die unten genannten
+> Start-Kalibrierungen wurden direkt korrigiert — **`BASE_ATTACK_SPEED 0.60 → 1.0`**
+> (das „bewusst langsam" weiter unten gilt nicht mehr) und **Gegner-HP-Scaling
+> `·14 → ·10`** (zurück zum ADR-008-Stand; „steileres Scaling" zurückgenommen). Mechanik
+> (Auto-Feuer, Karte, Lifesteal) unverändert. Aktuelle Werte: `game/balance.py`.
 
 ## Context
 Der Clicker-Kern (jeder Schuss = ein Mausklick) ermüdet bei längeren Läufen und macht
@@ -23,6 +29,10 @@ das per Karte steigerbar ist; zusätzlich **Lifesteal** (Treffer heilen) und ein
   HP (bis `max_hp`) — in `check_projectile_hits()` (bekommt dafür `player`). Pierce/
   Multishot zählen pro getroffenem Gegner.
 - **Steileres Gegner-Scaling:** `enemy_hp_for_wave = (30 + wave·14)·hp_mult` (vorher ·10).
+- **Levelup-Klick-Sperre:** Der Karten-Screen ignoriert Klicks `LEVELUP_INPUT_LOCK_S = 0.75` s
+  lang (sonst wählt das gehaltene Auto-Feuer sofort eine Karte fehl). Umsetzung in
+  `UpgradeMenu` (`_input_lock`, in `roll()` gesetzt, in `tick()` gezählt); Hover-Hint
+  erscheint erst nach Ablauf.
 
 ## Alternatives
 - **Klick beibehalten / Auto-Feuer optional:** mehr Code, und der Wunsch war explizit

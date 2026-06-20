@@ -18,14 +18,14 @@ vorgesehen — vorerst sind es Python-Konstanten.
 # Spielgeschwindigkeit (FPS 75, siehe constants.py). Alle Werte hier sind die
 # Stellschrauben für das Feintuning nach dem Playtest.
 
-BASE_SPAWN_INTERVAL = 58    # Grund-Ticks zwischen zwei Spawns (knackiger/dichter, ADR 008)
+BASE_SPAWN_INTERVAL = 40    # Grund-Ticks zwischen zwei Spawns (dichter; bei FPS 75 ≈ 0.53 s)
 MELEE_REACH         = 6     # kleiner Puffer, damit der anhaltende Gegner sicher in Reichweite ist
 
 ATTACK_DAMAGE       = 22    # Nahkampf-Schaden pro Treffer (deutlich tödlicher, ADR 008)
 ATTACK_COOLDOWN     = 45    # Ticks zwischen Nahkampf-Treffern
 
 # Spieler-Feuer: Halten der linken Maustaste feuert automatisch im Angriffstempo (ADR 009).
-BASE_ATTACK_SPEED   = 0.60  # Schüsse pro Sekunde (Basis); Feuer-Intervall = FPS / attack_speed
+BASE_ATTACK_SPEED   = 1.0   # Schüsse pro Sekunde (Basis); Feuer-Intervall = FPS / attack_speed
 LIFESTEAL_PER_HIT   = 1     # HP, die der Spieler je Treffer an einem Gegner heilt (ADR 009)
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ def enemies_for_wave(wave: int) -> int:
     # Hybrid: Gesamtzahl steigt linear, plateaut beim Cap (Concurrent-Cap bremst zusätzlich)
     return min(5 + (wave - 1) * 3, MAX_ENEMIES_PER_WAVE)
 
-def enemy_hp_for_wave(wave, hp_mult) -> int:  return int((30 + wave * 14) * hp_mult)  # steileres Scaling (ADR 009)
+def enemy_hp_for_wave(wave, hp_mult) -> int:  return int((30 + wave * 10) * hp_mult)
 def enemy_speed_for_wave(wave: int) -> float: return min(2.2 + wave * 0.18, 4.6)  # schneller dran (ADR 008)
 def coin_value_for_wave(wave: int) -> int:    return 1 + wave // 3
 
@@ -75,6 +75,10 @@ XP_PER_WAVE  = 2    # zusätzliche XP je Welle (macht spätere Levelups teurer)
 def xp_to_next(level: int, wave: int) -> int:
     """Nötige XP für den nächsten Levelup, abhängig von Stufe und Welle."""
     return round(XP_BASE + (level - 1) * XP_PER_LEVEL + wave * XP_PER_WAVE)
+
+# Beim Levelup ist die Karten-Auswahl kurz klick-gesperrt, damit ein gehaltener/
+# schneller Klick nicht versehentlich sofort eine Karte wählt (ADR 009).
+LEVELUP_INPUT_LOCK_S = 0.75   # Sekunden Klick-Sperre nach Erscheinen des Karten-Screens
 
 
 # ---------------------------------------------------------------------------

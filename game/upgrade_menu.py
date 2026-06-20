@@ -2,6 +2,7 @@ import random
 import pygame
 from . import ui_loader
 from . import balance
+from .constants import FPS
 
 # Beschreibungs-Zahlen aus balance.py — eine Quelle der Wahrheit (Effekt + Text synchron).
 UPGRADES = [
@@ -46,6 +47,7 @@ class UpgradeMenu:
         self._overlay.fill((0, 0, 0))
         self._ready      = False
         self._fonts:dict = {}   # (size, bold) -> Font, Cache statt Neuerzeugung pro Frame
+        self._input_lock = 0    # Frames Klick-Sperre nach Levelup (ADR 009)
 
     def _font(self, size: int, bold: bool) -> pygame.font.Font:
         key = (size, bold)
@@ -92,13 +94,16 @@ class UpgradeMenu:
             for i in range(len(self.choices))
         ]
         self.fade_alpha = 0
+        self._input_lock = round(balance.LEVELUP_INPUT_LOCK_S * FPS)   # 0.75 s Klick-Sperre
 
     def tick(self) -> None:
         if self.fade_alpha < OVERLAY_MAX:
             self.fade_alpha = min(OVERLAY_MAX, self.fade_alpha + FADE_SPEED)
+        if self._input_lock > 0:
+            self._input_lock -= 1
 
     def handle_click(self, pos: tuple) -> str | None:
-        if self.fade_alpha < CARDS_THRESHOLD:
+        if self._input_lock > 0 or self.fade_alpha < CARDS_THRESHOLD:
             return None
         for i, rect in enumerate(self.rects):
             if rect.collidepoint(pos):
@@ -150,8 +155,8 @@ class UpgradeMenu:
             card.blit(name_s, (CARD_W // 2 - name_s.get_width() // 2, _NAME_Y))
             card.blit(desc_s, (CARD_W // 2 - desc_s.get_width() // 2, _DESC_Y))
 
-            # Hover-Hint
-            if hovered:
+            # Hover-Hint (erst nach Ablauf der Klick-Sperre, damit kein Fehlklick einlädt)
+            if hovered and self._input_lock <= 0:
                 hint_s = self.font_hint.render("Klicken zum Wählen", True, (255, 240, 120))
                 card.blit(hint_s, (CARD_W // 2 - hint_s.get_width() // 2, _HINT_Y))
 
