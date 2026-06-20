@@ -1,0 +1,328 @@
+# architecture.md — Die Design-Wahrheit
+
+Diese Datei beschreibt, **wie das Spiel technisch aufgebaut ist und warum**. Bei
+Design-Unklarheit gewinnt diese Datei. Wer eine Design-Entscheidung ändert,
+aktualisiert `architecture.md` im selben Change.
+
+Lesereihenfolge: nur bei Design-Aufgaben laden (nicht jede Session). Der Plan
+steht in `roadmap.md`, der aktuelle Stand in `progress.md`, einzelne Entscheidungen
+mit Abwägung in `docs/decisions/`.
+
+---
+
+## 1. Overview & Design-Prinzipien
+
+2D-Roguelite × Tower-Defense × Clicker (Python + Pygame). Der Spieler ist ein
+**stationärer Turm** in der Bildschirmmitte; per Mausklick werden Geschosse in
+Mausrichtung gefeuert. Gegner spawnen wellenweise vom Rand und laufen auf den
+Turm zu. Nach jeder Welle wählt man ein In-Run-Upgrade; verdiente Münzen kaufen
+dauerhafte Verbesserungen.
+
+**Rückgrat ist die Roguelite-Run-Struktur** (Welle → Upgrade wählen → stärker
+werden → sterben/neu). Tower-Defense liefert die Gegnerwellen, Clicker die
+Schuss-Eingabe — beide sind „Würze", nicht der Kern. Der Spielspaß soll aus
+**Build-Vielfalt pro Run** (Upgrade-Kombos) und **dauerhafter Meta-Progression**
+entstehen.
+
+Leitprinzipien:
+
+- **Einfachheit vor Eleganz.** Lernprojekt mit Veröffentlichungs-Absicht, solo.
+  Wir bauen das Spiel, nicht die perfekte Architektur. Refactor nur, wenn eine
+  Stelle wirklich wehtut.
+- **Robustheit über Asset-Fallbacks.** Fehlt ein Sprite/Sound, fällt das Spiel
+  auf gezeichnete Primitive zurück statt zu crashen.
+- **Tuning getrennt vom Verhalten.** Stellschrauben (Zahlen) leben zentral in
+  `balance.py`; Logik/Verhalten lebt im Code. Siehe ADR 002.
+- **Verifikation durch Starten.** Es gibt kein Test-Setup; jede Änderung wird
+  durch `python main.py` geprüft.
+
+Sprach-Konvention: **Bezeichner Englisch, Kommentare und alle UI-Texte Deutsch.**
+Diese Doku ist auf Deutsch.
+
+---
+
+## 2. Tech-Stack & Topologie
+
+- **Sprache/Engine:** Python + Pygame. Einzige Pflicht-Abhängigkeit:
+  `pip install pygame`. `numpy` optional (Cannonball-Hintergrund-Cropping).
+  Begründung und verworfene Alternativen: ADR 001.
+- **Zielplattform:** Windows-Desktop als `.exe` (z. B. itch.io). Verpacken
+  später via PyInstaller (Phase 4). Browser-Version (pygbag) ist Backlog.
+- **Fenster:** fest **1280×720**, mit `pygame.SCALED`. 60 FPS Ziel.
+- **Kein Build-Schritt, keine Tests, kein Linter, keine `requirements.txt`.**
+- **Kein Git** im Repo initialisiert (Stand Phase 0). Committen nur auf
+  ausdrückliche Aufforderung.
+
+Startbefehl:
+
+```bash
+python main.py
+```
+
+Dev-Tasten (nur im `PLAYING`-State):
+
+- **F1** — alle Gegner sofort töten (löst Wave-Clear aus)
+- **F2** — auf Welle 9 springen (nächster Clear → Boss in Welle 10)
+- **F3** — auf Welle 49 springen (nächster Clear → SuperBoss in Welle 50)
+- **F11** — Fullscreen toggeln · **ESC** — Pause / zurück
+
+---
+
+## 3. Komponenten / Module
+
+Das Spiel ist eine **einzige `while running`-Schleife** in `main.py` (Root), plus
+ein `game/`-Package mit Entitäts- und UI-Modulen. Diese Struktur bleibt bewusst so
+(ADR 003). `main.py` importiert aus dem Package via `from game.<modul> import ...`.
+
+| Modul | Zweck |
+|---|---|
+| `main.py` (Root) | State-Machine + Game-Loop (Event/Update/Draw), Wellen-Logik, Trefferprüfung, alle Helfer. Das Herz. Einstiegspunkt. |
+| `game/constants.py` | Fenster-/FPS-/Farb-Konstanten. |
+| `game/player.py` | `Player` (Turm): HP, Schaden nehmen, Turm-Sprite + HP-Bar zeichnen. |
+| `game/enemy.py` | Alle Gegnerklassen mit Lazy-Sprite-Pattern (siehe §4). |
+| `game/projectile.py` | `Projectile` (Spieler-Geschoss): Bewegung, Kanonenkugel-Sprite/Fallback. |
+| `game/upgrade_menu.py` | In-Run-Upgrades (`UPGRADES`) + Auswahl-Overlay nach jeder Welle. |
+| `game/main_menu.py` | `MainMenu`, `OptionsMenu`, `ImprovementsMenu`, `DIFFICULTIES`, `IMPROVEMENTS`, wiederverwendbare `Button`-Klasse. |
+| `game/save_data.py` | Laden/Speichern von `save.json` (Merge mit `_DEFAULT`). |
+| `game/sounds.py` | Prozedural erzeugte SFX + Musik-Wiedergabe. |
+| `game/sprite_loader.py` | Lädt Unit-Spritesheets (Tiny Swords), schneidet Frame-Strips, spiegelt Links-Frames. |
+| `game/ui_loader.py` | Baut Tiny-Swords-UI (HP-Bars, Buttons, Labels) per 3-Slice mit Tight-Crop-Grenzen. |
+| `game/terrain.py` | Backt Gras-Hintergrund + verteilt zufällige Deko. |
+| `game/fx.py` | `DamageNumber` (aufsteigende Schadens-/Münz-Zahlen). |
+| `tools/generate_assets.py` | Hilfsskript zur Asset-Erzeugung (kein Laufzeit-Modul). |
+
+**Geplant (Phase 1):** `game/balance.py` — zentrales Tuning-Datenmodul
+(Gegner-Stats pro Welle, Wellen-Mix, Upgrade-Werte, Preise). Verhalten bleibt in
+den jeweiligen Modulen.
+
+> **Hinweis (Stand 2026-06-20):** Das Repo wurde gerade in ein `game/`-Package
+> umstrukturiert (vorher lagen alle Module flach im Root). Die Audio-/Asset-Pfade
+> sind dabei mitten im Umzug — `game/sounds.py` zeigt auf `assets/audio/Music/`,
+> während parallel noch ein altes `Gamesounds/` existiert. Vor Audio-Arbeit den
+> realen Pfad per grep prüfen.
+
+### 3.1 State-Machine
+
+`main.py` hält einen State-String und verzweigt in **Event-, Update- und
+Draw-Phase** darauf. **Beim Hinzufügen von Verhalten muss man typischerweise an
+allen drei Stellen denselben State behandeln.**
+
+States: `MAIN_MENU`, `OPTIONS`, `IMPROVEMENTS`, `PLAYING`, `WAVE_CLEAR`,
+`UPGRADE`, `PAUSED`, `GAME_OVER`.
+
+Geplant (Phase 2): ein **Sieg-Zustand** (`VICTORY` o. ä.) beim Erreichen von
+Welle 100.
+
+### 3.2 Laufzustand `gs`
+
+Der laufende Spielzustand lebt im Dict **`gs`** (erzeugt von
+`fresh_game_state()`): `wave`, `enemies`, `projectiles`, `enemy_projectiles`,
+`pending_shots`, `stats`, `coins`, `obtained`, `spawn_remaining`, `spawn_timer`,
+`wave_clear_timer`, `banner` u. a. `gs is None` bedeutet „kein aktiver Lauf"
+(steuert z. B., ob das Hauptmenü „Fortsetzen" anzeigt).
+
+`gs["stats"]` hält die In-Run-Werte: `damage`, `bullet_speed`, `bullet_size`,
+`pierce`, `multishot`.
+
+---
+
+## 4. Gegner: Lazy-Sprite-Pattern
+
+Alle Gegner erben von `Enemy`. Sprites werden **klassenweise** und **faul**
+geladen: jede Klasse hat `_frames_r = None` / `_frames_l = None` als Klassen-Cache,
+und `_load_sprites()` (classmethod) lädt einmalig per `try/except`. Schlägt das
+Laden fehl, wird auf gezeichnete Primitive (Kreise) zurückgefallen —
+`_blit_sprite()` gibt `False` zurück und `draw()` zeichnet den Fallback.
+
+**Jede neue Gegnerklasse muss eigene `_frames_r/_frames_l`-Klassenvariablen
+deklarieren**, sonst greift sie über die MRO auf die der Basisklasse zu.
+
+Gegnertypen:
+
+- `Warrior` (Nahkampf, Standard)
+- `Archer` (Fernkampf, erzeugt `EnemyProjectile`) — im Code „rusher"
+- `Lancer` (Tank, 5 Richtungs-Angriffsanimationen) — im Code „tanker"
+- `Monk` (Heiler, heilt Nachbarn + Heal-FX)
+- `Boss` (alle 10 Wellen), `SuperBoss` (alle 50) — beide töten den Spieler mit
+  einem Treffer.
+
+Wave-Skalierung über die `*_for_wave()`-Funktionen oben in `main.py`. Einhängen
+neuer Gegner in `spawn_enemy_for_wave()`.
+
+---
+
+## 5. Daten-/Simulationsfluss pro Tick
+
+Pro Frame im `PLAYING`-State (vereinfacht):
+
+1. **Spawnen:** Timer zählt; bei Ablauf spawnt `spawn_enemy_for_wave()` einen
+   Gegner, bis `spawn_remaining` aufgebraucht ist. Spawn-Intervall hängt vom
+   Schwierigkeitsgrad ab (`diff_mod["spawn_bonus"]`).
+2. **Update:** alle Geschosse, Gegner-Geschosse, Gegner und FX bewegen sich;
+   ausgewählte Klicks (`pending_shots`) werden zu `Projectile`s.
+3. **Kollisionen:** `check_projectile_hits()` (Spieler-Geschoss → Gegner, mit
+   Pierce-/Multishot-Logik), `check_enemy_contact()` (Gegner → Turm; Boss/SuperBoss
+   = sofort tödlich).
+4. **Münzen/FX:** Kills geben Münzen (`coin_value_for_wave()`, optional ×1.5 bei
+   `gold_boost`), erzeugen `DamageNumber`-FX.
+5. **Wellen-Ende:** keine Gegner mehr + `spawn_remaining == 0` → `WAVE_CLEAR` →
+   nach Delay `UPGRADE`. Tod des Turms → `GAME_OVER`.
+
+**Wichtig: Simulation und Rendering sind nicht getrennt** — jede Entität hat
+`update()` und `draw()` und läuft im Immediate-Mode-Stil von Pygame. Das ist für
+dieses Spiel bewusst akzeptiert (kein Determinismus-/Netcode-Bedarf). Kein
+Golden-Rule-Zwang zur Trennung.
+
+---
+
+## 6. Content-Pipeline (Tuning vs. Verhalten)
+
+**Aktueller Zustand:** Inhalte sind hartkodiert — Gegner als Klassen, Wellen als
+Formeln (`enemies_for_wave`, `enemy_hp_for_wave`, `enemy_speed_for_wave`,
+`coin_value_for_wave`), Gegner-Mix als gewichtete Zufallswahl je Wellenbereich in
+`spawn_enemy_for_wave()`. Upgrades als Listen in `upgrade_menu.py` /
+`main_menu.py`.
+
+**Zielzustand (ab Phase 1):** Tuning-Zahlen wandern zentral nach `game/balance.py`
+(Python-Datenmodul mit Tabellen/Dicts) — **kein JSON** zunächst. Vorteil:
+Balancing-Stellschrauben an einem Ort, mit Syntax-Check und Kommentaren, ohne
+neue Technik. Verhalten (Gegner-KI, Schussmuster) bleibt im Code.
+
+**JSON** ist explizit später (Backlog), falls externe Balancing-Tools oder
+Modding nötig werden. Begründung + Alternativen: ADR 002.
+
+---
+
+## 7. Save / State-Modell
+
+`save.json` wird via `save_data.load()` mit `_DEFAULT` gemerged (fehlende Keys
+aufgefüllt). „Harter" Zustand (überlebt Programm-Neustart):
+
+- `total_coins`, `best_wave`, `best_coins`
+- `bought` — einmalige Käufe (`"doppelschuss"`, `"gold_boost"`)
+- `upgrades` — Stufenzähler permanenter Verbesserungen (`start_damage`, `start_hp`)
+- `settings` — **als Integer-Indizes**, nicht als Rohwerte: `sfx`/`music` 0–10
+  (→ Lautstärke `idx/10`), `difficulty` = Index in `DIFFICULTIES`, `fps` 0/1.
+
+Zwei getrennte Upgrade-Systeme:
+
+1. **In-Run-Upgrades** (`upgrade_menu.py`): temporär, nur aktueller Lauf. Wirken
+   über `apply_upgrade()` auf `gs["stats"]` bzw. den `Player`.
+2. **Permanente Verbesserungen** (`main_menu.py`, `ImprovementsMenu`): mit Münzen
+   gekauft, persistiert. `_ONE_TIME` (einmalig) und `_INFINITE` (stufenweise,
+   Preis ×`_COST_MULT`). Angewendet via `apply_permanent_bonuses()` zu Laufbeginn
+   bzw. inline (`"gold_boost" in save["bought"]`).
+
+**Geplante Erweiterung (Part 2, Rebirth):** Das Save-Format bekommt
+freigeschaltete **Waffen** und deren Meta-Upgrades. Diese überleben als Einzige
+einen Rebirth — siehe §8 und ADR 004.
+
+---
+
+## 8. Run-Modell & Rebirth (Sieg-Bedingung)
+
+**MVP-Sieg:** **Welle 100 erreichen und den SuperBoss besiegen = gewonnen.** Es
+gibt dann einen Sieg-Bildschirm; der Lauf endet sauber. (Vorher war das Spiel
+endlos.)
+
+**Rebirth (Part 2, nicht im MVP):** Nach dem Sieg wird das Spiel **komplett
+zurückgesetzt** (Run, Münzen, permanente Verbesserungen). Als Belohnung wählt man
+per Karte **1 von 3 Waffen**, behält diese **dauerhaft** und kann sie im
+Verbesserungsmenü **upgraden**. Nur Waffen + Waffen-Upgrades überleben einen
+Rebirth.
+
+Offene Design-Punkte (siehe `progress.md`):
+
+- **Waffe = anderes Schussverhalten** (Arbeitsannahme, z. B. Schrot/Laser/Bumerang;
+  vor dem Run gewählt). Noch nicht final.
+- **Wie genau** Waffen-Upgrades im Verbesserungsmenü funktionieren: offen.
+
+Begründung + Alternativen (endlos-Highscore vs. Sieg vs. beides): ADR 004.
+
+---
+
+## 9. Sound
+
+SFX werden **prozedural zur Laufzeit erzeugt** (`_sine`/`_sweep`/`_concat`-Buffer
+→ `pygame.mixer.Sound`), keine SFX-Dateien. Musik dagegen sind `.ogg`-Dateien
+(Pfad gerade im Umzug — `game/sounds.py` zeigt auf `assets/audio/Music/`, altes
+`Gamesounds/` existiert noch parallel). `init_mixer()` muss **vor** `pygame.init()` laufen —
+deshalb steht `import sounds; sounds.init_mixer()` ganz oben in `main.py`.
+Lautstärke getrennt für SFX und Musik; Boss-Musik hat einen eigenen
+Dämpfungsfaktor.
+
+---
+
+## 10. Asset-Loader & UI-Konventionen
+
+- **`sprite_loader.py`** — lädt Unit-Spritesheets aus
+  `assets/Tiny Swords (Free Pack)/Units/`. `_load_strip()` schneidet horizontale
+  Frame-Strips; `_both_dirs()` erzeugt gespiegelte Links-Frames. Frame-Größen pro
+  Sheet bekannt (z. B. 192, 320). **Sheet-Breite / Frame-Größe = Frame-Anzahl
+  vor dem Laden prüfen.**
+- **`ui_loader.py`** — baut Tiny-Swords-UI per **3-Slice** zusammen. Quell-Sprites
+  haben transparente Ränder, deshalb arbeiten die `_BAR_SRC`/`_SWD_SRC`/`_RIB_SRC`-
+  Specs mit **Tight-Crop-Pixelgrenzen**. Gecacht in `_surf_cache`. **Bei
+  UI-Ausrichtungsproblemen sind diese Crop-Werte der erste Verdächtige.**
+- **Cursor** ist ein eigenes Sprite (`pygame.mouse.set_visible(False)` + manuelles
+  Blit zuletzt vor `display.flip()`).
+- **Fonts faul laden:** Menü-Klassen setzen ein `_fonts_ready`-Flag und
+  initialisieren Fonts/Icons erst im ersten `draw()`, nicht im `__init__` (Pygame
+  evtl. noch nicht voll initialisiert).
+
+---
+
+## 11. Risiken & ehrliche Knackpunkte
+
+- **Wellen-Skalierung bricht bei Welle 100.** `enemies_for_wave` =
+  `5 + (Welle-1)·3` ergibt nahe Welle 99 fast 300 Gegner gleichzeitig —
+  Performance- und Balancing-Problem. „Welle 100 erreichbar machen" heißt:
+  Skalierung überarbeiten (Phase 2). Eventuell Caps, Spawn-Wellen statt
+  Dauerstrom, oder gestaffelte Spawns.
+- **Performance bei vielen Entitäten.** Kollisionsprüfung ist O(Geschosse ×
+  Gegner) ohne räumliche Optimierung. Bei großen Wellen beobachten.
+- **Python-Verpackung.** PyInstaller-`.exe` mit Pygame + vielen Assets kann
+  zickig sein (Pfade, Asset-Bundling). Phase 4 einplanen, nicht unterschätzen.
+- **Wachsende `main.py`.** Bewusst akzeptiert (ADR 003), aber im Auge behalten:
+  wenn eine Stelle unübersichtlich wird, gezielt Helfer auslagern.
+- **`gs`-Dict ohne festes Schema.** Flexibel, aber tippfehleranfällig. Neue Keys
+  konsequent in `fresh_game_state()` dokumentieren.
+
+---
+
+## 12. Projektstruktur
+
+```
+roguelite-clicker/
+├── CLAUDE.md            # Session-Ritual + Golden Rules (Einstieg jeder Session)
+├── architecture.md      # Diese Datei — die Design-Wahrheit
+├── roadmap.md           # Phasenplan MVP → Vollversion mit Gates
+├── progress.md          # Aktueller Stand, nächster Schritt, offene Fragen
+├── .gitignore           # __pycache__, Build-Artefakte
+├── docs/
+│   └── decisions/       # ADRs (eine Datei je Entscheidung mit Abwägung)
+├── main.py              # State-Machine + Game-Loop (Einstiegspunkt, Root)
+├── save.json            # Persistenz
+├── game/                # Laufzeit-Package (alle Spiel-Module)
+│   ├── __init__.py
+│   ├── constants.py     # Fenster-/FPS-/Farb-Konstanten
+│   ├── player.py        # Turm
+│   ├── enemy.py         # Gegnerklassen (Lazy-Sprite-Pattern)
+│   ├── projectile.py    # Spieler-Geschoss
+│   ├── upgrade_menu.py  # In-Run-Upgrades
+│   ├── main_menu.py     # Menüs, Verbesserungen, Button
+│   ├── save_data.py     # save.json laden/speichern
+│   ├── sounds.py        # prozedurale SFX + Musik
+│   ├── sprite_loader.py # Unit-Spritesheets
+│   ├── ui_loader.py     # Tiny-Swords-UI (3-Slice)
+│   ├── terrain.py       # Hintergrund + Deko
+│   └── fx.py            # Schadens-/Münz-Zahlen
+├── tools/
+│   └── generate_assets.py  # Asset-Hilfsskript (kein Laufzeit-Modul)
+├── assets/              # Sprites (+ Audio im Umzug nach assets/audio/)
+├── media/
+│   └── clips/           # Aufnahmen/Videos
+└── Gamesounds/          # Alt-Musikordner (Umzug nach assets/audio/ im Gange)
+```
+
+Geplant (Phase 1): `game/balance.py` (zentrales Tuning-Datenmodul).

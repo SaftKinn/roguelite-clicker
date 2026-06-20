@@ -1,0 +1,13 @@
+# Python-Bytecode-Cache (wird beim Start automatisch neu erzeugt)
+__pycache__/
+*.py[cod]
+
+# Generierte Sprite-Vorschau / Build-Artefakte aus tools/generate_assets.py
+assets/sprites/preview.png
+
+# Persönlicher Spielstand (lokal, nicht versionieren)
+save.json
+
+# Video-Aufnahmen (lokal behalten, nicht ins Repo)
+media/clips/
+*.mp4
