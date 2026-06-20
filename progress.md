@@ -205,6 +205,17 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **D23** — Elite-Reward skaliert: `ELITE_REWARD_MULT=5` über `enemy.coin_value` (×5
   Münzen UND XP, da `coin_value` beides speist). ×5 statt ×10 (HP-linear), um die
   Anti-Snowball-XP-Kurve nicht auszuhebeln. Löst die offene Reward-Frage aus ADR 011.
+- **D24** — **Gegner-HP super-linear** (echte Abwägung → ADR beim Wrap-up offen):
+  `enemy_hp_for_wave` von linear `30+Welle·10` auf `ENEMY_HP_BASE + Welle·ENEMY_HP_PER_WAVE
+  + Welle²·ENEMY_HP_PER_WAVE_SQ` (30/12/0.9). Grund: Spielerkraft skaliert multiplikativ,
+  linear kann nie mithalten → Welle 100 war trivial (Level-17-Build via F4 schlug
+  SuperBoss). Faktor W17→100 jetzt ~20× (war 5×); SuperBoss 25,7k→255k HP. Zahlen = erster
+  Wurf, Playtest (Regler `ENEMY_HP_PER_WAVE_SQ`). **F4 ist Debug-Sprung — kein gültiger
+  Endgame-Balance-Test, da Level/Stats eingefroren.**
+- **D25** — **Stats-Overlay auf Taste C** (Spieler-Feature, kein Dev-Key): `draw_stats_panel`
+  zeigt Schaden/Angriffstempo/Kugel-Stats/Multishot/Durchschlag/Lifesteal/HP, liest direkt
+  aus `gs["stats"]`+`balance` (keine gespiegelten Werte). `show_stats`-Toggle; Dev-Hint
+  um „C Stats" ergänzt.
 
 ## Phase → ADR map
 

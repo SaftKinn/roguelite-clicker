@@ -62,7 +62,16 @@ def enemies_for_wave(wave: int) -> int:
     # Hybrid: Gesamtzahl steigt linear, plateaut beim Cap (Concurrent-Cap bremst zusätzlich)
     return min(5 + (wave - 1) * 3, MAX_ENEMIES_PER_WAVE)
 
-def enemy_hp_for_wave(wave, hp_mult) -> int:  return int((30 + wave * 10) * hp_mult)
+# Gegner-HP wächst SUPER-LINEAR (linear + quadratisch), damit es mit der multiplikativen
+# Spielerkraft (Schaden × Angriffstempo × Multishot × Durchschlag) mithalten kann — eine
+# rein lineare Kurve lässt der Spieler über lange Läufe zwangsläufig hinter sich.
+ENEMY_HP_BASE        = 30    # Grund-HP (Welle 0)
+ENEMY_HP_PER_WAVE    = 12    # linearer HP-Zuwachs je Welle
+ENEMY_HP_PER_WAVE_SQ = 0.9   # quadratischer HP-Zuwachs (greift v.a. spät → echte Endgame-Wand)
+
+def enemy_hp_for_wave(wave, hp_mult) -> int:
+    return int((ENEMY_HP_BASE + wave * ENEMY_HP_PER_WAVE
+                + wave * wave * ENEMY_HP_PER_WAVE_SQ) * hp_mult)
 def enemy_speed_for_wave(wave: int) -> float: return min(2.2 + wave * 0.18, 4.6)  # schneller dran (ADR 008)
 def coin_value_for_wave(wave: int) -> int:    return 1 + wave // 3
 

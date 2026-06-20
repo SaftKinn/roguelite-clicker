@@ -235,6 +235,43 @@ def draw_hud(screen: pygame.Surface, font: pygame.font.Font,
     screen.blit(lbl, (SCREEN_WIDTH // 2 - lbl.get_width() // 2, bar_y - lbl.get_height() - 2))
 
 
+def draw_stats_panel(screen: pygame.Surface, font: pygame.font.Font,
+                     stats: dict, player, lifesteal: int) -> None:
+    """Overlay mit den aktuellen Spieler-Stats (Toggle über Taste C)."""
+    ja_nein = lambda b: "Ja" if b else "Nein"
+    rows = [
+        ("Schaden/Kugel",  f"{stats['damage']}"),
+        ("Angriffstempo",  f"{stats['attack_speed']:.2f}/s"),
+        ("Kugeltempo",     f"{stats['bullet_speed']}"),
+        ("Kugelgröße",     f"{stats['bullet_size']}"),
+        ("Mehrfachschuss", ja_nein(stats['multishot'])),
+        ("Durchschlag",    ja_nein(stats['pierce'])),
+        ("Lifesteal",      f"{lifesteal} HP/Treffer"),
+        ("HP",             f"{int(player.hp)}/{int(player.max_hp)}"),
+    ]
+    title = "Deine Stats  (C)"
+    pad, line_h, gap = 12, font.get_linesize(), 24
+    label_w = max(font.size(lbl)[0] for lbl, _ in rows)
+    value_w = max(font.size(val)[0] for _, val in rows)
+    inner_w = label_w + gap + value_w
+    panel_w = max(font.size(title)[0], inner_w) + pad * 2
+    panel_h = line_h * (len(rows) + 1) + pad * 2
+
+    x, y = 8, 8 + (_HUD_H + 6) * 2 + 8   # unter den beiden HUD-Labels oben links
+    panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+    panel.fill((14, 16, 28, 210))
+    pygame.draw.rect(panel, (90, 130, 180), panel.get_rect(), width=1, border_radius=6)
+    screen.blit(panel, (x, y))
+
+    screen.blit(font.render(title, True, (255, 220, 60)), (x + pad, y + pad))
+    ty = y + pad + line_h
+    for lbl, val in rows:
+        screen.blit(font.render(lbl, True, (190, 205, 230)), (x + pad, ty))
+        vsurf = font.render(val, True, (255, 255, 255))
+        screen.blit(vsurf, (x + panel_w - pad - vsurf.get_width(), ty))
+        ty += line_h
+
+
 def draw_game_over(screen, font_big, font, wave, coins_earned, best_wave, new_record):
     overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 200))
@@ -375,6 +412,7 @@ def main():
     diff_mod    = options_menu.get_modifiers()
     new_record          = False
     prev_state          = None
+    show_stats          = False         # Stats-Overlay ein/aus (Taste C, nur im PLAYING)
     options_return_to   = "MAIN_MENU"   # wohin OPTIONS-Zurück geht
     state               = "MAIN_MENU"
 
@@ -420,6 +458,10 @@ def main():
                         terrain = None
                         snd.start_menu_music()
                         state = "MAIN_MENU"
+
+                # Stats-Overlay ein/aus (Spieler-Feature, nicht Dev)
+                if state == "PLAYING" and event.key == pygame.K_c:
+                    show_stats = not show_stats
 
                 # --- Dev-Tasten (nur im laufenden Spiel) ---
                 if state == "PLAYING" and gs:
@@ -729,9 +771,12 @@ def main():
                 bsurf.set_alpha(alpha)
                 screen.blit(bsurf, (SCREEN_WIDTH  // 2 - bsurf.get_width()  // 2,
                                     SCREEN_HEIGHT // 2 - 70))
+            # Stats-Overlay (Taste C)
+            if gs and player and show_stats and state == "PLAYING":
+                draw_stats_panel(screen, font, gs["stats"], player, LIFESTEAL_PER_HIT)
             # Dev-Hint (linke untere Ecke)
             if gs and state == "PLAYING":
-                hint = font_dmg.render("F1 Clear  F2→W10  F3→W50  F4→W100  F5 Lvl+", True, (55, 55, 75))
+                hint = font_dmg.render("C Stats   F1 Clear  F2→W10  F3→W50  F4→W100  F5 Lvl+", True, (55, 55, 75))
                 screen.blit(hint, (6, SCREEN_HEIGHT - hint.get_height() - 6))
             if options_menu.show_fps:
                 fps_surf = font.render(f"FPS  {int(clock.get_fps())}", True, (80, 80, 100))
