@@ -7,45 +7,48 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-Phase 0 abgeschlossen (Doc-System, ADR 001–004). Erste Gameplay-Politur am Code
-(ADR 005): Gegner-Klassen nach ihren Sprites benannt, Tower-Defense-Kontaktverhalten
-umgestellt (Gegner belagern statt zu sterben), Archer-Schuss an den Release-Frame
-gekoppelt, einen durch den `game/`-Umzug entstandenen Sprite/Cannonball-Bug behoben
-und den Verbesserungen-Shop nach dem Tod wieder zugänglich gemacht. Spiel läuft und
-ist spielbar.
+Phase 1 abgeschlossen: `game/balance.py` angelegt, alle Tuning-Zahlen (Wellen-Formeln,
+Spawn-/Nahkampf-Konstanten, In-Run-Upgrade-Werte, Münz-Shop-Preise) zentralisiert.
+**Reiner Umzug — Balance unverändert**, durch byte-identische UI-Strings/Preise
+verifiziert. Davor: Phase 0 (Doc-System, ADR 001–004) + Gameplay-Politur (ADR 005,
+Belagerung). Spiel läuft und ist spielbar.
 
 ## Last session
 
-2026-06-20 — Code-Politur:
-- **Gegner-Rename** nach Sprite: `Enemy`→`Warrior` (Basisklasse), `Rusher`→`Archer`,
-  `Tanker`→`Lancer`; `Monk`/`Boss`/`SuperBoss` unverändert. Referenzen in `main.py`
-  mitgezogen. Spawn-Key-Strings (`"rusher"`/`"tanker"`) bewusst NICHT umbenannt.
-- **Belagerungs-Verhalten** (ADR 005): Nahkämpfer stoppen vor dem Turm und greifen
-  auf Cooldown an (`melee_attack()`); Kontakt tötet den Gegner nicht mehr — nur
-  Projektile. Welle endet erst, wenn der Spieler alle Gegner erschießt.
-- **Archer-Schuss** verlässt den Bogen erst am Release-Frame (`SHOOT_RELEASE_FRAME`)
-  statt beim Animationsstart.
-- **Bugfix:** Faule `import sprite_loader` in `game/enemy.py` (7×) und
-  `game/projectile.py` (1×) auf `from . import sprite_loader` umgestellt — nach dem
-  `game/`-Umzug schluckte der try/except den ImportError, daher fehlten
-  Gegner-Sprites und der Cannonball.
-- **Bugfix Shop nach Tod:** GAME_OVER→Menü setzt jetzt `gs/terrain = None` (wie
-  Pause→Menü). Vorher blieb der tote Lauf „aktiv", wodurch der Verbesserungen-Button
-  per `run_active` ausgegraut war. Münzen waren nie verloren (Zeile 506 schreibt sie
-  in `total_coins`) — reines UI-Gating.
-- **Doku-Sync:** `architecture.md` §3.2 (gs/Shop-Zugang), §4 (neue Klassennamen),
-  §5 (Belagerungs-Kontakt); `roadmap.md` Phase 2 (Belagerung beeinflusst Skalierung);
-  ADR 005 angelegt + im `docs/decisions/README.md`-Index ergänzt.
+2026-06-20 — Phase 1 (`game/balance.py`):
+- **Neu `game/balance.py`** — zentrales Tuning-Datenmodul (ADR 002). Enthält:
+  Wellen-Formeln (`enemies/​hp/​speed/​coin_for_wave`), `BASE_SPAWN_INTERVAL`,
+  `MELEE_REACH`, `ATTACK_DAMAGE`/`ATTACK_COOLDOWN`, In-Run-Upgrade-Werte
+  (`UPGRADE_DAMAGE`/`…_BULLET_SPEED`/`…_BULLET_SIZE`/`…_MAX_HP`, `MULTISHOT_ANGLES`),
+  permanente Effekte (`PERMANENT_DAMAGE/HP_PER_LEVEL`, `GOLD_BOOST_MULT`,
+  `DOPPELSCHUSS_DELAY`) und Preise (`COST_MULT`, `COST_START_DAMAGE/HP`,
+  `COST_DOPPELSCHUSS/GOLD_BOOST`).
+- **`main.py`**: Definitionen entfernt, aus `balance` importiert; `apply_upgrade`,
+  `apply_permanent_bonuses`, `spawn_projectiles` (Multishot-Winkel), `gold_mult`
+  und Doppelschuss-Delay ziehen jetzt aus den Konstanten. Aufrufstellen wortgleich.
+- **`game/enemy.py`**: `from . import balance`; `ATTACK_DAMAGE`/`ATTACK_COOLDOWN`
+  bleiben Klassen-Variablen (Vererbung/Override intakt), Werte aus `balance`.
+- **`game/upgrade_menu.py` + `game/main_menu.py`**: `balance` importiert; UI-Texte
+  (`"+10 Schaden"`, `"+50%…"`) + Preise werden aus den Konstanten **generiert**
+  (eine Quelle der Wahrheit; UI-Layout-Konstanten wie `CARD_W` bleiben lokal).
+- **Verifikation:** Spiel startet fehlerfrei; Test bestätigt byte-identische
+  UI-Strings/Preise + Werte-Gleichheit (`Warrior.ATTACK_DAMAGE==10`,
+  `enemies_for_wave(5)==17`, `upgrade_cost(50,2)` identisch).
+- **Doku-Sync:** `architecture.md` §3 (Modul-Tabelle + balance.py-Beschreibung),
+  §6 (Ist-Zustand statt „geplant"), §Repo-Layout.
 
 ## Next concrete step
 
-**Phase 1 starten:** `game/balance.py` anlegen und die Tuning-Werte dorthin
-verschieben — zuerst die `*_for_wave()`-Funktionen + Konstanten aus `main.py`
-(`enemies_for_wave`, `enemy_hp_for_wave`, `enemy_speed_for_wave`,
-`coin_value_for_wave`, `BASE_SPAWN_INTERVAL`, `MELEE_REACH` sowie die neuen
-Nahkampf-Konstanten `ATTACK_DAMAGE`/`ATTACK_COOLDOWN` aus `game/enemy.py`).
-Spielbalance dabei NICHT ändern, nur verschieben. Danach In-Run-Upgrade-Werte
-(`game/upgrade_menu.py`) und permanente Preise (`game/main_menu.py`).
+**Phase 2 starten:** Welle 100 erreichbar + Sieg-Zustand. Zuerst die offene
+Wellen-Skalierungs-Frage klären (siehe unten) — welches Schema macht Welle 100
+ohne ~300 gleichzeitige Belagerer spielbar (Caps? gestaffelte Spawn-Schübe?). Die
+Stellschrauben liegen jetzt zentral in `game/balance.py` bereit. ADR 004 (Run-Modell)
+beim Sieg-Zustand mitlesen.
+
+(Optionaler Nachzügler aus Phase 1, falls gewünscht: Basis-Stats in
+`fresh_game_state()` — Start-`damage`/`bullet_speed`/`bullet_size` — und
+`EnemyProjectile`-Werte sind noch nicht in `balance.py`. Bewusst außerhalb des
+Phase-1-Scopes gelassen.)
 
 ## Open questions
 
@@ -74,6 +77,9 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **D7** — Gegner-Klassen nach Sprite benannt (`Warrior`/`Archer`/`Lancer`); reine
   Umbenennung, die Spawn-Key-Strings `"rusher"`/`"tanker"` bleiben (keine Abwägung).
 - **D8** — Gegner belagern den Turm statt bei Kontakt zu sterben → **ADR 005**.
+- **D9** — Phase-1-Umzug: UI-Texte/Preise werden aus `balance.py`-Konstanten
+  generiert (f-Strings) statt als Literale doppelt gepflegt — Single Source of
+  Truth, keine Verhaltensänderung (keine Abwägung, fällt unter ADR 002).
 
 ## Phase → ADR map
 
@@ -89,7 +95,10 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 
 - **Phase 0 — Doc-System:** ✅ Gate erfüllt (2026-06-20). Nachweis: alle Doc-Dateien
   + ADR 001–004 existieren, Ist-Stand mit Code abgeglichen.
-- **Phase 1 — `balance.py`:** offen
+- **Phase 1 — `balance.py`:** ✅ Gate erfüllt (2026-06-20). Nachweis: `game/balance.py`
+  existiert mit allen Tuning-Zahlen; Spiel startet fehlerfrei; Test bestätigt
+  byte-identische UI-Strings/Preise + Werte-Gleichheit (reiner Umzug, Balance
+  unverändert).
 - **Phase 2 — Welle 100 + Sieg:** offen
 - **Phase 3 — Inhaltszuwachs:** offen
 - **Phase 4 — Politur & `.exe`:** offen

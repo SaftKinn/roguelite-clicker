@@ -13,24 +13,21 @@ from game.fx           import DamageNumber, COLOR_COIN
 from game.terrain      import Terrain
 from game import save_data  as sd
 from game import ui_loader
+from game.balance     import (BASE_SPAWN_INTERVAL, MELEE_REACH,
+                              enemies_for_wave, enemy_hp_for_wave,
+                              enemy_speed_for_wave, coin_value_for_wave,
+                              UPGRADE_DAMAGE, UPGRADE_BULLET_SPEED,
+                              UPGRADE_BULLET_SIZE, UPGRADE_MAX_HP, MULTISHOT_ANGLES,
+                              PERMANENT_DAMAGE_PER_LEVEL, PERMANENT_HP_PER_LEVEL,
+                              GOLD_BOOST_MULT, DOPPELSCHUSS_DELAY)
 
-BASE_SPAWN_INTERVAL = 90
 WAVE_CLEAR_DELAY    = 120
 CONTACT_DIST        = PLAYER_RADIUS + ENEMY_RADIUS
-MELEE_REACH         = 6     # kleiner Puffer, damit der anhaltende Gegner sicher in Reichweite ist
 
 
 # ---------------------------------------------------------------------------
 # Hilfsfunktionen
 # ---------------------------------------------------------------------------
-
-def enemies_for_wave(wave: int) -> int:
-    if wave % 10 == 0:
-        return 1
-    return 5 + (wave - 1) * 3
-def enemy_hp_for_wave(wave, hp_mult) -> int:  return int((30 + wave * 10) * hp_mult)
-def enemy_speed_for_wave(wave: int) -> float: return min(1.8 + wave * 0.15, 4.0)
-def coin_value_for_wave(wave: int) -> int:    return 1 + wave // 3
 
 
 def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
@@ -57,8 +54,8 @@ def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
 
 def apply_permanent_bonuses(player: Player, stats: dict, save: dict) -> None:
     upgrades = save.get("upgrades", {})
-    stats["damage"] += upgrades.get("start_damage", 0) * 10
-    bonus_hp = upgrades.get("start_hp", 0) * 30
+    stats["damage"] += upgrades.get("start_damage", 0) * PERMANENT_DAMAGE_PER_LEVEL
+    bonus_hp = upgrades.get("start_hp", 0) * PERMANENT_HP_PER_LEVEL
     if bonus_hp > 0:
         player.max_hp += bonus_hp
         player.hp      = player.max_hp
@@ -78,7 +75,7 @@ def spawn_projectiles(origin: pygame.math.Vector2, mouse_pos: tuple,
     if stats["multishot"]:
         return [Projectile(origin, vel=base.rotate(a) * speed,
                            damage=damage, radius=radius, pierce=pierce)
-                for a in (-15, 0, 15)]
+                for a in MULTISHOT_ANGLES]
     return [Projectile(origin, mouse_pos, damage=damage, speed=speed,
                        radius=radius, pierce=pierce)]
 
@@ -124,14 +121,14 @@ def check_enemy_contact(enemies: list, player: Player,
 
 
 def apply_upgrade(upgrade_id: str, stats: dict, player=None) -> None:
-    if   upgrade_id == "damage":    stats["damage"]       += 10
-    elif upgrade_id == "speed":     stats["bullet_speed"] += 3
-    elif upgrade_id == "size":      stats["bullet_size"]  += 4
+    if   upgrade_id == "damage":    stats["damage"]       += UPGRADE_DAMAGE
+    elif upgrade_id == "speed":     stats["bullet_speed"] += UPGRADE_BULLET_SPEED
+    elif upgrade_id == "size":      stats["bullet_size"]  += UPGRADE_BULLET_SIZE
     elif upgrade_id == "multishot": stats["multishot"]     = True
     elif upgrade_id == "pierce":    stats["pierce"]        = True
     elif upgrade_id == "max_hp" and player is not None:
-        player.max_hp += 25
-        player.hp      = min(player.hp + 25, player.max_hp)
+        player.max_hp += UPGRADE_MAX_HP
+        player.hp      = min(player.hp + UPGRADE_MAX_HP, player.max_hp)
 
 
 def fresh_game_state(wave: int = 1) -> dict:
@@ -397,7 +394,7 @@ def main():
                     gs["projectiles"] += spawn_projectiles(pc, mouse_pos, gs["stats"])
                     snd.play("shoot")
                     if "doppelschuss" in save["bought"]:
-                        gs["pending_shots"].append((8, mouse_pos))
+                        gs["pending_shots"].append((DOPPELSCHUSS_DELAY, mouse_pos))
 
                 elif state == "UPGRADE":
                     chosen = upgrade_menu.handle_click(mouse_pos)
@@ -477,7 +474,7 @@ def main():
             gs["enemy_projectiles"] = [ep for ep in gs["enemy_projectiles"] if ep.alive]
 
             # Münzen & Kill-Sounds
-            gold_mult = 1.5 if "gold_boost" in save["bought"] else 1.0
+            gold_mult = GOLD_BOOST_MULT if "gold_boost" in save["bought"] else 1.0
             for enemy in kills:
                 if isinstance(enemy, SuperBoss):
                     snd.play("kill_superboss")

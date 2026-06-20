@@ -1,15 +1,17 @@
 import random
 import pygame
 from . import ui_loader
+from . import balance
 from .constants import BG_COLOR
 
+# Beschreibungs-Zahlen aus balance.py — eine Quelle der Wahrheit (Effekt + Text synchron).
 UPGRADES = [
-    {"id": "damage",    "name": "Mehr Schaden",    "desc": "+10 Schaden pro Kugel",   "icon": "Icon_05", "btn": "Red"},
-    {"id": "speed",     "name": "Schnelle Kugeln", "desc": "+3 Kugelgeschwindigkeit",  "icon": "Icon_05", "btn": "Red"},
-    {"id": "size",      "name": "Große Kugeln",    "desc": "+4 Kugelradius",           "icon": "Icon_06", "btn": "Blue"},
-    {"id": "multishot", "name": "Dreifachschuss",  "desc": "3 Kugeln pro Klick",      "icon": "Icon_05", "btn": "Red"},
-    {"id": "pierce",    "name": "Durchschlag",     "desc": "Kugeln treffen mehrere",  "icon": "Icon_05", "btn": "Red"},
-    {"id": "max_hp",    "name": "Max HP",           "desc": "+25 Maximale HP",         "icon": "Icon_06", "btn": "Blue"},
+    {"id": "damage",    "name": "Mehr Schaden",    "desc": f"+{balance.UPGRADE_DAMAGE} Schaden pro Kugel",       "icon": "Icon_05", "btn": "Red"},
+    {"id": "speed",     "name": "Schnelle Kugeln", "desc": f"+{balance.UPGRADE_BULLET_SPEED} Kugelgeschwindigkeit", "icon": "Icon_05", "btn": "Red"},
+    {"id": "size",      "name": "Große Kugeln",    "desc": f"+{balance.UPGRADE_BULLET_SIZE} Kugelradius",          "icon": "Icon_06", "btn": "Blue"},
+    {"id": "multishot", "name": "Dreifachschuss",  "desc": f"{len(balance.MULTISHOT_ANGLES)} Kugeln pro Klick",    "icon": "Icon_05", "btn": "Red"},
+    {"id": "pierce",    "name": "Durchschlag",     "desc": "Kugeln treffen mehrere",                              "icon": "Icon_05", "btn": "Red"},
+    {"id": "max_hp",    "name": "Max HP",           "desc": f"+{balance.UPGRADE_MAX_HP} Maximale HP",              "icon": "Icon_06", "btn": "Blue"},
 ]
 
 CARD_W, CARD_H  = 200, 260

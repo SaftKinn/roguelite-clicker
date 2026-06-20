@@ -1,6 +1,7 @@
 import pygame
 from . import save_data as sd
 from . import ui_loader
+from . import balance
 from .constants import SCREEN_WIDTH, SCREEN_HEIGHT, BG_COLOR
 
 BTN_W   = 270
@@ -18,18 +19,18 @@ DIFF_MODIFIERS = {
     "Schwer": {"hp_mult": 1.4,  "spawn_bonus": -25},
 }
 
-# Einmalige Käufe
+# Einmalige Käufe (Preise/Effekte zentral in balance.py)
 _ONE_TIME = [
-    {"id": "doppelschuss", "name": "Doppelschuss",   "desc": "2 Kugeln hintereinander",  "cost": 120, "color": (220, 180,  40)},
-    {"id": "gold_boost",   "name": "Goldene Kugeln", "desc": "+50% Münzen aus Kills",    "cost": 80,  "color": (255, 210,   0)},
+    {"id": "doppelschuss", "name": "Doppelschuss",   "desc": "2 Kugeln hintereinander",  "cost": balance.COST_DOPPELSCHUSS, "color": (220, 180,  40)},
+    {"id": "gold_boost",   "name": "Goldene Kugeln", "desc": f"+{int((balance.GOLD_BOOST_MULT - 1) * 100)}% Münzen aus Kills", "cost": balance.COST_GOLD_BOOST, "color": (255, 210,   0)},
 ]
 
-# Unendlich steigerbare Upgrades
+# Unendlich steigerbare Upgrades (Preise/Effekte zentral in balance.py)
 _INFINITE = [
-    {"id": "start_damage", "name": "Startschaden", "per_level": "+10 Schaden", "base_cost": 50,  "color": (200,  60,  60)},
-    {"id": "start_hp",     "name": "Start-HP",     "per_level": "+30 HP",      "base_cost": 75,  "color": ( 60, 200, 100)},
+    {"id": "start_damage", "name": "Startschaden", "per_level": f"+{balance.PERMANENT_DAMAGE_PER_LEVEL} Schaden", "base_cost": balance.COST_START_DAMAGE, "color": (200,  60,  60)},
+    {"id": "start_hp",     "name": "Start-HP",     "per_level": f"+{balance.PERMANENT_HP_PER_LEVEL} HP",         "base_cost": balance.COST_START_HP,     "color": ( 60, 200, 100)},
 ]
-_COST_MULT = 1.65   # Preismultiplikator pro Stufe
+_COST_MULT = balance.COST_MULT   # Preismultiplikator pro Stufe
 
 # Rückwärtskompatibilität für main.py-Import
 IMPROVEMENTS = _ONE_TIME + [{"id": i["id"]} for i in _INFINITE]

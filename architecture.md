@@ -89,11 +89,14 @@ ein `game/`-Package mit Entitäts- und UI-Modulen. Diese Struktur bleibt bewusst
 | `game/ui_loader.py` | Baut Tiny-Swords-UI (HP-Bars, Buttons, Labels) per 3-Slice mit Tight-Crop-Grenzen. |
 | `game/terrain.py` | Backt Gras-Hintergrund + verteilt zufällige Deko. |
 | `game/fx.py` | `DamageNumber` (aufsteigende Schadens-/Münz-Zahlen). |
+| `game/balance.py` | Zentrales Tuning-Datenmodul (Wellen-Formeln, Spawn-/Nahkampf-Werte, Upgrade-Werte, Preise). |
 | `tools/generate_assets.py` | Hilfsskript zur Asset-Erzeugung (kein Laufzeit-Modul). |
 
-**Geplant (Phase 1):** `game/balance.py` — zentrales Tuning-Datenmodul
-(Gegner-Stats pro Welle, Wellen-Mix, Upgrade-Werte, Preise). Verhalten bleibt in
-den jeweiligen Modulen.
+**`game/balance.py`** (seit Phase 1): Wellen-Formeln (`enemies/​hp/​speed/​coin_for_wave`),
+Spawn-/Nahkampf-Konstanten, In-Run-Upgrade-Werte und Münz-Shop-Preise. **Nur
+Zahlen + reine Formeln** — Verhalten bleibt in den jeweiligen Modulen. UI-Texte
+(z. B. „+10 Schaden") werden aus denselben Konstanten generiert (eine Quelle der
+Wahrheit). JSON-Auslagerung weiter Backlog (ADR 002).
 
 > **Hinweis (Stand 2026-06-20):** Das Repo wurde gerade in ein `game/`-Package
 > umstrukturiert (vorher lagen alle Module flach im Root). Die Audio-/Asset-Pfade
@@ -182,13 +185,15 @@ Golden-Rule-Zwang zur Trennung.
 
 ## 6. Content-Pipeline (Tuning vs. Verhalten)
 
-**Aktueller Zustand:** Inhalte sind hartkodiert — Gegner als Klassen, Wellen als
-Formeln (`enemies_for_wave`, `enemy_hp_for_wave`, `enemy_speed_for_wave`,
-`coin_value_for_wave`), Gegner-Mix als gewichtete Zufallswahl je Wellenbereich in
-`spawn_enemy_for_wave()`. Upgrades als Listen in `upgrade_menu.py` /
-`main_menu.py`.
+**Aktueller Zustand (seit Phase 1):** Tuning-Zahlen liegen zentral in
+`game/balance.py` — Wellen-Formeln (`enemies_for_wave`, `enemy_hp_for_wave`,
+`enemy_speed_for_wave`, `coin_value_for_wave`), Spawn-/Nahkampf-Konstanten,
+In-Run-Upgrade-Werte und Münz-Shop-Preise. Gegner sind weiter Klassen, der
+Gegner-Mix eine gewichtete Zufallswahl je Wellenbereich in
+`spawn_enemy_for_wave()`; die Upgrade-/Shop-**Listen** bleiben in
+`upgrade_menu.py` / `main_menu.py`, ziehen ihre Zahlen aber aus `balance.py`.
 
-**Zielzustand (ab Phase 1):** Tuning-Zahlen wandern zentral nach `game/balance.py`
+**Designprinzip:** Tuning-Zahlen zentral in `game/balance.py`
 (Python-Datenmodul mit Tabellen/Dicts) — **kein JSON** zunächst. Vorteil:
 Balancing-Stellschrauben an einem Ort, mit Syntax-Check und Kommentaren, ohne
 neue Technik. Verhalten (Gegner-KI, Schussmuster) bleibt im Code.
@@ -330,4 +335,4 @@ roguelite-clicker/
 └── Gamesounds/          # Alt-Musikordner (Umzug nach assets/audio/ im Gange)
 ```
 
-Geplant (Phase 1): `game/balance.py` (zentrales Tuning-Datenmodul).
+`game/balance.py` (seit Phase 1): zentrales Tuning-Datenmodul.

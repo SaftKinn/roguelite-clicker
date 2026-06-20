@@ -2,6 +2,7 @@ import math
 import random
 import pygame
 from .constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from . import balance
 
 # ---------------------------------------------------------------------------
 # Feind-Projektil (Archer-Pfeil)
@@ -71,8 +72,8 @@ class Warrior:
     _atk2_frames_r    = None
     _atk2_frames_l    = None
     ATTACK_ANIM_RANGE = 60
-    ATTACK_DAMAGE     = 10   # Nahkampf-Schaden pro Treffer
-    ATTACK_COOLDOWN   = 45   # Ticks zwischen Treffern (~0.75 s)
+    ATTACK_DAMAGE     = balance.ATTACK_DAMAGE     # Nahkampf-Schaden pro Treffer (zentral in balance.py)
+    ATTACK_COOLDOWN   = balance.ATTACK_COOLDOWN   # Ticks zwischen Treffern (~0.75 s)
 
     def __init__(self, speed: float = 1.8, max_hp: int = 30):
         self.pos         = pygame.math.Vector2(self._random_edge_pos())
