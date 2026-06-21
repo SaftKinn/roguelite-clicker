@@ -24,8 +24,9 @@ ADR 018). Diese Session kam die **15-Gegner-Tier-Welle** dazu:
   `tools/animate_walk.py` → `assets/custom/<name>_run.png`. Generischer Loader
   `sprite_loader.load_custom_enemy`. **Prompt-Kit** liegt im Plan-File `ich-will-mehr-png-s-*`.
 
-**Bekannte Risiken/offene Fragen:** (a) **15 PNGs fehlen noch** → alle Tier-Gegner sind aktuell
-Fallback-Kreise in Tier-Farbe (Konsolen-Warnung je fehlendem `_run.png`, harmlos). (b) **W101–150
+**Bekannte Risiken/offene Fragen:** (a) **15 PNGs sind jetzt da** (Leonardo.ai, freigestellt via
+`key_black_bg --enclosed`, animiert, committet `2c7b856`) — Lexikon rendert 24/24 fehlerfrei.
+Rest: viele Posen eher frontal statt strikt Seitenprofil (beim Spiegeln unkritisch). (b) **W101–150
 ungetestet-balanciert** — HP-Formel skaliert weiter, könnte HP-Wand statt DPS-Rennen werden;
 Hebel `ENEMY_HP_PER_WAVE_SQ`/Tier-3-Härte. (c) **Originale Warrior/Archer/Goblin/Orc/Necro spawnen
 nicht mehr direkt** (nur Basisklasse + Summon-Default), bleiben aber im Lexikon. (d) FPS 140 ist
@@ -37,6 +38,17 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-21 (Teil 13) — **15 Tier-Sprites importiert (Leonardo.ai → Spiel):**
+- 15 generierte Bilder den Gegnern zugeordnet (Sichtprüfung), je **freigestellt** mit
+  `key_black_bg --enclosed` (neuer Pass entfernt Körper↔Arm-Taschen; Schwarz- UND Weiß-BG,
+  ohne helle Skelette/dunkle Roben anzufressen) → `<name>_static.png`, dann `animate_walk.py`
+  mit Archetyp-Preset → `<name>_run.png`. **30 Assets committet `2c7b856`.**
+- Verifikation: Lexikon rendert **24/24 mit echten Sprites, null Lade-Fehler** (Kontaktbogen +
+  Bestiary-Render geprüft); voller Treiber-Flow crashfrei bis Sieg. Offen: Posen oft frontal
+  statt Seitenprofil; W150-Boss-HP (×100) laut Modell nur mit Dreifachschuss schaffbar.
+- Auch committet: Prompt-Kit `docs/sprite-prompts.md` (`4f4b306`), `key_black_bg --enclosed`
+  (`9b996bf`), Boss-HP ×5 (`d92d1c9`).
 
 2026-06-21 (Teil 12) — **Karten-Farbgruppen + Shop-Ausbau (ADR 025, 026):**
 - **4 Farbgruppen** (ROT Schaden / BLAU Verteidigung / GOLD Geld / WEISS XP), zentral in
