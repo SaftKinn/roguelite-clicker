@@ -13,12 +13,78 @@ bereit für echten Playtest.** Zwei Balance-Hebel sind committet: (1) Boss-HP-Mu
 1+wave//8`, `XP_WAVE_DIV=8`, ADR 014, `d06414e`) — Modell: Endlevel ~98, **0/10 Bosse über dem
 Walk-Budget** (vorher 9/10). Dazu ist der **SuperBoss jetzt ein animierter, fliegender Drache** (ADR 016,
 25-Frame-Strip aus dem 5×5-Spritesheet, `smoothscale`, Schwebe-Bob; ersetzt das statische
-Pixel-Sprite aus ADR 015) — **uncommitted**. **Bekannte
-Risiken/offene Fragen:** (a) Level-Inflation (~98 → fast alle Karten, Build-Tiefe?); (b)
-Stil-Bruch Pixel-Boss vs. glatte Tiny-Swords-Gegner; (c) der echte 1→100-Playtest steht noch
-aus (F4 taugt nicht).
+Pixel-Sprite aus ADR 015) — **uncommitted**. Zusätzlich **drei neue Gegnerklassen**
+(Goblin/OrcBerserker/Necromancer, ADR 017) eingehängt + Leonardo-Prompts geliefert; die
+**KI-Sprites sind jetzt drin** (statisch, 1 Frame): schwarzer BG via neuem
+`tools/key_black_bg.py` (Flood-Fill von den Ecken → nur rand-verbundenes Schwarz raus,
+dann auf Quadrat zentriert → loader-sicher) keygt; danach **prozedural animiert** via neuem
+`tools/animate_walk.py` (Pillow: Bob am Fußpunkt + Squash/Stretch + Tilt → 8-Frame-Strip
+im Loader-Format) → `assets/custom/{orc_warrior,goblin,necromancer}_run.png` (8 Frames,
+256²); die gekeyten Standbilder bleiben als `*_static.png`-Quelle liegen. DragonBones
+verworfen (DesignPanel = totes Flash-2015-Tool; volles Rigging Overkill für ~60-px-Gegner).
+Dazu ein **Spiel-weiter Feel-/Balance-Umbau** (Nutzerwunsch): Gegner ~30 % langsamer,
+`CAMERA_ZOOM 1.2→1.4`, neue Gegner-HP ×10 (Goblin ×2.5/Ork ×25/Nekro ×6 der Basis), Save
+zurückgesetzt, und **Boss-Wand als Meta-Gate für ~5 Läufe bis Welle 100** (ADR 018:
+Boss×6/Super×10, PermDmg 25, CostMult 1.4; Modell `tools/balance_model_runs.py`). — **alles
+uncommitted.** **Bekannte Risiken/offene Fragen:** (a) **5-Läufe-Modell misst nur die
+Boss-Wand, NICHT den HP-Tod durch die jetzt ×10-zähen Normalgegner** (Ork ×25 = 4× Boss) →
+real evtl. mehr Läufe, Playtest nötig; (b) Run 1 stirbt schon am ersten Boss (W10) — gewollt,
+evtl. hart; (c) Stil-Bruch Pixel/Tiny-Swords; (d) echter 1→100-Playtest steht aus.
 
 ## Last session
+
+2026-06-21 (Teil 7) — Feel-/Meta-Balance-Umbau + Sprites animiert (ADR 018):
+- **Sprites:** 3 KI-Charaktere (schwarzer BG) via `tools/key_black_bg.py` gekeyt + via
+  `tools/animate_walk.py` zu 8-Frame-Walk-Strips animiert (Bob/Squash/Tilt; Presets je
+  Klasse). DragonBones/DesignPanel geprüft + verworfen (totes Flash-2015-Tool).
+- **Feel (Nutzerwünsche):** `enemy_speed_for_wave` ~30 % langsamer (`min(1.5+wave·0.13, 3.2)`);
+  `CAMERA_ZOOM 1.2→1.4` (alles größer via Post-Render-Zoom, Hitboxen unberührt); neue
+  Gegner-HP **×10** (Goblin 0.25→2.5, Ork 2.5→**25**, Nekro 0.6→6.0 der Basis); `save.json`
+  auf Defaults zurückgesetzt.
+- **Meta-Gate „~5 Läufe bis Welle 100" (ADR 018):** neues Mehr-Lauf-Modell
+  `tools/balance_model_runs.py` (Boss-Wand = Todeswelle, Münzen→permanenter Startschaden→Wand
+  wandert). Brüchige Klippe entdeckt (Boss-Mult allein: 2→65→nie) → vier Hebel zusammen:
+  `BOSS_HP_MULT 2→6`, `SUPERBOSS_HP_MULT 3→10`, `PERMANENT_DAMAGE_PER_LEVEL 15→25`,
+  `COST_MULT 1.65→1.4`. Modell: Todeswelle 10→50→80→90→100 = **5 Läufe** (4 mit Goldenen
+  Kugeln). Revidiert das „kein-Wall"-Ziel von ADR 013/014 bewusst.
+- **VORBEHALT:** Modell misst nur die Boss-DPS-Wand, **nicht** den HP-Tod durch die ×10-zähen
+  Normalgegner → real evtl. mehr Läufe. Playtest entscheidet; Gegenhebel = neue-Gegner-HP
+  runter oder Modell um Clear-/Überlebensrate erweitern.
+- **Verifikation:** Modell LIVE = 5 Läufe; `py_compile` OK; voller Treiber-Flow bis Sieg
+  crashfrei; Zoom 1.4 + Walk-Frames im Screenshot bestätigt. **alles uncommitted.**
+
+2026-06-21 (Teil 6) — Drei neue Gegnerklassen + Leonardo-Prompts (ADR 017):
+- **Leonardo Phoenix 1.0** empfohlen (Style „Illustration", Contrast 3.5, Transparency an,
+  Pixel-Art-Style explizit **aus** — Tiny Swords ist glatter 2.5D-Cartoon). Copy-paste-Prompts
+  (positiv + gemeinsamer Negative/Stil-Suffix, „facing right" für `_load_custom_strip`) für
+  Goblin, Ork-Berserker, Nekromant geliefert.
+- **`game/enemy.py`** + 3 Klassen (alle subklassen `Warrior`, eigener `_frames_*`-Cache +
+  `_load_sprites()`-Fallback, Golden Rule 5): `Goblin` (Schwarm, speed×1.6/hp×0.25),
+  `OrcBerserker` (Brecher, speed×0.5/hp×2.5, `DAMAGE_MULT=2`, nutzt `orc_warrior`-Sheets),
+  `Necromancer` (Beschwörer wie Monk auf Distanz, ruft Goblins via `SUMMON_*`/`SUMMON_MAX`,
+  `pop_summons()`).
+- **`game/sprite_loader.py`:** `load_goblin_run` + `load_necromancer_run`. **`main.py`:** Import
+  erweitert, Spawn-Tabelle welleabhängig gewichtet (goblin ab W5, orc ab W8, necro ab W12);
+  Necromancer-Summons **nach** der Update-Schleife angehängt (kein Mutieren während Iteration).
+- **Verifikation:** `py_compile` OK; Headless-Unit-Test (Stats + Draw-Fallback + Beschwörung) OK;
+  voller Treiber-Flow (F3→Welle 49) crashfrei mit aktiver Spawn-Tabelle; Fallback-Primitive
+  gerendert (grün / grün-Ring / lila+Aura).
+- **Sprites eingesetzt (Folge-Schritt, dieselbe Session):** Nutzer lieferte 3 KI-Charaktere
+  (Leonardo, **schwarzer BG** — Transparency war aus) → neues `tools/key_black_bg.py`
+  (Pillow-only: Ecken-Flood-Fill keyt nur rand-verbundenes Schwarz, schont innere Outlines;
+  zuschneiden + auf Quadrat zentrieren, weil `_load_custom_strip` `subsurface((0,0,h,h))`
+  macht → Hochformat würde crashen). Ablage als 1-Frame-Strips (1396²/1423²/1380²).
+  **Bugfix:** `OrcBerserker._load_sprites` lädt run + attack jetzt in **getrennten**
+  try/except — fehlendes Attack-Sheet riss vorher die Lauf-Sprites mit weg. Reale Sprites
+  laden + rendern transparent (kein Halo/Löcher); voller Treiber-Flow bis Sieg crashfrei.
+- **Walk-Animation gelöst (prozedural, dieselbe Session):** DragonBones-Routen geprüft +
+  verworfen (DesignPanel = Flash-Plugin von 2015, tot; volles Rigging Overkill bei ~60 px).
+  Stattdessen `tools/animate_walk.py` (Pillow-only): erzeugt aus jedem Standbild einen
+  8-Frame-Strip — vertikaler **Bob am Fußpunkt** (verankert, kein Schweben), **Squash/Stretch**
+  auf dem Stampf-Beat, leichter **Tilt**; `--bounces` (2=Marsch, 1=Schweben). Presets: Ork
+  schwerer Stampf, Goblin flinkes Trippeln, Nekromant sanftes Schweben (bounces=1, squash=0).
+  Frames per Kontaktbogen geprüft (Fuß auf Baseline, kein Clipping); `Warrior.update` cycelt
+  sie automatisch; voller Treiber-Flow bis Sieg crashfrei. **uncommitted; Balance offen.**
 
 2026-06-21 (Teil 5) — SuperBoss fliegt jetzt: animierter Drache (ADR 016, **ersetzt 015**):
 - Nutzer lieferte ein sauberes **5×5-Spritesheet** (25 Frames Flug-/Lauf-Zyklus, **Alpha-
@@ -199,7 +265,16 @@ aus (F4 taugt nicht).
 
 ## Next concrete step
 
-**Ein echter 1→100-Lauf (kein F4!)** mit beiden Hebeln drin (ADR 013 ×2/×3 + ADR 014 XP-
+**Echter Playtest des 5-Läufe-Meta-Gates (ADR 018).** Kernfrage: stimmt „~5 Läufe bis Welle
+100" *im echten Spiel* — oder sind die ×10-zähen Normalgegner (v. a. Ork ×25) die wahre Wand
+(Turm überrannt = HP-Tod), die das Boss-Wand-Modell nicht kennt? Falls real >> 5 Läufe:
+**Gegenhebel** = neue-Gegner-HP senken (Ork ×25 ist extrem) ODER `tools/balance_model_runs.py`
+um eine Überlebens-/Clear-Rate erweitern (reguläre Gegner-DPS gegen Spieler-HP/Lifesteal).
+Sekundär: tragen die neuen Gegner-Rollen den Druck, ist der Necro-Anteil ok (Summons umgehen
+den Concurrent-Cap)? Reicht die prozedurale Bewegung optisch? Regler: `target_px` (Größe),
+`animate_walk.py`-Presets (Bewegung), die vier ADR-018-Konstanten (Läufe-Zahl).
+
+Parallel/danach: **Ein echter 1→100-Lauf (kein F4!)** mit allen Hebeln drin (ADR 013 ×2/×3 + ADR 014 XP-
 Wellenskalierung). Leitfragen: (1) Fühlen sich die späten Bosse als knappes, faires DPS-
 Rennen an (Modell: alle im Walk-Budget)? (2) **Fühlt sich ~Level 98 gut an oder nach „alles
 mitnehmen"?** Wenn die Build-Entscheidung zu sehr verwässert, ist der Gegen-Hebel ein HP-
@@ -317,6 +392,23 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   (vorher Magic Numbers in `enemy.py`). Bewusst nur dieser eine Hebel; zweiter Hebel
   (`ENEMY_HP_PER_WAVE_SQ`/XP-Kurve) für W60+ offen. Revidiert die „×8/×25 bleiben"-Festlegung
   aus ADR 012.
+- **D33** — **Boss-Wand als Meta-Gate für ~5 Läufe bis Welle 100** → **ADR 018** (revidiert
+  ADR 013/014). `BOSS_HP_MULT 2→6`, `SUPERBOSS_HP_MULT 3→10`, `PERMANENT_DAMAGE_PER_LEVEL
+  15→25`, `COST_MULT 1.65→1.4`; kalibriert per neuem `tools/balance_model_runs.py`. Boss-Mult
+  allein = brüchige Klippe → vier Hebel zusammen. Vorbehalt: Modell ignoriert HP-Tod durch
+  die ×10-Normalgegner.
+- **D32** — **Spiel-weiter Feel-Umbau (reine Werte, Nutzerwunsch):** Gegner ~30 % langsamer
+  (`enemy_speed_for_wave = min(1.5+wave·0.13, 3.2)`); `CAMERA_ZOOM 1.2→1.4` (statt SPRITE_SCALE,
+  da Post-Render-Zoom = alles inkl. Boss/Spieler, Hitboxen unberührt); neue Gegner-HP **×10**
+  (Goblin ×2.5/Ork ×25/Nekro ×6 der Basis-HP — bewusst sehr zäh, Ork > SuperBoss); `save.json`
+  zurückgesetzt. Optik der animierten Sprites via `tools/animate_walk.py` (kein ADR — Werte/Tooling).
+- **D31** — **Drei neue Gegnerklassen** (Goblin/OrcBerserker/Necromancer) → **ADR 017**.
+  Schwarm/Brecher/Beschwörer füllen die Druck-/Build-Tiefe-Lücke; alle subklassen `Warrior`
+  mit Fallback-Sprites (Golden Rule 5), HP/Speed-Faktoren inline (wie Lancer/Monk),
+  Verhalten (`SUMMON_*`, `DAMAGE_MULT`) als benannte Konstanten. Spawn welleabhängig
+  gewichtet (W5/W8/W12). Necromancer-Summons via `pop_summons()` nach der Update-Schleife
+  angehängt (kein Mutieren während Iteration), umgehen aber `MAX_CONCURRENT_ENEMIES`
+  (per `SUMMON_MAX` gedeckelt). Sprites + Balance noch offen.
 - **D30** — **SuperBoss fliegt: animierter Drache** → **ADR 016** (ersetzt D29/ADR 015).
   Sauberes 5×5-Spritesheet (25 Frames, Alpha, kein Wasserzeichen) → 25-Frame-Strip
   `drache_superboss_fly.png`; `load_drache_superboss(target_w)` slict + `smoothscale`t
@@ -347,7 +439,9 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur),
   ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner), ADR 012 (HP-Scaling super-linear),
   ADR 013 (Boss-Multiplikatoren ×2/×3), ADR 014 (XP-Wellenskalierung),
-  ADR 015 (SuperBoss-Pixel-Art-Drache, abgelöst), ADR 016 (SuperBoss animierter Flug-Drache).
+  ADR 015 (SuperBoss-Pixel-Art-Drache, abgelöst), ADR 016 (SuperBoss animierter Flug-Drache),
+  ADR 017 (drei neue Gegnerklassen: Goblin/OrcBerserker/Necromancer),
+  ADR 018 (Boss-Wand als Meta-Gate, ~5 Läufe; revidiert ADR 013/014).
 - **Phase 4** (Verpacken) → ADR 001 (Python/Pygame → PyInstaller).
 - **Part 2** (Rebirth/Waffen) → ADR 004.
 
@@ -367,8 +461,9 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 3 — Inhaltszuwachs:** angefangen (2026-06-20). Erste Inhalte: Passiv-Combat +
   Autoaim (ADR 010), Elite-Gegner + Reward (ADR 011), super-lineares HP-Scaling (ADR 012),
   Stats-Overlay (C), Boss-Multiplikatoren entschärft (ADR 013) + Balance-Modell-Tool, XP-
-  Wellenskalierung (ADR 014), SuperBoss-Pixel-Art-Drache (ADR 015). Noch offen: weitere
-  Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen, Dornen, Reroll …) + ein echter
-  1→100-Balance-Lauf (inkl. Level-Inflations-Check); alles per Playtest.
+  Wellenskalierung (ADR 014), SuperBoss animierter Flug-Drache (ADR 016), drei neue
+  Gegnerklassen Goblin/OrcBerserker/Necromancer (ADR 017, Sprites noch ausstehend). Noch
+  offen: weitere Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen, Dornen, Reroll …) + ein
+  echter 1→100-Balance-Lauf (inkl. Level-Inflations- + Neue-Gegner-Check); alles per Playtest.
 - **Phase 4 — Politur & `.exe`:** offen
 - **Part 2 — Rebirth/Waffen:** offen (Backlog)

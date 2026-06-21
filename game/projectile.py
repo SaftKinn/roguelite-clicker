@@ -5,7 +5,7 @@ from .constants import SCREEN_WIDTH, SCREEN_HEIGHT
 COLOR        = (255, 220, 60)
 
 _surf_cache: dict = {}
-BASE_SPEED   = 10
+BASE_SPEED   = 10000
 BASE_DAMAGE  = 10
 BASE_RADIUS  = 5
 

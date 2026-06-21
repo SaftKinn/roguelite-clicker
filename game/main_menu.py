@@ -19,9 +19,16 @@ DIFF_MODIFIERS = {
     "Schwer": {"hp_mult": 1.4,  "spawn_bonus": -25},
 }
 
-# Einmalige Käufe (Preise/Effekte zentral in balance.py)
+# Gestufte Käufe (capped, eigene Kostenliste je Stufe) — Reihe 1, Spalte 0
+_TIERED = [
+    {"id": "doppelschuss", "name": "Doppelschuss",
+     "tiers": ["+1 Schuss (2 gesamt)", "+2 Schuss (3 gesamt)"],
+     "costs": [balance.COST_DOPPELSCHUSS, balance.COST_DREIFACHSCHUSS],
+     "color": (220, 180, 40)},
+]
+
+# Einmalige Käufe (Preise/Effekte zentral in balance.py) — Reihe 1, restliche Spalten
 _ONE_TIME = [
-    {"id": "doppelschuss", "name": "Doppelschuss",   "desc": "2 Kugeln hintereinander",  "cost": balance.COST_DOPPELSCHUSS, "color": (220, 180,  40)},
     {"id": "gold_boost",   "name": "Goldene Kugeln", "desc": f"+{int((balance.GOLD_BOOST_MULT - 1) * 100)}% Münzen aus Kills", "cost": balance.COST_GOLD_BOOST, "color": (255, 210,   0)},
 ]
 
@@ -33,7 +40,7 @@ _INFINITE = [
 _COST_MULT = balance.COST_MULT   # Preismultiplikator pro Stufe
 
 # Rückwärtskompatibilität für main.py-Import
-IMPROVEMENTS = _ONE_TIME + [{"id": i["id"]} for i in _INFINITE]
+IMPROVEMENTS = _ONE_TIME + _TIERED + [{"id": i["id"]} for i in _INFINITE]
 
 
 def upgrade_cost(base_cost: int, level: int) -> int:
@@ -76,12 +83,95 @@ class Button:
 
 
 # ---------------------------------------------------------------------------
+# Speicherstand-Auswahl (vor dem Hauptmenü)
+# ---------------------------------------------------------------------------
+
+class SlotSelectMenu:
+    """Auswahl eines Speicherstands (Slot) VOR dem Hauptmenü. Zeigt je Slot eine
+    Kurzinfo (Rekord-Welle, Münzen) oder „Leer"; ein gewählter Slot wird geladen."""
+    _CARD_W, _CARD_H, _GAP = 620, 96, 22
+    _DEL_W = 96
+
+    def __init__(self):
+        self._fonts_ready = False
+
+    def _load_fonts(self) -> None:
+        if not self._fonts_ready:
+            self.font_title = pygame.font.SysFont("Arial", 44, bold=True)
+            self.font_sub   = pygame.font.SysFont("Arial", 16)
+            self.font_name  = pygame.font.SysFont("Arial", 24, bold=True)
+            self.font_info  = pygame.font.SysFont("Arial", 16)
+            self._fonts_ready = True
+
+    def _card_rect(self, i: int) -> pygame.Rect:
+        n  = len(sd.SLOTS)
+        total_h = n * self._CARD_H + (n - 1) * self._GAP
+        sx = SCREEN_WIDTH // 2 - self._CARD_W // 2
+        sy = SCREEN_HEIGHT // 2 - total_h // 2 + 10
+        return pygame.Rect(sx, sy + i * (self._CARD_H + self._GAP),
+                           self._CARD_W, self._CARD_H)
+
+    def _del_rect(self, card: pygame.Rect) -> pygame.Rect:
+        return pygame.Rect(card.right - self._DEL_W - 12,
+                           card.centery - 18, self._DEL_W, 36)
+
+    def handle_click(self, pos: tuple, summaries: list):
+        """Gibt ('pick', slot) | ('delete', slot) | None zurück."""
+        for i, slot in enumerate(sd.SLOTS):
+            card = self._card_rect(i)
+            if summaries[i] is not None and self._del_rect(card).collidepoint(pos):
+                return ("delete", slot)
+            if card.collidepoint(pos):
+                return ("pick", slot)
+        return None
+
+    def draw(self, screen: pygame.Surface, mouse_pos: tuple, summaries: list) -> None:
+        self._load_fonts()
+        screen.fill(BG_COLOR)
+        cx = SCREEN_WIDTH // 2
+        title = self.font_title.render("Speicherstand wählen", True, (255, 220, 60))
+        screen.blit(title, (cx - title.get_width() // 2, SCREEN_HEIGHT // 5))
+
+        for i, slot in enumerate(sd.SLOTS):
+            card    = self._card_rect(i)
+            summary = summaries[i]
+            hovered = card.collidepoint(mouse_pos)
+            pygame.draw.rect(screen, (40, 40, 58) if hovered else (30, 30, 44),
+                             card, border_radius=12)
+            pygame.draw.rect(screen, (90, 130, 200) if hovered else (60, 60, 85),
+                             card, width=2, border_radius=12)
+            name = self.font_name.render(f"Speicherstand {slot}", True, (235, 235, 250))
+            screen.blit(name, (card.x + 22, card.y + 16))
+            if summary is None:
+                info = self.font_info.render("Leer — neuer Lauf", True, (120, 160, 120))
+                screen.blit(info, (card.x + 22, card.y + 52))
+            else:
+                info = self.font_info.render(
+                    f"Rekord: Welle {summary['best_wave']}   ·   Münzen: {summary['total_coins']}",
+                    True, (180, 180, 205))
+                screen.blit(info, (card.x + 22, card.y + 52))
+                # Löschen-Button
+                dr = self._del_rect(card)
+                dhov = dr.collidepoint(mouse_pos)
+                pygame.draw.rect(screen, (90, 40, 40) if dhov else (60, 30, 30), dr, border_radius=8)
+                pygame.draw.rect(screen, (200, 80, 80), dr, width=1, border_radius=8)
+                dl = self.font_info.render("Löschen", True, (230, 170, 170))
+                screen.blit(dl, (dr.centerx - dl.get_width() // 2,
+                                 dr.centery - dl.get_height() // 2))
+
+        hint = self.font_sub.render("Klicke einen Speicherstand, um zu starten.",
+                                    True, (110, 110, 135))
+        screen.blit(hint, (cx - hint.get_width() // 2, SCREEN_HEIGHT - 60))
+
+
+# ---------------------------------------------------------------------------
 # Hauptmenü
 # ---------------------------------------------------------------------------
 
 _MENU_DEFS = [
     {"id": "start",        "label": "Lauf Starten",    "color": (60, 200, 100)},
     {"id": "improvements", "label": "Verbesserungen",  "color": (160, 80, 220)},
+    {"id": "bestiary",     "label": "Lexikon",          "color": (210, 160, 50)},
     {"id": "options",      "label": "Optionen",         "color": (60, 160, 220)},
     {"id": "quit",         "label": "Spiel Schließen", "color": (200, 60, 60)},
 ]
@@ -161,6 +251,11 @@ class MainMenu:
 # ---------------------------------------------------------------------------
 
 class OptionsMenu:
+    # Wählbare Bildraten für den FPS-Regler (Schieberegler wie die Lautstärke-Balken).
+    _FRAMERATE_VALUES = [30, 60, 75, 90, 120, 140, 165, 200, 240]
+    # Regler-Zeilen (Drag-Balken statt < >-Pfeile): Lautstärke + Bildrate.
+    _SLIDER_KEYS = ("sfx", "music", "framerate")
+
     _ROWS = [
         {"key": "difficulty", "label": "Schwierigkeitsgrad",
          "values": DIFFICULTIES},
@@ -168,16 +263,20 @@ class OptionsMenu:
          "values": [f"{i*10}%" for i in range(11)]},
         {"key": "music",      "label": "Musik-Lautstärke",
          "values": [f"{i*10}%" for i in range(11)]},
+        {"key": "framerate",  "label": "FPS (Bildrate)",
+         "values": _FRAMERATE_VALUES},
         {"key": "fps",        "label": "FPS anzeigen",
          "values": ["Aus", "An"]},
     ]
-    _ROW_START = -80    # cy-Offset für erste Zeile
-    _ROW_STEP  =  72
+    _ROW_START = -110   # cy-Offset für erste Zeile (eine Zeile mehr → etwas höher starten)
+    _ROW_STEP  =  64
 
     def __init__(self):
         self._fonts_ready = False
-        self._dragging    = None      # "sfx" | "music" | None
-        self._idx = {"difficulty": 1, "sfx": 7, "music": 5, "fps": 0}  # Normal, 70%, 50%, Aus
+        self._dragging    = None      # "sfx" | "music" | "framerate" | None
+        # Defaults: Normal, SFX 70%, Musik 50%, 140 FPS (Index 5), FPS-Anzeige Aus
+        self._idx = {"difficulty": 1, "sfx": 7, "music": 5,
+                     "framerate": self._FRAMERATE_VALUES.index(140), "fps": 0}
         cx = SCREEN_WIDTH  // 2
         cy = SCREEN_HEIGHT // 2
         self.back_btn = Button(
@@ -186,9 +285,9 @@ class OptionsMenu:
                         BTN_W, BTN_H),
             "Zurück", (60, 160, 220)
         )
-        # < > Buttons NUR für Nicht-Lautstärke-Zeilen
+        # < > Buttons NUR für Nicht-Regler-Zeilen (Slider haben Drag-Balken statt Pfeile)
         self._arrow_idxs = [i for i, r in enumerate(self._ROWS)
-                            if r["key"] not in ("sfx", "music")]
+                            if r["key"] not in self._SLIDER_KEYS]
         self._left_btns  = [
             Button(pygame.Rect(cx - 140, cy + self._ROW_START + i * self._ROW_STEP - 20, 44, 44),
                    "<", (180, 180, 200))
@@ -230,6 +329,11 @@ class OptionsMenu:
     def show_fps(self) -> bool:
         return self._idx["fps"] == 1
 
+    @property
+    def fps_value(self) -> int:
+        """Gewählte Bildrate (treibt clock.tick UND die Feuerrate in main.py)."""
+        return self._FRAMERATE_VALUES[self._idx["framerate"]]
+
     def get_modifiers(self) -> dict:
         return DIFF_MODIFIERS[self.difficulty]
 
@@ -255,13 +359,14 @@ class OptionsMenu:
             if row["key"] == self._dragging:
                 bar   = self._vol_bar_rect(i)
                 ratio = (pos[0] - bar.x) / bar.width
-                self._idx[self._dragging] = max(0, min(10, round(ratio * 10)))
+                n     = len(row["values"]) - 1   # Slider-Schrittzahl (11 für Lautstärke, sonst variabel)
+                self._idx[self._dragging] = max(0, min(n, round(ratio * n)))
                 return
 
     def start_drag(self, pos: tuple) -> str | None:
-        """Startet Drag wenn auf einen Lautstärke-Balken geklickt wird."""
+        """Startet Drag wenn auf einen Regler-Balken (Lautstärke/Bildrate) geklickt wird."""
         for i, row in enumerate(self._ROWS):
-            if row["key"] in ("sfx", "music"):
+            if row["key"] in self._SLIDER_KEYS:
                 if self._vol_bar_rect(i).inflate(0, 14).collidepoint(pos):
                     self._dragging = row["key"]
                     self._apply_drag(pos)
@@ -313,14 +418,16 @@ class OptionsMenu:
             label_surf = self.font_sm.render(row["label"], True, (160, 160, 185))
             screen.blit(label_surf, (cx - label_surf.get_width() // 2, ry - 20))
 
-            if key in ("sfx", "music"):
-                # Musiknoten-Icon + grüner Lautstärke-Balken
-                icon_x = cx - self._BAR_W // 2 - self._VOL_ICON_SIZE - 8
-                icon_y = ry + 4 + (self._BAR_H - self._VOL_ICON_SIZE) // 2
-                screen.blit(self._note_surf, (icon_x, icon_y))
+            if key in self._SLIDER_KEYS:
+                n = len(row["values"]) - 1
+                # Lautstärke-Zeilen tragen das Musiknoten-Icon; der FPS-Regler nicht.
+                if key in ("sfx", "music"):
+                    icon_x = cx - self._BAR_W // 2 - self._VOL_ICON_SIZE - 8
+                    icon_y = ry + 4 + (self._BAR_H - self._VOL_ICON_SIZE) // 2
+                    screen.blit(self._note_surf, (icon_x, icon_y))
 
                 bx, by = cx - self._BAR_W // 2, ry + 4
-                fill_w = int(self._BAR_W * idx / 10)
+                fill_w = int(self._BAR_W * idx / n) if n else 0
                 pygame.draw.rect(screen, (20, 55, 20),
                                  (bx, by, self._BAR_W, self._BAR_H), border_radius=5)
                 if fill_w > 0:
@@ -332,9 +439,10 @@ class OptionsMenu:
                 dragging = self._dragging == key
                 pygame.draw.circle(screen, (255, 255, 255) if dragging else (200, 240, 200),
                                    (hx, hy), 8 if dragging else 6)
-                # Prozentzahl rechts
-                pct = self.font_sm.render(f"{idx*10}%", True, (180, 230, 180))
-                screen.blit(pct, (bx + self._BAR_W + 18, by + (self._BAR_H - pct.get_height()) // 2))
+                # Rechts: Prozent (Lautstärke) bzw. FPS-Zahl (Bildrate)
+                label = f"{idx*10}%" if key in ("sfx", "music") else f"{row['values'][idx]} FPS"
+                rl = self.font_sm.render(label, True, (180, 230, 180))
+                screen.blit(rl, (bx + self._BAR_W + 18, by + (self._BAR_H - rl.get_height()) // 2))
             else:
                 val = row["values"][idx]
                 value_surf = self.font.render(val, True, (255, 255, 255))
@@ -354,6 +462,128 @@ class OptionsMenu:
             self._right_btns[btn_i].draw(screen, self.font, mouse_pos)
 
         self.back_btn.draw(screen, self.font, mouse_pos)
+
+
+# ---------------------------------------------------------------------------
+# Lexikon / Bestiarium — alle Gegner mit Stats (nur gesehene werden enthüllt)
+# ---------------------------------------------------------------------------
+
+class BestiaryMenu:
+    # Katalog: key = Klassenname (für "gesehen"-Abgleich), + Anzeige-Infos/Stats.
+    _CATALOG = [
+        {"key": "Warrior",      "name": "Krieger",      "role": "Nahkämpfer",
+         "stats": ["HP-Faktor ×1.0", "Tempo: normal", "Belohnung: 1"]},
+        {"key": "Archer",       "name": "Bogenschütze", "role": "Fernkämpfer",
+         "stats": ["HP-Faktor ×0.4", "Tempo: schnell", "schießt Pfeile", "Belohnung: 1"]},
+        {"key": "Lancer",       "name": "Lanzenträger", "role": "Tank",
+         "stats": ["HP-Faktor ×3.0", "Tempo: langsam", "Belohnung: 3"]},
+        {"key": "Monk",         "name": "Mönch",        "role": "Heiler",
+         "stats": ["HP-Faktor ×0.6", "heilt 5 Gegner (+15)", "Belohnung: 3"]},
+        {"key": "Goblin",       "name": "Goblin",       "role": "Schwarm",
+         "stats": ["HP-Faktor ×2.5", "Tempo: sehr schnell", "Belohnung: 1"]},
+        {"key": "OrcBerserker", "name": "Ork-Berserker","role": "Brecher",
+         "stats": ["HP-Faktor ×25", "doppelter Schaden", "Belohnung: 4"]},
+        {"key": "Necromancer",  "name": "Nekromant",    "role": "Beschwörer",
+         "stats": ["HP-Faktor ×6.0", "beschwört Goblins", "Belohnung: 4"]},
+        {"key": "Boss",         "name": "Boss",         "role": "alle 10 Wellen",
+         "stats": ["HP ×6 der Basis", "tötet mit 1 Treffer", "Belohnung: 10"]},
+        {"key": "SuperBoss",    "name": "Drache",       "role": "Welle 50 & 100",
+         "stats": ["HP ×10 der Basis", "tötet mit 1 Treffer", "Belohnung: 50"]},
+    ]
+    _COLS = 3
+    _CARD_W, _CARD_H, _GAP = 384, 150, 16
+    _THUMB = 84
+
+    def __init__(self):
+        self._fonts_ready = False
+        self._thumbs = {}   # key -> Surface | False (Cache, lazy geladen)
+        cx = SCREEN_WIDTH // 2
+        self.back_btn = Button(
+            pygame.Rect(cx - BTN_W // 2, SCREEN_HEIGHT - BTN_H - 24, BTN_W, BTN_H),
+            "Zurück", (60, 160, 220))
+
+    def _load_fonts(self) -> None:
+        if not self._fonts_ready:
+            self.font_title = pygame.font.SysFont("Arial", 36, bold=True)
+            self.font_name  = pygame.font.SysFont("Arial", 20, bold=True)
+            self.font_sm    = pygame.font.SysFont("Arial", 13)
+            self._fonts_ready = True
+
+    def _thumb_for(self, key: str):
+        """Sprite-Thumbnail eines Gegners (lazy, gecacht). False, wenn nicht ladbar."""
+        if key in self._thumbs:
+            return self._thumbs[key]
+        surf = False
+        try:
+            from . import enemy as _e
+            cls = getattr(_e, key)
+            cls._load_sprites()
+            frames = cls._frames_r or cls._frames_l
+            if frames:
+                fr = frames[0]
+                scale = self._THUMB / max(fr.get_width(), fr.get_height())
+                surf = pygame.transform.smoothscale(
+                    fr, (max(1, int(fr.get_width() * scale)),
+                         max(1, int(fr.get_height() * scale))))
+        except Exception as exc:
+            print(f"[Bestiary] Thumb {key}: {exc}")
+        self._thumbs[key] = surf
+        return surf
+
+    def handle_click(self, pos: tuple) -> str | None:
+        return "back" if self.back_btn.is_hovered(pos) else None
+
+    def _card_rect(self, i: int) -> pygame.Rect:
+        col, row = i % self._COLS, i // self._COLS
+        grid_w = self._COLS * self._CARD_W + (self._COLS - 1) * self._GAP
+        sx = SCREEN_WIDTH // 2 - grid_w // 2
+        sy = 104
+        return pygame.Rect(sx + col * (self._CARD_W + self._GAP),
+                           sy + row * (self._CARD_H + self._GAP),
+                           self._CARD_W, self._CARD_H)
+
+    def draw(self, screen: pygame.Surface, mouse_pos: tuple, seen: set) -> None:
+        self._load_fonts()
+        screen.fill(BG_COLOR)
+        cx = SCREEN_WIDTH // 2
+        title = self.font_title.render("Lexikon", True, (255, 220, 60))
+        screen.blit(title, (cx - title.get_width() // 2, 38))
+        n_seen = sum(1 for e in self._CATALOG if e["key"] in seen)
+        prog = self.font_sm.render(f"{n_seen} / {len(self._CATALOG)} entdeckt",
+                                   True, (140, 140, 165))
+        screen.blit(prog, (cx - prog.get_width() // 2, 84))
+
+        for i, entry in enumerate(self._CATALOG):
+            r = self._card_rect(i)
+            is_seen = entry["key"] in seen
+            pygame.draw.rect(screen, (30, 30, 44), r, border_radius=10)
+            pygame.draw.rect(screen, (70, 70, 95) if is_seen else (45, 45, 60),
+                             r, width=2, border_radius=10)
+            # Thumbnail-/Silhouetten-Feld links
+            tb = pygame.Rect(r.x + 10, r.y + 10, self._THUMB + 12, r.height - 20)
+            pygame.draw.rect(screen, (18, 18, 28), tb, border_radius=8)
+            if is_seen:
+                thumb = self._thumb_for(entry["key"])
+                if thumb:
+                    screen.blit(thumb, (tb.centerx - thumb.get_width() // 2,
+                                        tb.centery - thumb.get_height() // 2))
+                # Name + Rolle + Stats rechts
+                tx = tb.right + 14
+                name = self.font_name.render(entry["name"], True, (255, 235, 150))
+                screen.blit(name, (tx, r.y + 14))
+                role = self.font_sm.render(entry["role"], True, (150, 200, 230))
+                screen.blit(role, (tx, r.y + 42))
+                for j, line in enumerate(entry["stats"]):
+                    s = self.font_sm.render(line, True, (185, 185, 205))
+                    screen.blit(s, (tx, r.y + 64 + j * 18))
+            else:
+                q = self.font_title.render("?", True, (90, 90, 110))
+                screen.blit(q, (tb.centerx - q.get_width() // 2,
+                                tb.centery - q.get_height() // 2))
+                lock = self.font_name.render("???", True, (110, 110, 130))
+                screen.blit(lock, (tb.right + 14, r.centery - lock.get_height() // 2))
+
+        self.back_btn.draw(screen, self.font_name, mouse_pos)
 
 
 # ---------------------------------------------------------------------------
@@ -408,15 +638,21 @@ class ImprovementsMenu:
                 upgrades[inf["id"]]   = lvl + 1
                 sd.save(save)
 
-        for i, one in enumerate(_ONE_TIME):
-            if one["id"] in save["bought"]:
-                continue
+        # Reihe 1: gestufte Käufe (links) + einmalige Käufe (rechts)
+        for i, entry in enumerate(_TIERED + _ONE_TIME):
             if not self._slot_rect(1, i).collidepoint(pos):
                 continue
-            if save["total_coins"] >= one["cost"]:
-                save["total_coins"] -= one["cost"]
-                save["bought"].append(one["id"])
-                sd.save(save)
+            if "costs" in entry:                       # gestuft (capped)
+                lvl = upgrades.get(entry["id"], 0)
+                if lvl < len(entry["costs"]) and save["total_coins"] >= entry["costs"][lvl]:
+                    save["total_coins"]   -= entry["costs"][lvl]
+                    upgrades[entry["id"]]  = lvl + 1
+                    sd.save(save)
+            else:                                      # einmalig
+                if entry["id"] not in save["bought"] and save["total_coins"] >= entry["cost"]:
+                    save["total_coins"] -= entry["cost"]
+                    save["bought"].append(entry["id"])
+                    sd.save(save)
 
         return None
 
@@ -486,19 +722,36 @@ class ImprovementsMenu:
             inf_lbl = self.font_sm.render("∞", True, inf["color"])
             screen.blit(inf_lbl, (rect.right - inf_lbl.get_width() - 10, rect.y + 10))
 
-        # --- Einmalige Käufe (unten) ---
-        for i, one in enumerate(_ONE_TIME):
-            rect   = self._slot_rect(1, i)
-            bought = one["id"] in save["bought"]
-            state  = ("bought"  if bought
-                      else "buyable" if save["total_coins"] >= one["cost"]
-                      else "locked")
-            self._draw_slot(screen, mouse_pos, rect,
-                            color    = one["color"],
-                            name_txt = one["name"],
-                            desc_txt = one["desc"],
-                            cost_txt = f"Kosten: {one['cost']} Münzen",
-                            state    = state,
-                            special  = True)
+        # --- Reihe 1: gestufte (links) + einmalige Käufe (rechts) ---
+        for i, entry in enumerate(_TIERED + _ONE_TIME):
+            rect = self._slot_rect(1, i)
+            if "costs" in entry:                       # gestuft
+                lvl   = upgrades.get(entry["id"], 0)
+                maxed = lvl >= len(entry["costs"])
+                if maxed:
+                    state, cost_txt = "bought", "Maximal ausgebaut"
+                else:
+                    cost  = entry["costs"][lvl]
+                    state = "buyable" if save["total_coins"] >= cost else "locked"
+                    cost_txt = f"Kosten: {cost} Münzen"
+                self._draw_slot(screen, mouse_pos, rect,
+                                color    = entry["color"],
+                                name_txt = f"{entry['name']}  Lv.{lvl}/{len(entry['costs'])}",
+                                desc_txt = entry["tiers"][min(lvl, len(entry["tiers"]) - 1)],
+                                cost_txt = cost_txt,
+                                state    = state,
+                                special  = True)
+            else:                                      # einmalig
+                bought = entry["id"] in save["bought"]
+                state  = ("bought"  if bought
+                          else "buyable" if save["total_coins"] >= entry["cost"]
+                          else "locked")
+                self._draw_slot(screen, mouse_pos, rect,
+                                color    = entry["color"],
+                                name_txt = entry["name"],
+                                desc_txt = entry["desc"],
+                                cost_txt = f"Kosten: {entry['cost']} Münzen",
+                                state    = state,
+                                special  = True)
 
         self.back_btn.draw(screen, self.font, mouse_pos)

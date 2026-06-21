@@ -158,6 +158,18 @@ Gegnertypen:
 - `Archer` (Fernkampf, erzeugt `EnemyProjectile`) — Spawn-Key „rusher"
 - `Lancer` (Tank, 5 Richtungs-Angriffsanimationen) — Spawn-Key „tanker"
 - `Monk` (Heiler, heilt Nachbarn + Heal-FX)
+- `Goblin` (Schwarm-Rusher, ADR 017) — sehr schnell (×1.6), HP ×2.5 (D32: neue Gegner ×10
+  hochgesetzt; war ×0.25), schwacher Nahkampf; spawnt gehäuft (Massendruck). Spawn-Key „goblin".
+  Sprite `assets/custom/goblin_run.png`, Fallback = grüner Kreis.
+- `OrcBerserker` (Brecher, ADR 017) — langsam (×0.5), **HP ×25** (D32; war ×2.5 → zäher als
+  der SuperBoss), doppelter Nahkampfschaden (`DAMAGE_MULT=2`); nutzt die `orc_warrior`-Sheets.
+  Spawn-Key „orc".
+- `Necromancer` (Beschwörer, ADR 017) — bleibt auf Distanz wie der Monk, HP ×6 (D32; war ×0.6),
+  ruft periodisch Goblins (`SUMMON_EVERY`/`SUMMON_COUNT`, gedeckelt durch `SUMMON_MAX`).
+  `main.py` holt frische Beschwörungen via `pop_summons()` (analog `Archer.pop_shots()`)
+  und hängt sie **nach** der Update-Schleife an `gs["enemies"]` an (kein Mutieren während
+  der Iteration). Spawn-Key „necro". Sprite `assets/custom/necromancer_run.png`,
+  Fallback = lila Kreis + Beschwör-Aura.
 - `Boss` (alle 10 Wellen) — nutzt die Lancer-Sprites, tötet mit einem Treffer.
 - `SuperBoss` (Drache, alle 50 Wellen, ADR 016) — **animierter Flug-/Flügelschlag-Zyklus**
   (`assets/custom/drache_superboss_fly.png`, 25-Frame-Strip, `smoothscale`, Seitenverhältnis
@@ -179,6 +191,10 @@ Pro Frame im `PLAYING`-State (vereinfacht):
    Gegner, bis `spawn_remaining` aufgebraucht ist. Spawn-Intervall hängt vom
    Schwierigkeitsgrad ab (`diff_mod["spawn_bonus"]`). Jeder Nicht-Boss-Spawn wird mit
    `ELITE_SPAWN_CHANCE` zum **Elite** (`ELITE_HP_MULT`-fache HP, roter Ring; ADR 011).
+   Die Typ-Auswahl ist welleabhängig gewichtet (`random.choices`); ab Welle 5 mischen
+   sich Goblins, ab Welle 8 Ork-Berserker, ab Welle 12 Nekromanten dazu (ADR 017).
+   Necromancer-Beschwörungen umgehen das Spawn-Gate und werden nach der Update-Schleife
+   eingehängt (intern via `SUMMON_MAX` gedeckelt).
 2. **Update:** alle Geschosse, Gegner-Geschosse, Gegner und FX bewegen sich.
    **Voll-Auto-Feuer + Autoaim (ADR 010):** sobald `fire_timer <= 0` und ein Gegner
    existiert, feuert der Turm auf den nächsten Gegner (`nearest_enemy_pos()`) im Takt
@@ -338,10 +354,18 @@ Dämpfungsfaktor.
   XP-Fix landet er im Modell bei ~Level 98 und legt **alle Bosse im Walk-Budget** (W90 4,3 s /
   Budget 4,7 s; W100 6,5 s / 8,2 s). **Schlüssel-Mechanik:** Bosse one-shotten bei Kontakt und
   der Turm ist stationär → der Bosskampf ist ein **DPS-Rennen gegen die Anlaufzeit**, HP/Lifesteal
-  helfen nicht. **Offene Risiken:** (a) Level-Inflation (~98) verwässert die Build-*Entscheidung*
-  (fast alle Karten erreichbar; Gegen-Hebel: größeres `XP_WAVE_DIV` + niedrigeres
-  `ENEMY_HP_PER_WAVE_SQ`); (b) alle Zahlen sind Modellprognose — der echte 1→100-Lauf muss sie
-  bestätigen (F4 friert Level/Stats ein, taugt nicht dafür).
+  helfen nicht.
+- **Meta-Gate „~5 Läufe bis Welle 100" (ADR 018, revidiert ADR 013/014).** Das „fairer
+  Einzellauf"-Ziel ist bewusst aufgegeben: Die **Boss-Wand wurde wieder eingeführt**
+  (`BOSS_HP_MULT 2→6`, `SUPERBOSS_HP_MULT 3→10`), und permanenter Startschaden
+  (`PERMANENT_DAMAGE_PER_LEVEL 15→25`, `COST_MULT 1.65→1.4`) schiebt sie über ~5 Läufe nach
+  hinten (neues Modell `tools/balance_model_runs.py`: Todeswelle 10→50→80→90→100). **Offene
+  Risiken:** (a) **das Modell misst nur die Boss-DPS-Wand, NICHT den HP-Tod durch reguläre
+  Gegner** — mit den auf ×10 gesetzten neuen Gegnern (Ork ×25 = bei W50 ~72k HP, 4× der Boss)
+  könnten zähe Normalgegner die *eigentliche* Wand sein → real evtl. mehr Läufe; (b) alle
+  Zahlen sind Modellprognose — der echte Playtest muss sie bestätigen (F4 friert Level/Stats
+  ein, taugt nicht dafür); Gegen-Hebel: neue-Gegner-HP senken oder Modell um Überlebens-/
+  Clear-Rate erweitern.
 - **Performance bei vielen Entitäten.** Kollisionsprüfung ist O(Geschosse ×
   Gegner) ohne räumliche Optimierung. Bei großen Wellen beobachten.
 - **Python-Verpackung.** PyInstaller-`.exe` mit Pygame + vielen Assets kann

@@ -92,6 +92,11 @@ CARD0     = (340, 380)   # erste Upgrade-Karte
 def flow_full(outdir):
     _wait_surface()
     time.sleep(0.7)
+    print("[0] Speicherstand-Auswahl → Slot 1 wählen")
+    shot("00_slots.png", outdir)
+    click(640, 252)          # Slot-1-Karte (oberste) anklicken → Hauptmenü
+    time.sleep(0.6)
+
     print("[1] Hauptmenü")
     shot("01_menu.png", outdir)
 

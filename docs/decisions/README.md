@@ -55,3 +55,5 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 014 — XP pro Kill skaliert mit der Welle (Wurzel-Fix gegen die Endgame-Wand)](014-xp-wellenskalierung.md)
 - [ADR 015 — SuperBoss erhält ein statisches Pixel-Art-Drachen-Sprite](015-superboss-drache-pixel-sprite.md) *(abgelöst von ADR 016)*
 - [ADR 016 — SuperBoss wird ein animierter, fliegender Drache](016-superboss-drache-flug-animation.md)
+- [ADR 017 — Drei neue Gegnerklassen: Goblin (Schwarm), OrcBerserker (Brecher), Necromancer (Beschwörer)](017-neue-gegnerklassen.md)
+- [ADR 018 — Boss-Wand als Meta-Gate: ~5 Läufe bis Welle 100 (revidiert ADR 013/014)](018-fuenf-laeufe-meta-gate.md)

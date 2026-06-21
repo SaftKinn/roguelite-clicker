@@ -10,7 +10,7 @@ UPGRADES = [
     {"id": "attackspeed", "name": "Angriffstempo", "desc": f"+{balance.UPGRADE_ATTACK_SPEED}/s Angriffstempo", "icon": "Icon_05", "btn": "Red"},
     {"id": "speed",     "name": "Schnelle Kugeln", "desc": f"+{balance.UPGRADE_BULLET_SPEED} Kugelgeschwindigkeit", "icon": "Icon_05", "btn": "Red"},
     {"id": "size",      "name": "Große Kugeln",    "desc": f"+{balance.UPGRADE_BULLET_SIZE} Kugelradius",          "icon": "Icon_06", "btn": "Blue"},
-    {"id": "multishot", "name": "Dreifachschuss",  "desc": f"{len(balance.MULTISHOT_ANGLES)} Kugeln pro Klick",    "icon": "Icon_05", "btn": "Red"},
+    {"id": "multishot", "name": "Dreifachschuss",  "desc": f"{len(balance.MULTISHOT_ANGLES)} Schuss pro Klick",    "icon": "Icon_05", "btn": "Red"},
     {"id": "pierce",    "name": "Durchschlag",     "desc": "Kugeln treffen mehrere",                              "icon": "Icon_05", "btn": "Red"},
     {"id": "max_hp",    "name": "Max HP",           "desc": f"+{balance.UPGRADE_MAX_HP} Maximale HP",              "icon": "Icon_06", "btn": "Blue"},
 ]

@@ -26,12 +26,14 @@ class EnemyProjectile:
                 cls._arrow_surf = False
         return cls._arrow_surf if cls._arrow_surf else None
 
-    def __init__(self, pos: pygame.math.Vector2, target: pygame.math.Vector2):
-        self.pos   = pygame.math.Vector2(pos)
-        self.alive = True
-        direction  = target - self.pos
-        self.vel   = (direction.normalize() * self.SPEED
-                      if direction.length() > 0 else pygame.math.Vector2(0, 0))
+    def __init__(self, pos: pygame.math.Vector2, target: pygame.math.Vector2,
+                 damage: int | None = None):
+        self.pos    = pygame.math.Vector2(pos)
+        self.alive  = True
+        self.damage = self.DAMAGE if damage is None else damage   # vom Schützen skaliert (Wellen-Härte)
+        direction   = target - self.pos
+        self.vel    = (direction.normalize() * self.SPEED
+                       if direction.length() > 0 else pygame.math.Vector2(0, 0))
 
     def update(self) -> None:
         self.pos += self.vel
@@ -85,6 +87,7 @@ class Warrior:
         self.alive       = True
         self.radius      = self.__class__.RADIUS
         self.coin_value  = 1
+        self.dmg_mult    = 1.0   # Wellen-Härte-Faktor auf Schaden (in spawn_enemy_for_wave gesetzt)
         self.facing_left = False
         self._anim_tick  = 0
         self._anim_frame = 0
@@ -163,7 +166,7 @@ class Warrior:
         """
         if self._attack_cd <= 0:
             self._attack_cd = self.ATTACK_COOLDOWN
-            return self.ATTACK_DAMAGE
+            return int(self.ATTACK_DAMAGE * self.dmg_mult)   # × Wellen-Härte (alle 10 Wellen +40 %)
         return 0
 
     def _draw_hp_bar(self, screen: pygame.Surface, pos: tuple) -> None:
@@ -266,7 +269,7 @@ class Archer(Warrior):
                     self._shoot_anim_tk   = 0
                 else:
                     # Kein Sprite geladen → sofort feuern (Fallback).
-                    self._shots.append(EnemyProjectile(self.pos, target))
+                    self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult)))
         if self._is_shooting:
             self._shoot_anim_tk += 1
             if self._shoot_anim_tk >= _ANIM_PERIOD:
@@ -275,13 +278,13 @@ class Archer(Warrior):
                 # Beim Erreichen des Release-Frames (Bogen am höchsten Punkt)
                 # den Pfeil auf die aktuelle Zielposition abschießen.
                 if self._pending_release and self._shoot_anim_fr >= self.SHOOT_RELEASE_FRAME:
-                    self._shots.append(EnemyProjectile(self.pos, target))
+                    self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult)))
                     self._pending_release = False
                 shoot_len = len(self._shoot_frames_r) if self._shoot_frames_r else 0
                 if self._shoot_anim_fr >= shoot_len:
                     # Animation vorbei: Sicherung, falls Release-Frame > Länge.
                     if self._pending_release:
-                        self._shots.append(EnemyProjectile(self.pos, target))
+                        self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult)))
                         self._pending_release = False
                     self._is_shooting = False
         self._anim_tick += 1
@@ -527,6 +530,193 @@ class Monk(Warrior):
 
 # ---------------------------------------------------------------------------
 
+class Goblin(Warrior):
+    """Schwarm-Rusher — sehr schnell, sehr wenig HP, schwacher Nahkampf.
+    Spawnt gehäuft (Massendruck statt Einzelgefahr). Nur eine Lauf-Animation
+    (kein eigener Angriff); Fallback bei fehlendem Asset = kleiner grüner Kreis."""
+    RADIUS            = 10
+    COLOR_BODY        = ( 90, 175,  60)
+    COLOR_OUTLINE     = ( 45, 110,  30)
+    COLOR_HP_BAR      = (150, 225,  90)
+    ATTACK_ANIM_RANGE = 40
+
+    _frames_r      = None
+    _frames_l      = None
+    _atk1_frames_r = None
+    _atk1_frames_l = None
+    _atk2_frames_r = None
+    _atk2_frames_l = None
+
+    def __init__(self, base_speed: float, base_hp: int):
+        super().__init__(speed=base_speed * 1.6, max_hp=max(1, int(base_hp * 2.5)))   # 10× zäher (Nutzerwunsch)
+        self.coin_value = 1
+
+    @classmethod
+    def _load_sprites(cls) -> None:
+        if cls._frames_r is not None:
+            return
+        try:
+            from . import sprite_loader
+            cls._frames_r, cls._frames_l = sprite_loader.load_goblin_run(40)
+        except Exception as exc:
+            print(f"[Goblin] Sprites: {exc}")
+            cls._frames_r = cls._frames_l = []
+        # Goblin hat keine Angriffs-Animation → leere Listen, damit Warrior.update/draw
+        # den Attack-Zweig überspringen (er feiert dennoch Nahkampf via melee_attack).
+        cls._atk1_frames_r = cls._atk1_frames_l = []
+        cls._atk2_frames_r = cls._atk2_frames_l = []
+
+
+# ---------------------------------------------------------------------------
+
+class OrcBerserker(Warrior):
+    """Brecher — langsam, sehr viel HP, doppelter Nahkampfschaden.
+    Nutzt die schon angelegten orc_warrior-Sheets (run + attack); Fallback = grüner Kreis."""
+    RADIUS            = 20
+    COLOR_BODY        = ( 85, 125,  70)
+    COLOR_OUTLINE     = ( 40,  70,  40)
+    COLOR_HP_BAR      = (130, 205, 105)
+    ATTACK_ANIM_RANGE = 70
+    DAMAGE_MULT       = 2     # doppelter Nahkampfschaden ggü. Basis-Warrior (benannte Konstante)
+
+    _frames_r      = None
+    _frames_l      = None
+    _atk1_frames_r = None
+    _atk1_frames_l = None
+    _atk2_frames_r = None
+    _atk2_frames_l = None
+
+    def __init__(self, base_speed: float, base_hp: int):
+        super().__init__(speed=max(0.4, base_speed * 0.5), max_hp=int(base_hp * 25))   # 10× zäher (Nutzerwunsch; zäher als SuperBoss)
+        self.coin_value   = 4
+        self.ATTACK_DAMAGE = balance.ATTACK_DAMAGE * self.DAMAGE_MULT
+
+    @classmethod
+    def _load_sprites(cls) -> None:
+        if cls._frames_r is not None:
+            return
+        try:
+            from . import sprite_loader
+            cls._frames_r, cls._frames_l = sprite_loader.load_orc_warrior_run(56)
+        except Exception as exc:
+            print(f"[OrcBerserker] Run-Sprites: {exc}")
+            cls._frames_r = cls._frames_l = []
+        # Angriffs-Animation ist OPTIONAL (der statische Ork hat keine) — separat laden,
+        # damit ein fehlendes Attack-Sheet die Lauf-Sprites nicht mit wegreißt. Ohne
+        # Attack-Frames überspringt Warrior.draw den Angriffs-Zweig; Nahkampf läuft
+        # weiter über melee_attack().
+        try:
+            from . import sprite_loader
+            cls._atk1_frames_r, cls._atk1_frames_l = sprite_loader.load_orc_warrior_attack(56)
+            # Nur eine Angriffs-Animation → für beide Alternierungs-Slots dieselbe nutzen.
+            cls._atk2_frames_r, cls._atk2_frames_l = cls._atk1_frames_r, cls._atk1_frames_l
+        except Exception:
+            cls._atk1_frames_r = cls._atk1_frames_l = []
+            cls._atk2_frames_r = cls._atk2_frames_l = []
+
+
+# ---------------------------------------------------------------------------
+
+class Necromancer(Warrior):
+    """Beschwörer — bleibt auf Distanz und ruft periodisch Goblins (gedeckelt).
+    Offensives Gegenstück zum Monk-Heiler. main.py holt frische Beschwörungen via
+    pop_summons() (analog Archer.pop_shots). Fallback = lila Kreis + Beschwör-Aura."""
+    RADIUS        = 11
+    ATTACK_RANGE  = 240
+    SUMMON_EVERY  = 240     # Ticks zwischen Beschwörungen (~4 s bei 60 FPS)
+    SUMMON_COUNT  = 2       # Goblins pro Beschwörung
+    SUMMON_MAX    = 6       # lebenslanges Limit pro Nekromant (gegen Runaway-Spawn)
+    COLOR_BODY    = (120,  70, 165)
+    COLOR_OUTLINE = ( 70,  40, 100)
+    COLOR_HP_BAR  = (185, 110, 225)
+
+    _frames_r  = None
+    _frames_l  = None
+    _aura_surf = None
+    _AURA_R    = 55
+
+    def __init__(self, base_speed: float, base_hp: int):
+        super().__init__(speed=base_speed * 0.9, max_hp=int(base_hp * 6.0))   # 10× zäher (Nutzerwunsch)
+        self.coin_value    = 4
+        self._summon_timer = random.randint(60, self.SUMMON_EVERY)
+        self._summoned     = 0
+        self._summons: list = []   # frisch beschworene Goblins; main.py leert die Liste
+        self._aura_timer   = 0
+        # Roh-Wellenwerte merken, um beschworene Goblins passend zur Welle zu skalieren.
+        self._base_speed   = base_speed
+        self._base_hp      = base_hp
+
+    @classmethod
+    def _load_sprites(cls) -> None:
+        if cls._frames_r is not None:
+            return
+        try:
+            from . import sprite_loader
+            cls._frames_r, cls._frames_l = sprite_loader.load_necromancer_run(46)
+        except Exception as exc:
+            print(f"[Necromancer] Sprites: {exc}")
+            cls._frames_r = cls._frames_l = []
+
+    @classmethod
+    def _get_aura(cls) -> pygame.Surface:
+        if cls._aura_surf is None:
+            size = cls._AURA_R * 2
+            cls._aura_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.circle(cls._aura_surf, (150, 60, 200, 70),
+                               (cls._AURA_R, cls._AURA_R), cls._AURA_R)
+        return cls._aura_surf
+
+    def update(self, target: pygame.math.Vector2) -> None:
+        direction = target - self.pos
+        dist      = direction.length()
+        if dist > self.ATTACK_RANGE:
+            vel = direction.normalize() * self.speed
+            if abs(vel.x) > 0.05:
+                self.facing_left = vel.x < 0
+            self.pos += vel
+        elif dist > 0:
+            self.facing_left = direction.x < 0
+        self._summon_timer -= 1
+        if self._summon_timer <= 0 and self._summoned < self.SUMMON_MAX:
+            self._summon_timer = self.SUMMON_EVERY
+            self._aura_timer   = 40
+            for _ in range(self.SUMMON_COUNT):
+                if self._summoned >= self.SUMMON_MAX:
+                    break
+                g = Goblin(self._base_speed, self._base_hp)
+                # Direkt neben dem Nekromanten erscheinen (statt am Bildrand).
+                g.pos = pygame.math.Vector2(self.pos.x + random.randint(-25, 25),
+                                            self.pos.y + random.randint(-25, 25))
+                self._summons.append(g)
+                self._summoned += 1
+        if self._aura_timer > 0:
+            self._aura_timer -= 1
+        self._anim_tick += 1
+        if self._anim_tick >= _ANIM_PERIOD:
+            self._anim_tick = 0
+            if self._frames_r:
+                self._anim_frame = (self._anim_frame + 1) % len(self._frames_r)
+
+    def pop_summons(self) -> list:
+        summons = list(self._summons)
+        self._summons.clear()
+        return summons
+
+    def draw(self, screen: pygame.Surface) -> None:
+        self._load_sprites()
+        pos = (int(self.pos.x), int(self.pos.y))
+        if self._aura_timer > 0:
+            aura  = self._get_aura()
+            aura.set_alpha(int(self._aura_timer / 40 * 255))
+            screen.blit(aura, (pos[0] - self._AURA_R, pos[1] - self._AURA_R))
+        if not self._blit_sprite(screen):
+            pygame.draw.circle(screen, self.COLOR_OUTLINE, pos, self.radius + 2)
+            pygame.draw.circle(screen, self.COLOR_BODY,    pos, self.radius)
+        self._draw_hp_bar(screen, pos)
+
+
+# ---------------------------------------------------------------------------
+
 class Boss(Warrior):
     """Boss — alle 10 Wellen. Tötet Spieler mit einem Treffer."""
     RADIUS        = 34
@@ -616,20 +806,14 @@ class Boss(Warrior):
 
 class SuperBoss(Warrior):
     """Super Boss (Drache) — alle 50 Wellen. Tötet Spieler mit einem Treffer.
-    Animierter Flug-/Flügelschlag-Zyklus (Seitenansicht, Kopf links) + leichtes
-    Schweben (Bob), damit der Drache fliegt statt am Boden zu laufen. Betritt das Bild
-    nur vom Ost- oder Westrand (horizontaler Anmarsch → Blickrichtung passt zur Bewegung)."""
+    Geerdeter Walk-Zyklus (Seitenansicht, Kopf links) — der Drache LÄUFT am Boden
+    (Wippen ist im Sprite gebacken, kein Schweben). Betritt das Bild nur vom Ost- oder
+    Westrand (horizontaler Anmarsch → Blickrichtung passt zur Bewegung)."""
     RADIUS        = 60     # an die große Drachen-Sprite angepasst (Stop-Distanz + Aura-Ringe)
-    SPRITE_PX     = 240    # Zielbreite des Flug-Sprites (Höhe proportional, Seitenverhältnis bleibt)
+    SPRITE_PX     = 240    # Zielbreite des Walk-Sprites (Höhe proportional, Seitenverhältnis bleibt)
     COLOR_BODY    = ( 70,   0,  15)
     COLOR_OUTLINE = (220,  20,  40)
     COLOR_HP_BAR  = (255,  20,  60)
-
-    # Schweben/Fliegen: konstanter Auftrieb + sinusförmiges Auf-und-Ab (nur visuell —
-    # `self.pos` bleibt für die Spiel-Logik am Boden). Keine Magic Numbers (Golden Rule 2).
-    FLY_LIFT      = 18     # Pixel, um die der Drache visuell über seiner Boden-Position schwebt
-    FLY_BOB_AMP   = 11     # Amplitude des Auf-und-Ab in Pixeln
-    FLY_BOB_SPEED = 0.06   # Winkelgeschwindigkeit des Bob pro Tick
 
     # Angriffs-Animation OHNE eigenes Sprite (Code-only): ein kurzer Vorwärts-Satz (Lunge)
     # auf den Turm + Skalier-/Aura-Blitz, ausgelöst nahe am Turm und dann auf Cooldown.
@@ -701,11 +885,10 @@ class SuperBoss(Warrior):
     def draw(self, screen: pygame.Surface) -> None:
         self._load_sprites()
         env = self._attack_envelope()
-        # Visueller Schwebe-Versatz: konstanter Auftrieb + Sinus-Bob (Logik-Pos bleibt unten),
-        # plus Lunge Richtung Turm im Angriff (env·Richtung·Reichweite).
-        bob = self.FLY_LIFT + math.sin(self._tick * self.FLY_BOB_SPEED) * self.FLY_BOB_AMP
+        # Geerdet: kein Schwebe-Versatz (das Wippen steckt im Walk-Sprite). Nur der
+        # Lunge Richtung Turm im Angriff verschiebt die Zeichen-Position (env·Richtung·Reichweite).
         cx = int(self.pos.x + self._atk_dir.x * env * self.ATTACK_LUNGE_PX)
-        cy = int(self.pos.y - bob + self._atk_dir.y * env * self.ATTACK_LUNGE_PX)
+        cy = int(self.pos.y + self._atk_dir.y * env * self.ATTACK_LUNGE_PX)
         # Aura-Ringe pulsieren immer; im Angriff zucken sie heller und enger zusammen.
         ring_w = 2 + int(env * 3)
         for i in range(3):

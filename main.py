@@ -5,25 +5,28 @@ sounds.init_mixer()          # vor pygame.init()!
 import pygame
 from game.constants    import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE, BG_COLOR
 from game.player       import Player, RADIUS as PLAYER_RADIUS, MAX_HP
-from game.enemy        import Warrior, Archer, Lancer, Monk, Boss, SuperBoss, EnemyProjectile, RADIUS as ENEMY_RADIUS
+from game.enemy        import (Warrior, Archer, Lancer, Monk, Goblin, OrcBerserker,
+                              Necromancer, Boss, SuperBoss, EnemyProjectile,
+                              RADIUS as ENEMY_RADIUS)
 from game.projectile   import Projectile
 from game.upgrade_menu import UpgradeMenu
-from game.main_menu    import MainMenu, OptionsMenu, ImprovementsMenu, IMPROVEMENTS, Button
+from game.main_menu    import (MainMenu, OptionsMenu, ImprovementsMenu, BestiaryMenu,
+                               SlotSelectMenu, IMPROVEMENTS, Button)
 from game.fx           import DamageNumber, COLOR_COIN
 from game.terrain      import Terrain
 from game import save_data  as sd
 from game import ui_loader
 from game.balance     import (BASE_SPAWN_INTERVAL, MELEE_REACH,
                               WIN_WAVE, MAX_CONCURRENT_ENEMIES, CAMERA_ZOOM,
-                              enemies_for_wave, enemy_hp_for_wave,
+                              enemies_for_wave, enemy_hp_for_wave, wave_tier_mult,
                               enemy_speed_for_wave, coin_value_for_wave, xp_to_next,
-                              xp_wave_mult,
+                              xp_wave_mult, XP_GAIN_MULT, COIN_GAIN_MULT,
                               UPGRADE_DAMAGE, UPGRADE_BULLET_SPEED,
                               UPGRADE_BULLET_SIZE, UPGRADE_MAX_HP, MULTISHOT_ANGLES,
-                              BASE_ATTACK_SPEED, UPGRADE_ATTACK_SPEED, LIFESTEAL_PER_HIT,
+                              BASE_DAMAGE, BASE_ATTACK_SPEED, UPGRADE_ATTACK_SPEED, LIFESTEAL_PER_HIT,
                               PERMANENT_DAMAGE_PER_LEVEL, PERMANENT_HP_PER_LEVEL,
                               GOLD_BOOST_MULT, DOPPELSCHUSS_DELAY,
-                              ELITE_SPAWN_CHANCE, ELITE_HP_MULT, ELITE_REWARD_MULT,
+                              ELITE_SPAWN_CHANCE, ELITE_HP_MULT, elite_hp_mult, ELITE_REWARD_MULT,
                               ELITE_COLOR)
 
 WAVE_CLEAR_DELAY    = 70    # kürzere Pause zwischen Wellen (knackiger, ADR 008)
@@ -43,22 +46,32 @@ def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
     if wave % 10 == 0:
         return Boss(base_speed, base_hp)
     if wave < 3:
-        kinds, weights = ["basic"],                            [1]
+        kinds, weights = ["basic"],                                            [1]
     elif wave < 5:
-        kinds, weights = ["basic", "rusher"],                  [70, 30]
+        kinds, weights = ["basic", "rusher", "goblin"],                        [55, 25, 20]
     elif wave < 7:
-        kinds, weights = ["basic", "rusher", "tanker"],        [45, 35, 20]
+        kinds, weights = ["basic", "rusher", "tanker", "goblin"],              [38, 28, 16, 18]
+    elif wave < 12:
+        kinds          = ["basic", "rusher", "tanker", "monk", "goblin", "orc"]
+        weights        = [30, 22, 14, 10, 16, 8]
     else:
-        kinds, weights = ["basic", "rusher", "tanker", "monk"],[38, 30, 20, 12]
+        kinds          = ["basic", "rusher", "tanker", "monk", "goblin", "orc", "necro"]
+        weights        = [24, 18, 12, 9, 16, 10, 11]
     kind = random.choices(kinds, weights=weights)[0]
     if   kind == "rusher": enemy = Archer(base_speed, base_hp)
     elif kind == "tanker": enemy = Lancer(base_speed, base_hp)
     elif kind == "monk":   enemy = Monk(base_speed, base_hp)
+    elif kind == "goblin": enemy = Goblin(base_speed, base_hp)
+    elif kind == "orc":    enemy = OrcBerserker(base_speed, base_hp)
+    elif kind == "necro":  enemy = Necromancer(base_speed, base_hp)
     else:                  enemy = Warrior(speed=base_speed, max_hp=base_hp)
+    # Wellen-Härte: alle 10 Wellen +40 % auf Schaden (HP steckt schon in base_hp via
+    # enemy_hp_for_wave). Kompoundierend mit der Wellenhöhe.
+    enemy.dmg_mult = wave_tier_mult(wave)
     # Elite: mit ELITE_SPAWN_CHANCE wird ein Nicht-Boss-Gegner zum zähen Brocken (×ELITE_HP_MULT HP).
     # coin_value skaliert mit ELITE_REWARD_MULT → mehr Münzen UND XP (coin_value speist beides).
     if random.random() < ELITE_SPAWN_CHANCE:
-        enemy.max_hp     *= ELITE_HP_MULT
+        enemy.max_hp      = int(enemy.max_hp * elite_hp_mult(wave))   # gestuft: alle 10 Wellen +100%
         enemy.hp          = enemy.max_hp
         enemy.coin_value *= ELITE_REWARD_MULT
         enemy.elite       = True
@@ -177,7 +190,7 @@ def fresh_game_state(wave: int = 1) -> dict:
                 # XP/Level (ADR 008): Karten kommen jetzt aus Level-ups, nicht pro Welle
                 xp=0, level=1, xp_to_next=xp_to_next(1, wave), pending_levelups=0,
                 fire_timer=0,   # Cooldown bis zum nächsten Auto-Schuss (ADR 009)
-                stats=dict(damage=10, bullet_speed=10, bullet_size=5,
+                stats=dict(damage=BASE_DAMAGE, bullet_speed=10, bullet_size=5,
                            pierce=False, multishot=False,
                            attack_speed=BASE_ATTACK_SPEED),
                 banner=None)
@@ -381,10 +394,13 @@ def main():
     font_big = pygame.font.SysFont("Arial", 56, bold=True)
     font_dmg = pygame.font.SysFont("Arial", 15, bold=True)
 
-    save         = sd.load()
+    save         = sd.load(1)      # vorläufig Slot 1; der echte Slot wird vor dem Menü gewählt
     main_menu    = MainMenu()
     options_menu = OptionsMenu()   # difficulty="Normal", sfx=70%, music=50%
     impr_menu    = ImprovementsMenu()
+    bestiary_menu = BestiaryMenu()
+    slot_menu    = SlotSelectMenu()
+    save.setdefault("seen_enemies", [])   # Lexikon: bisher gesehene Gegner (Klassennamen)
     upgrade_menu = UpgradeMenu(SCREEN_WIDTH, SCREEN_HEIGHT)
     snd          = sounds.SoundManager()
     options_menu.load_settings(save.get("settings", {}))
@@ -405,6 +421,9 @@ def main():
     pause_overlay      = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     pause_overlay.fill((0, 0, 0, 170))
 
+    # HUD-Button (oben rechts): Spawn-Rate verdoppeln (+100 %) — Toggle im PLAYING-State.
+    spawn_btn = Button(pygame.Rect(SCREEN_WIDTH - 158, 8, 150, 34), "Spawn x2", (210, 140, 50))
+
     player      = None
     pc          = None
     gs          = None
@@ -414,8 +433,9 @@ def main():
     new_record          = False
     prev_state          = None
     show_stats          = False         # Stats-Overlay ein/aus (Taste C, nur im PLAYING)
+    spawn_boost         = False         # Spawn-Rate-Verdopplung (+100 %) via HUD-Button
     options_return_to   = "MAIN_MENU"   # wohin OPTIONS-Zurück geht
-    state               = "MAIN_MENU"
+    state               = "SLOT_SELECT"  # zuerst Speicherstand wählen, dann Hauptmenü
 
     def start_run():
         nonlocal player, pc, gs, terrain, dmg_numbers, diff_mod
@@ -448,6 +468,8 @@ def main():
                     elif state == "PAUSED":
                         state = prev_state
                         pygame.mixer.music.unpause()
+                    elif state == "BESTIARY":
+                        state = "MAIN_MENU"
                     else:
                         running = False
                 if state in ("GAME_OVER", "VICTORY"):
@@ -492,7 +514,23 @@ def main():
                         gs["xp_to_next"]        = xp_to_next(gs["level"], gs["wave"])
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if state == "MAIN_MENU":
+                if state == "SLOT_SELECT":
+                    summaries = [sd.slot_summary(s) for s in sd.SLOTS]
+                    res = slot_menu.handle_click(mouse_pos, summaries)
+                    if res and res[0] == "pick":
+                        snd.play("ui_click")
+                        save = sd.load(res[1])               # Slot laden + aktiv setzen
+                        save.setdefault("seen_enemies", [])
+                        options_menu.load_settings(save.get("settings", {}))
+                        snd.set_sfx_vol(options_menu.sfx_volume)
+                        snd.set_music_vol(options_menu.music_volume)
+                        diff_mod = options_menu.get_modifiers()
+                        state = "MAIN_MENU"
+                    elif res and res[0] == "delete":
+                        snd.play("ui_click")
+                        sd.delete(res[1])
+
+                elif state == "MAIN_MENU":
                     action = main_menu.handle_click(mouse_pos, run_active=gs is not None)
                     if action == "start":
                         start_run()
@@ -502,6 +540,7 @@ def main():
                         options_return_to = "MAIN_MENU"
                         state = "OPTIONS"
                     elif action == "improvements": snd.play("ui_click"); state = "IMPROVEMENTS"
+                    elif action == "bestiary":     snd.play("ui_click"); state = "BESTIARY"
                     elif action == "quit":         running = False
 
                 elif state == "OPTIONS":
@@ -528,6 +567,11 @@ def main():
                     if impr_menu.handle_click(mouse_pos, save) == "back":
                         state = "MAIN_MENU"
 
+                elif state == "BESTIARY":
+                    if bestiary_menu.handle_click(mouse_pos) == "back":
+                        snd.play("ui_click")
+                        state = "MAIN_MENU"
+
                 elif state == "PAUSED":
                     if pause_btn_continue.is_hovered(mouse_pos):
                         state = prev_state
@@ -537,10 +581,22 @@ def main():
                         options_return_to = "PAUSED"
                         state = "OPTIONS"
                     elif pause_btn_menu.is_hovered(mouse_pos):
+                        # Aufgeben: das im Lauf verdiente Gold trotzdem gutschreiben
+                        # (Nutzerwunsch) — wie bei Game-Over/Sieg ins total_coins buchen.
+                        save["best_wave"]    = max(save["best_wave"],  gs["wave"])
+                        save["best_coins"]   = max(save["best_coins"], gs["coins"])
+                        save["total_coins"] += gs["coins"]
+                        sd.save(save)
                         gs      = None
                         terrain = None
                         snd.start_menu_music()
                         state = "MAIN_MENU"
+
+                elif state == "PLAYING":
+                    # HUD-Button: Spawn-Rate verdoppeln an/aus
+                    if spawn_btn.is_hovered(mouse_pos):
+                        spawn_boost = not spawn_boost
+                        snd.play("ui_click")
 
                 elif state == "UPGRADE":
                     chosen = upgrade_menu.handle_click(mouse_pos)
@@ -569,15 +625,20 @@ def main():
 
         # --- Update ---
         spawn_interval = BASE_SPAWN_INTERVAL + diff_mod["spawn_bonus"]
+        if spawn_boost:                       # HUD-Button: +100 % Spawn-Rate = halbes Intervall
+            spawn_interval = max(1, spawn_interval // 2)
 
         if state == "PLAYING":
             gs["spawn_timer"] += 1
             # Concurrent-Cap: nur nachspawnen, wenn nicht schon zu viele am Turm stehen
             if (gs["spawn_remaining"] > 0 and gs["spawn_timer"] >= spawn_interval
                     and len(gs["enemies"]) < MAX_CONCURRENT_ENEMIES):
-                gs["enemies"].append(
-                    spawn_enemy_for_wave(gs["wave"], diff_mod["hp_mult"])
-                )
+                new_enemy = spawn_enemy_for_wave(gs["wave"], diff_mod["hp_mult"])
+                gs["enemies"].append(new_enemy)
+                # Lexikon: Gegnertyp als gesehen markieren (Klassenname; persistiert via save)
+                ename = type(new_enemy).__name__
+                if ename not in save["seen_enemies"]:
+                    save["seen_enemies"].append(ename)
                 gs["spawn_remaining"] -= 1
                 gs["spawn_timer"]      = 0
 
@@ -594,7 +655,7 @@ def main():
                     snd.play("shoot")
                     if "doppelschuss" in save["bought"]:
                         gs["pending_shots"].append((DOPPELSCHUSS_DELAY, aim))
-                    gs["fire_timer"] = max(1, round(FPS / gs["stats"]["attack_speed"]))
+                    gs["fire_timer"] = max(1, round(options_menu.fps_value / gs["stats"]["attack_speed"]))
 
             # Doppelschuss: zweite Kugel nach 8 Frames
             next_pending = []
@@ -607,12 +668,17 @@ def main():
                     next_pending.append((delay, mp))
             gs["pending_shots"] = next_pending
 
+            new_summons = []
             for e in gs["enemies"]:
                 e.update(pc)
                 if isinstance(e, Archer):
                     gs["enemy_projectiles"] += e.pop_shots()
                 elif isinstance(e, Monk):
                     e.heal_nearby(gs["enemies"])
+                elif isinstance(e, Necromancer):
+                    new_summons += e.pop_summons()   # erst nach der Schleife anhängen
+            if new_summons:
+                gs["enemies"] += new_summons
             for p in gs["projectiles"]:        p.update()
             for ep in gs["enemy_projectiles"]: ep.update()
 
@@ -624,7 +690,7 @@ def main():
             # Archer-Pfeile treffen Spieler
             for ep in gs["enemy_projectiles"]:
                 if ep.alive and ep.pos.distance_to(pc) < ep.RADIUS + PLAYER_RADIUS:
-                    player.take_damage(ep.DAMAGE)
+                    player.take_damage(ep.damage)
                     ep.alive = False
 
             gs["enemy_projectiles"] = [ep for ep in gs["enemy_projectiles"] if ep.alive]
@@ -640,11 +706,12 @@ def main():
                     snd.start_run_music()
                 elif isinstance(enemy, Lancer):     snd.play("kill_tanker")
                 else:                               snd.play("kill")
-                val = int(coin_value_for_wave(gs["wave"]) * enemy.coin_value * gold_mult)
+                val = int(coin_value_for_wave(gs["wave"]) * enemy.coin_value * gold_mult * COIN_GAIN_MULT)
                 gs["coins"] += val
-                # XP-Drop = Klassen-Basis × Wellenfaktor (ADR 008 + ADR 014): skaliert mit
-                # der Welle, damit der Spieler spät genug DPS für die Endgame-Bosse aufbaut.
-                gs["xp"]    += enemy.coin_value * xp_wave_mult(gs["wave"])
+                # XP-Drop = Klassen-Basis × Wellenfaktor (ADR 008 + ADR 014) × globaler
+                # XP_GAIN_MULT (+70%, Nutzerwunsch): skaliert mit der Welle, damit der
+                # Spieler spät genug DPS für die Endgame-Bosse aufbaut. Gilt für ALLE Gegner.
+                gs["xp"]    += round(enemy.coin_value * xp_wave_mult(gs["wave"]) * XP_GAIN_MULT)
                 dmg_numbers.append(
                     DamageNumber(enemy.pos.x, enemy.pos.y - 28, val,
                                  color=COLOR_COIN, prefix="+")
@@ -732,13 +799,17 @@ def main():
             upgrade_menu.tick()
 
         # --- Draw ---
-        if state == "MAIN_MENU":
+        if state == "SLOT_SELECT":
+            slot_menu.draw(screen, mouse_pos, [sd.slot_summary(s) for s in sd.SLOTS])
+        elif state == "MAIN_MENU":
             main_menu.draw(screen, mouse_pos, save,
                            run_active=gs is not None, best_wave=save["best_wave"])
         elif state == "OPTIONS":
             options_menu.draw(screen, mouse_pos)
         elif state == "IMPROVEMENTS":
             impr_menu.draw(screen, mouse_pos, save)
+        elif state == "BESTIARY":
+            bestiary_menu.draw(screen, mouse_pos, set(save["seen_enemies"]))
         else:
             # --- Welt in eigenes Surface zeichnen, dann gezoomt auf den Screen ---
             if terrain:
@@ -767,6 +838,12 @@ def main():
                          gs["coins"], gs["level"], gs["xp"], gs["xp_to_next"])
             if gs and state in ("PLAYING", "WAVE_CLEAR"):
                 draw_boss_bar(screen, font, gs["enemies"])
+            # HUD-Button oben rechts: Spawn-Rate verdoppeln (Toggle); grüner Rahmen = aktiv
+            if gs and state == "PLAYING":
+                spawn_btn.label = "Spawn x2: AN" if spawn_boost else "Spawn x2"
+                spawn_btn.draw(screen, font, mouse_pos)
+                if spawn_boost:
+                    pygame.draw.rect(screen, (60, 230, 90), spawn_btn.rect, width=3, border_radius=8)
             if gs and gs.get("banner") and gs["banner"]["timer"] > 0:
                 b     = gs["banner"]
                 alpha = min(255, b["timer"] * 4)
@@ -813,7 +890,7 @@ def main():
         screen.blit(_cursor_img, (mx, my))
 
         pygame.display.flip()
-        clock.tick(FPS)
+        clock.tick(options_menu.fps_value)   # Live-Bildrate aus dem Options-Regler
 
     pygame.quit()
     sys.exit()

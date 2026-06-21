@@ -79,17 +79,19 @@ def _xp_income_for_wave(wave: int, xp_wave_scale: bool = False,
     # Basis zu geben -> Spieler levelt spaet weiter. div=3 entspricht coin_value_for_wave
     # (zu stark); groessere div = sanfter.
     wmult = (1 + wave // xp_wave_div) if xp_wave_scale else 1.0
+    gain = getattr(B, "XP_GAIN_MULT", 1.0)   # globaler XP-Faktor (+70%, falls gesetzt)
     if wave % 50 == 0:
-        return 50.0 * wmult           # SuperBoss coin_value
+        return 50.0 * wmult * gain    # SuperBoss coin_value
     if wave % 10 == 0:
-        return 10.0 * wmult           # Boss coin_value
+        return 10.0 * wmult * gain    # Boss coin_value
     n = B.enemies_for_wave(wave)
-    return n * _avg_xp_per_nonboss_kill(wave) * wmult
+    return n * _avg_xp_per_nonboss_kill(wave) * wmult * gain
 
 
 def _hp_for_wave(wave: int, sq: float) -> int:
     # wie B.enemy_hp_for_wave, aber mit override-barem quadratischem Term (Lever A)
-    return int(B.ENEMY_HP_BASE + wave * B.ENEMY_HP_PER_WAVE + wave * wave * sq)
+    g = getattr(B, "ENEMY_HP_GLOBAL_MULT", 1.0)   # globaler HP-Faktor (−20%, falls gesetzt)
+    return int((B.ENEMY_HP_BASE + wave * B.ENEMY_HP_PER_WAVE + wave * wave * sq) * g)
 
 
 # --- Karten-Policy: was ein realistischer Spieler aus 3 Angeboten waehlt ---
@@ -123,7 +125,7 @@ def simulate(start_damage_levels=0, seed=42, bullets_on_boss=1.0,
     """Ein 1->100-Lauf. Gibt pro Boss-Welle eine Zeile + Endbild zurueck."""
     rng = random.Random(seed)
     # Run-Start-Stats (fresh_game_state) + permanente Shop-Boni (apply_permanent_bonuses)
-    damage = 10 + start_damage_levels * B.PERMANENT_DAMAGE_PER_LEVEL
+    damage = B.BASE_DAMAGE + start_damage_levels * B.PERMANENT_DAMAGE_PER_LEVEL
     attack_speed = B.BASE_ATTACK_SPEED
     multishot = pierce = False
     owned = set()

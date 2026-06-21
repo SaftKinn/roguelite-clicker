@@ -152,30 +152,30 @@ def load_black_lancer_attacks(px: int = 96):
     return result
 
 
-_DRACHE_FLY_FRAMES = 25   # Frames im horizontalen Flug-Strip (5×5-AutoSprite-Sheet → 1 Reihe)
+_DRACHE_WALK_FRAMES = 8   # Frames im horizontalen Walk-Strip (prozedural via tools/animate_walk-Logik)
 
 
 def load_drache_superboss(target_w: int = 240):
-    """SuperBoss-Drache — animierter Flug-/Flügelschlag-Zyklus (Seitenansicht, Kopf links).
+    """SuperBoss-Drache — geerdeter Walk-Zyklus (Seitenansicht, Kopf links).
 
-    Quelle: `assets/custom/drache_superboss_fly.png`, ein horizontaler Strip aus
-    `_DRACHE_FLY_FRAMES` gleich breiten Frames (auf eine gemeinsame Bounding-Box
-    zugeschnitten → die Animation ist sauber verankert, kein Zittern). Anders als das
-    alte Pixel-Standbild ist das glatt schattierte Art → mit `smoothscale` skaliert.
-    Das Seitenverhältnis bleibt erhalten (der Drache ist breiter als hoch): auf
-    `target_w` Breite skaliert, Höhe proportional.
+    Quelle: `assets/custom/drache_superboss_walk.png`, ein horizontaler Strip aus
+    `_DRACHE_WALK_FRAMES` gleich breiten Frames. Aus dem freigestellten Standbild
+    (`drache_superboss_static.png`) prozedural erzeugt: fußverankertes Wippen +
+    Squash/Stretch + leichtes Neigen (der Drache läuft am Boden, schwebt NICHT).
+    Glatt schattiertes Art → mit `smoothscale` skaliert; Seitenverhältnis bleibt
+    erhalten (auf `target_w` Breite, Höhe proportional).
 
     Roh-Bild blickt nach LINKS → das ist `_frames_l`, der Flip ergibt `_frames_r`.
     Gibt `(frames_r, frames_l)` zurück; leere Listen, falls das Asset fehlt (Fallback
     auf gezeichnetes Primitiv greift dann in der SuperBoss-Klasse, Golden Rule 5)."""
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "assets", "custom", "drache_superboss_fly.png")
+                        "assets", "custom", "drache_superboss_walk.png")
     sheet  = pygame.image.load(path).convert_alpha()
-    fw     = sheet.get_width() // _DRACHE_FLY_FRAMES
+    fw     = sheet.get_width() // _DRACHE_WALK_FRAMES
     fh     = sheet.get_height()
     th     = max(1, round(fh * target_w / fw))   # Höhe proportional zur Zielbreite
     frames_l, frames_r = [], []
-    for i in range(_DRACHE_FLY_FRAMES):
+    for i in range(_DRACHE_WALK_FRAMES):
         frame = sheet.subsurface(pygame.Rect(i * fw, 0, fw, fh)).copy()
         frame = pygame.transform.smoothscale(frame, (target_w, th))
         frames_l.append(frame)
@@ -218,6 +218,18 @@ def load_orc_warrior_run(px: int = _ENEMY_PX):
 def load_orc_warrior_attack(px: int = _ENEMY_PX):
     """Orc-Warrior Angriffs-Animation (assets/custom/orc_warrior_attack.png)."""
     return _both_dirs(_load_custom_strip("orc_warrior_attack.png", px))
+
+
+def load_goblin_run(px: int = _ENEMY_PX):
+    """Goblin Lauf-Animation (AutoSprite-Sheet: assets/custom/goblin_run.png).
+    Roh-Sprite blickt nach RECHTS → _frames_r; der Flip ergibt _frames_l."""
+    return _both_dirs(_load_custom_strip("goblin_run.png", px))
+
+
+def load_necromancer_run(px: int = _ENEMY_PX):
+    """Nekromant Lauf-Animation (AutoSprite-Sheet: assets/custom/necromancer_run.png).
+    Roh-Sprite blickt nach RECHTS → _frames_r; der Flip ergibt _frames_l."""
+    return _both_dirs(_load_custom_strip("necromancer_run.png", px))
 
 
 def load_cannonball(size: int = 20):

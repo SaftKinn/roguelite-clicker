@@ -14,3 +14,6 @@ media/clips/
 
 # Treiber-Screenshots aus dem run-Skill (werden bei jedem Lauf neu erzeugt)
 .claude/skills/*/shots/
+
+# Slot-Speicherstände (wie save.json: lokale Spielerdaten)
+save_slot*.json

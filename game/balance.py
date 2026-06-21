@@ -25,6 +25,7 @@ ATTACK_DAMAGE       = 22    # Nahkampf-Schaden pro Treffer (deutlich tödlicher,
 ATTACK_COOLDOWN     = 45    # Ticks zwischen Nahkampf-Treffern
 
 # Spieler-Feuer: Halten der linken Maustaste feuert automatisch im Angriffstempo (ADR 009).
+BASE_DAMAGE         = 15    # Schaden je Kugel zu Lauf-Beginn (+50% ggü. alt 10, Nutzerwunsch)
 BASE_ATTACK_SPEED   = 1.5   # Schüsse pro Sekunde (Basis); Feuer-Intervall = FPS / attack_speed
 LIFESTEAL_PER_HIT   = 1     # HP, die der Spieler je Treffer an einem Gegner heilt (ADR 009)
 
@@ -32,7 +33,7 @@ LIFESTEAL_PER_HIT   = 1     # HP, die der Spieler je Treffer an einem Gegner hei
 # Render-Feel (ADR 007): Kamera-Zoom + globale Sprite-Größe
 # ---------------------------------------------------------------------------
 
-CAMERA_ZOOM  = 1.2    # Welt wird post-render um diesen Faktor zentriert herangezoomt
+CAMERA_ZOOM  = 1.4    # Welt wird post-render um diesen Faktor zentriert herangezoomt (größer = alles näher/größer)
 SPRITE_SCALE = 1.1    # zusätzliche Vergrößerung aller Einheiten-/Geschoss-Sprites beim Laden
 ENEMY_SPRITE_SCALE = 1.25  # Gegner-Körper zusätzlich vergrößert (etwas größer als der Turm); Turm bleibt _TOWER_SIZE
 
@@ -47,9 +48,19 @@ MAX_CONCURRENT_ENEMIES = 30    # max. gleichzeitig lebende Gegner — deckelt Pe
 
 # Elite-Gegner: jeder Nicht-Boss-Typ kann als Elite spawnen (zäher Brocken, egal welcher Typ).
 ELITE_SPAWN_CHANCE = 0.10          # Wahrscheinlichkeit je Nicht-Boss-Spawn, ein Elite zu sein
-ELITE_HP_MULT      = 10            # Elite-HP = normale Gegner-HP × diesem Faktor
+ELITE_HP_MULT      = 3             # Elite-HP = normale Gegner-HP × diesem Faktor (Basis)
 ELITE_REWARD_MULT  = 5             # Elite gibt Münzen UND XP × diesem Faktor (lohnendes Ziel)
 ELITE_COLOR        = (255, 60, 60) # Ring-Markierung um Elites (damit sie erkennbar sind)
+
+# Elite-HP steigt zusätzlich gestuft: alle ELITE_HP_TIER_STEP Wellen +ELITE_HP_TIER_PCT
+# (ADDITIV auf die Basis ×ELITE_HP_MULT, Nutzerwunsch). Bewusst additiv statt kompoundierend
+# — +100% kompoundierend wäre auf der wave_tier-Basis unspielbar. W10 ×6, W50 ×18, W100 ×33.
+ELITE_HP_TIER_STEP = 10            # alle so vielen Wellen ein Elite-HP-Schritt
+ELITE_HP_TIER_PCT  = 1.0           # +100% (der Basis) je Schritt
+
+def elite_hp_mult(wave: int) -> float:
+    """Effektiver Elite-HP-Faktor inkl. Wellen-Stufen (additiv auf ELITE_HP_MULT)."""
+    return ELITE_HP_MULT * (1 + ELITE_HP_TIER_PCT * (wave // ELITE_HP_TIER_STEP))
 
 # Boss-HP-Multiplikatoren auf die (super-lineare) Wellen-Basis-HP. Bewusst niedrig:
 # Bosse one-shotten bei Kontakt und der Turm ist stationär → der Kampf ist ein reines
@@ -57,8 +68,8 @@ ELITE_COLOR        = (255, 60, 60) # Ring-Markierung um Elites (damit sie erkenn
 # Seit dem quadratischen HP-Term (ADR 012) liefert die Basis-HP schon den Großteil der
 # Endgame-Wand; hohe Multiplikatoren oben drauf machten Bosse ab ~W40 unfair (ADR 013,
 # Modell: tools/balance_model.py).
-BOSS_HP_MULT      = 2   # normaler Boss (alle 10 Wellen)
-SUPERBOSS_HP_MULT = 3   # SuperBoss (Welle 50 & 100)
+BOSS_HP_MULT      = 12  # normaler Boss (alle 10 Wellen) — +100% (Nutzerwunsch; war 6, ADR 018)
+SUPERBOSS_HP_MULT = 20  # SuperBoss (Welle 50 & 100) — +100% (Nutzerwunsch; war 10, ADR 018)
 
 
 # ---------------------------------------------------------------------------
@@ -77,12 +88,26 @@ def enemies_for_wave(wave: int) -> int:
 ENEMY_HP_BASE        = 30    # Grund-HP (Welle 0)
 ENEMY_HP_PER_WAVE    = 12    # linearer HP-Zuwachs je Welle
 ENEMY_HP_PER_WAVE_SQ = 0.9   # quadratischer HP-Zuwachs (greift v.a. spät → echte Endgame-Wand)
+ENEMY_HP_GLOBAL_MULT = 0.8   # globaler HP-Faktor ALLER Gegner (−20%, Nutzerwunsch)
+
+# Meilenstein-Härtung (Nutzerwunsch): zusätzlich zur wellenweisen Skalierung werden
+# Gegner alle WAVE_TIER_STEP Wellen um WAVE_TIER_MULT−1 stärker — und zwar KOMPOUNDIEREND
+# (Welle 10 ×1.4, Welle 20 ×1.96, … Welle 100 ×1.4^10 ≈ ×28.9). Gilt für HP UND Schaden.
+# Tuning: kleiner = sanfter. Für additiv statt kompoundierend: `1 + (WAVE_TIER_MULT-1)*(wave//WAVE_TIER_STEP)`.
+WAVE_TIER_STEP = 10    # alle so vielen Wellen kommt ein Härte-Schritt dazu
+WAVE_TIER_MULT = 1.4   # Faktor je Schritt (+40 %)
+
+def wave_tier_mult(wave: int) -> float:
+    """Kompoundierender Härte-Faktor auf HP und Schaden, je WAVE_TIER_STEP Wellen ×WAVE_TIER_MULT."""
+    return WAVE_TIER_MULT ** (wave // WAVE_TIER_STEP)
 
 def enemy_hp_for_wave(wave, hp_mult) -> int:
     return int((ENEMY_HP_BASE + wave * ENEMY_HP_PER_WAVE
-                + wave * wave * ENEMY_HP_PER_WAVE_SQ) * hp_mult)
-def enemy_speed_for_wave(wave: int) -> float: return min(2.2 + wave * 0.18, 4.6)  # schneller dran (ADR 008)
+                + wave * wave * ENEMY_HP_PER_WAVE_SQ)
+               * hp_mult * ENEMY_HP_GLOBAL_MULT * wave_tier_mult(wave))
+def enemy_speed_for_wave(wave: int) -> float: return min(1.1 + wave * 0.10, 2.4)  # noch langsamer (Nutzerwunsch, 2. Runde)
 def coin_value_for_wave(wave: int) -> int:    return 1 + wave // 3
+COIN_GAIN_MULT = 1.5   # globaler Münz-Faktor je Kill (+50%, Nutzerwunsch)
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +133,7 @@ def xp_to_next(level: int, wave: int) -> int:
 # Multiplikator (gedämpft ggü. dem ×-Münzfaktor `coin_value_for_wave` = wave//3) levelt der
 # Spieler spät weiter (Modell: ~Level 98 auf W100, alle Bosse im Walk-Budget).
 XP_WAVE_DIV = 8     # XP-Wellenfaktor = 1 + wave // XP_WAVE_DIV (kleiner = stärker)
+XP_GAIN_MULT = 1.7  # globaler XP-Faktor je Kill (+70%, Nutzerwunsch: Spieler levelt zu langsam)
 
 def xp_wave_mult(wave: int) -> int:
     """Wellenabhängiger Multiplikator auf den XP-Drop je Kill."""
@@ -134,7 +160,7 @@ MULTISHOT_ANGLES     = (-15, 0, 15) # "Dreifachschuss": Streuwinkel der Kugeln (
 # Permanente Verbesserungen (Münz-Shop) — Effekte
 # ---------------------------------------------------------------------------
 
-PERMANENT_DAMAGE_PER_LEVEL = 15     # "Startschaden": +Schaden je Stufe
+PERMANENT_DAMAGE_PER_LEVEL = 25     # "Startschaden": +Schaden je Stufe (stärker, treibt den 5-Läufe-Aufstieg, ADR 018)
 PERMANENT_HP_PER_LEVEL     = 40     # "Start-HP": +Max-HP je Stufe
 GOLD_BOOST_MULT            = 1.5    # "Goldene Kugeln": Münz-Faktor aus Kills
 DOPPELSCHUSS_DELAY         = 8      # "Doppelschuss": Frames Verzögerung bis zur zweiten Kugel
@@ -144,8 +170,9 @@ DOPPELSCHUSS_DELAY         = 8      # "Doppelschuss": Frames Verzögerung bis zu
 # Permanente Verbesserungen (Münz-Shop) — Preise
 # ---------------------------------------------------------------------------
 
-COST_MULT          = 1.65   # Preismultiplikator je Stufe (unendlich steigerbare Upgrades)
+COST_MULT          = 1.4    # Preismultiplikator je Stufe (flacher, damit Startschaden über ~5 Läufe stackbar bleibt, ADR 018)
 COST_START_DAMAGE  = 50     # Basispreis "Startschaden"
 COST_START_HP      = 75     # Basispreis "Start-HP"
-COST_DOPPELSCHUSS  = 120    # Einmalkauf "Doppelschuss"
+COST_DOPPELSCHUSS  = 5000   # Stufe 1 "Doppelschuss" (+1 Schuss)
+COST_DREIFACHSCHUSS = 20000 # Stufe 2 "Dreifachschuss" (+2 Schuss) — Ausbau des Doppelschuss
 COST_GOLD_BOOST    = 80     # Einmalkauf "Goldene Kugeln"
