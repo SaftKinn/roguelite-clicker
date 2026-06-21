@@ -10,8 +10,9 @@ Aktueller Stand steht in `progress.md` (Phase status).
 
 ## Part 1 — MVP
 
-Ziel des MVP: Die jetzige Schleife **rund und verkaufbar** machen, **Welle 100
-als Sieg** erreichbar, plus **moderater Inhaltszuwachs**. Rebirth/Waffen sind
+Ziel des MVP: Die jetzige Schleife **rund und verkaufbar** machen, **Welle 150
+als Sieg** erreichbar (ursprünglich Welle 100, auf 150 erweitert — 3 Tiers à
+50 Wellen, ADR 024), plus **moderater Inhaltszuwachs**. Rebirth/Waffen sind
 bewusst NICHT im MVP (siehe Part 2). Bezug: ADR 004.
 
 ### Phase 0 — Doc-System aufsetzen
@@ -31,20 +32,21 @@ bleibt im Code.** Keine Spielbalance ändern — nur verschieben. Bezug: ADR 002
 genannten Stellschrauben liegen an einem Ort in `game/balance.py`. Gegengeprüft:
 ein paar Werte in `game/balance.py` ändern → Wirkung im Spiel sichtbar.
 
-### Phase 2 — Welle 100 + Sieg-Bildschirm
-Wellen-Skalierung so überarbeiten, dass Welle 100 **erreichbar und nicht absurd**
-ist (Performance: keine ~300 Gegner gleichzeitig). Sieg-Zustand/-Screen beim
-Besiegen des SuperBosses in Welle 100; Lauf endet sauber, `best_wave` korrekt.
+### Phase 2 — Sieg-Welle + Sieg-Bildschirm
+Wellen-Skalierung so überarbeiten, dass die Sieg-Welle **erreichbar und nicht
+absurd** ist (Performance: keine ~300 Gegner gleichzeitig). Sieg-Zustand/-Screen
+beim Besiegen des finalen SuperBosses (`WIN_WAVE`); Lauf endet sauber, `best_wave`
+korrekt. **Ursprünglich Welle 100, mit ADR 024 auf `WIN_WAVE = 150` erweitert.**
 
 Beachten: Seit ADR 005 **belagern** Gegner den Turm und verschwinden nicht mehr
 durch Kontakt — sie stauen sich, bis der Spieler sie erschießt. Das verschärft
 sowohl die Performance- (gleichzeitige Gegner) als auch die Balance-Frage
 (`ATTACK_DAMAGE`/`ATTACK_COOLDOWN` vs. Spieler-DPS) und gehört hier mitgedacht.
 
-**Gate:** Mit Dev-Tasten (F3 → Welle 49, weiterspielen) lässt sich Welle 100
-erreichen, der SuperBoss besiegen, der Sieg-Screen erscheint, und der Lauf endet
-sauber (zurück ins Menü / Neustart möglich). Keine Performance-Einbrüche oder
-Crashes auf dem Weg.
+**Gate:** Mit Dev-Tasten (F4 → Welle `WIN_WAVE`−1 = 149, weiterspielen) lässt sich
+die Sieg-Welle (150) erreichen, der finale SuperBoss besiegen, der Sieg-Screen
+erscheint, und der Lauf endet sauber (zurück ins Menü / Neustart möglich). Keine
+Performance-Einbrüche oder Crashes auf dem Weg.
 
 ### Phase 3 — Moderater Inhaltszuwachs
 Phasenweise, je separat testbar (nicht koppeln):
@@ -71,7 +73,7 @@ Windows-Rechner ohne Python-Installation starten und spielen kann.
 
 Die großen Brocken nach dem MVP, grob nach Wert geordnet:
 
-- **Rebirth-System.** Sieg bei Welle 100 → komplettes Reset → Karte mit 3 Waffen
+- **Rebirth-System.** Sieg bei Welle `WIN_WAVE` (150) → komplettes Reset → Karte mit 3 Waffen
   → 1 dauerhaft behalten. Bezug: ADR 004.
 - **Waffen-System.** Verschiedene Waffen = verschiedene Schussmuster (Arbeitsannahme).
   Waffenwahl vor dem Run.

@@ -68,6 +68,9 @@ Dev-Tasten (nur im `PLAYING`-State):
 - **F1** — alle Gegner sofort töten (löst Wave-Clear aus)
 - **F2** — auf Welle 9 springen (nächster Clear → Boss in Welle 10)
 - **F3** — auf Welle 49 springen (nächster Clear → SuperBoss in Welle 50)
+- **F4** — auf Welle `WIN_WAVE`−1 (149) springen (nächster Clear → finaler SuperBoss
+  W150 → Sieg testen; friert Level/Stats ein → **kein** Endgame-Balance-Test)
+- **F5** — Levelup erzwingen (Karten testen)
 - **F11** — Fullscreen toggeln · **ESC** — Pause / zurück
 
 ---
@@ -391,7 +394,8 @@ Dämpfungsfaktor.
   helfen nicht.
 - **Meta-Gate „~5 Läufe bis Welle 100" (ADR 018, revidiert ADR 013/014).** Das „fairer
   Einzellauf"-Ziel ist bewusst aufgegeben: Die **Boss-Wand wurde wieder eingeführt**
-  (`BOSS_HP_MULT 2→6`, `SUPERBOSS_HP_MULT 3→10`), und permanenter Startschaden
+  (`BOSS_HP_MULT 2→6`, `SUPERBOSS_HP_MULT 3→10`; **später per Nutzerwunsch auf ×5 angehoben:
+  `BOSS_HP_MULT = 60`, `SUPERBOSS_HP_MULT = 100`, Stand `game/balance.py:77-78`**), und permanenter Startschaden
   (`PERMANENT_DAMAGE_PER_LEVEL 15→25`, `COST_MULT 1.65→1.4`) schiebt sie über ~5 Läufe nach
   hinten (neues Modell `tools/balance_model_runs.py`: Todeswelle 10→50→80→90→100). **Offene
   Risiken:** (a) **das Modell misst nur die Boss-DPS-Wand, NICHT den HP-Tod durch reguläre

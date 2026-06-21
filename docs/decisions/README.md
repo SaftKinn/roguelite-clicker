@@ -61,3 +61,7 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 020 — FPS-Regler + Geschwindigkeits-/Zeitraffer-Multiplikator (Update-Loop ×N)](020-fps-regler-und-zeitraffer.md)
 - [ADR 021 — SessionStart-Hook: Projekt-Status automatisch einspeisen](021-sessionstart-status-hook.md)
 - [ADR 022 — Gestufter Doppelschuss-Shop + begrenzte Angriffsreichweite + Aufgeben behält Gold](022-shop-doppelschuss-stufig-und-angriffsreichweite.md)
+- [ADR 023 — Spawn über ein festes Wandzeit-Fenster (10 s/Welle) statt fixem Intervall](023-spawn-fenster-feste-wandzeit.md)
+- [ADR 024 — Tier-Roster: 15 reskinnte Gegner (3 Tiers × 5 Rollen) + Welle 150](024-tier-roster-15-gegner-und-welle-150.md)
+- [ADR 025 — Karten-Farbgruppen (ROT/BLAU/GOLD/WEISS) + neue Effekt-Karten](025-karten-farbgruppen-neue-effekte.md)
+- [ADR 026 — Shop-Ausbau: neue Dauer-Stats, globale Meta-Multiplikatoren, 4-Gruppen-Layout](026-shop-ausbau-vier-gruppen.md)
