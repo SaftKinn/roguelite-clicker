@@ -72,7 +72,10 @@ pip install pygame    # einzige Pflicht-Abhängigkeit; numpy optional
 
 Verifikation erfolgt durch **Starten des Spiels** — es gibt keine Tests/Linter.
 
-Spieler-Taste: **C** blendet im `PLAYING`-State die eigenen Stats ein/aus (Overlay).
+Spieler-Tasten (im `PLAYING`-State): **C** blendet die eigenen Stats ein/aus (Overlay);
+**B** setzt die Geschwindigkeit (Zeitraffer) sofort auf x1. Der ausklappbare **Speed-Button**
+(oben rechts) wählt x1/x2/x3/x5/x10/x20. Das Pause-Menü (ESC) hat einen **„Steuerung"-Button**
+mit der vollen Tastenübersicht.
 
 Dev-Tasten (nur im `PLAYING`-State): **F1** alle Gegner töten · **F2** zu Welle 9
 · **F3** zu Welle 49 · **F4** zu Welle 99 (→ SuperBoss/​Sieg testen; friert Level/Stats

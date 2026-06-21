@@ -14,8 +14,8 @@ _active_slot = 1
 
 _DEFAULT = {
     "total_coins":  0,
-    "bought":       [],   # Einmalige Käufe: "doppelschuss", "gold_boost"
-    "upgrades":     {"start_damage": 0, "start_hp": 0},  # Stufenzähler
+    "bought":       [],   # Einmalige Käufe: "gold_boost"
+    "upgrades":     {"start_damage": 0, "start_hp": 0, "doppelschuss": 0},  # Stufenzähler (doppelschuss 0–2)
     "best_wave":    0,
     "best_coins":   0,
     "settings":     {"difficulty": 1, "sfx": 7, "music": 5, "fps": 0, "framerate": 5},
@@ -65,6 +65,7 @@ def load(slot: int | None = None) -> dict:
         if legacy is not None:
             data = legacy
             save(data, 1)
+            _remove(_LEGACY_PATH)      # Migration abgeschlossen → Original entfernen (sonst „untötbar")
     return data if data is not None else _fresh()
 
 
@@ -74,14 +75,20 @@ def save(data: dict, slot: int | None = None) -> None:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
-def delete(slot: int) -> None:
-    """Löscht einen Slot (Datei entfernen → wieder leer)."""
-    path = _slot_path(slot)
+def _remove(path: str) -> None:
     if os.path.exists(path):
         try:
             os.remove(path)
         except Exception:
             pass
+
+
+def delete(slot: int) -> None:
+    """Löscht einen Slot (Datei entfernen → wieder leer). Slot 1 entfernt auch die
+    Alt-`save.json`, sonst zeigt der Legacy-Fallback den Slot sofort wieder als belegt."""
+    _remove(_slot_path(slot))
+    if slot == 1:
+        _remove(_LEGACY_PATH)
 
 
 def slot_summary(slot: int) -> dict | None:

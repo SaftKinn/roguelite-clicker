@@ -54,6 +54,10 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 013 — Boss-HP-Multiplikatoren senken (×8/×25 → ×2/×3), datengestützt per Modell](013-boss-hp-multiplikatoren-senken.md)
 - [ADR 014 — XP pro Kill skaliert mit der Welle (Wurzel-Fix gegen die Endgame-Wand)](014-xp-wellenskalierung.md)
 - [ADR 015 — SuperBoss erhält ein statisches Pixel-Art-Drachen-Sprite](015-superboss-drache-pixel-sprite.md) *(abgelöst von ADR 016)*
-- [ADR 016 — SuperBoss wird ein animierter, fliegender Drache](016-superboss-drache-flug-animation.md)
+- [ADR 016 — SuperBoss-Drache: animiert (zunächst fliegend, dann geerdeter Walk-Zyklus)](016-superboss-drache-flug-animation.md)
 - [ADR 017 — Drei neue Gegnerklassen: Goblin (Schwarm), OrcBerserker (Brecher), Necromancer (Beschwörer)](017-neue-gegnerklassen.md)
 - [ADR 018 — Boss-Wand als Meta-Gate: ~5 Läufe bis Welle 100 (revidiert ADR 013/014)](018-fuenf-laeufe-meta-gate.md)
+- [ADR 019 — Speicherstand-Slots, gewählt vor dem Hauptmenü](019-speicherstand-slots.md)
+- [ADR 020 — FPS-Regler + Geschwindigkeits-/Zeitraffer-Multiplikator (Update-Loop ×N)](020-fps-regler-und-zeitraffer.md)
+- [ADR 021 — SessionStart-Hook: Projekt-Status automatisch einspeisen](021-sessionstart-status-hook.md)
+- [ADR 022 — Gestufter Doppelschuss-Shop + begrenzte Angriffsreichweite + Aufgeben behält Gold](022-shop-doppelschuss-stufig-und-angriffsreichweite.md)

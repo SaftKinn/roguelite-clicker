@@ -7,31 +7,76 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-**Endgame-Balance datengestützt entschärft + SuperBoss hat ein eigenes Drachen-Sprite —
-bereit für echten Playtest.** Zwei Balance-Hebel sind committet: (1) Boss-HP-Multiplikatoren
-×8/×25 → ×2/×3 (ADR 013, `ba7c997`); (2) Kill-XP skaliert mit der Welle (`xp_wave_mult =
-1+wave//8`, `XP_WAVE_DIV=8`, ADR 014, `d06414e`) — Modell: Endlevel ~98, **0/10 Bosse über dem
-Walk-Budget** (vorher 9/10). Dazu ist der **SuperBoss jetzt ein animierter, fliegender Drache** (ADR 016,
-25-Frame-Strip aus dem 5×5-Spritesheet, `smoothscale`, Schwebe-Bob; ersetzt das statische
-Pixel-Sprite aus ADR 015) — **uncommitted**. Zusätzlich **drei neue Gegnerklassen**
-(Goblin/OrcBerserker/Necromancer, ADR 017) eingehängt + Leonardo-Prompts geliefert; die
-**KI-Sprites sind jetzt drin** (statisch, 1 Frame): schwarzer BG via neuem
-`tools/key_black_bg.py` (Flood-Fill von den Ecken → nur rand-verbundenes Schwarz raus,
-dann auf Quadrat zentriert → loader-sicher) keygt; danach **prozedural animiert** via neuem
-`tools/animate_walk.py` (Pillow: Bob am Fußpunkt + Squash/Stretch + Tilt → 8-Frame-Strip
-im Loader-Format) → `assets/custom/{orc_warrior,goblin,necromancer}_run.png` (8 Frames,
-256²); die gekeyten Standbilder bleiben als `*_static.png`-Quelle liegen. DragonBones
-verworfen (DesignPanel = totes Flash-2015-Tool; volles Rigging Overkill für ~60-px-Gegner).
-Dazu ein **Spiel-weiter Feel-/Balance-Umbau** (Nutzerwunsch): Gegner ~30 % langsamer,
-`CAMERA_ZOOM 1.2→1.4`, neue Gegner-HP ×10 (Goblin ×2.5/Ork ×25/Nekro ×6 der Basis), Save
-zurückgesetzt, und **Boss-Wand als Meta-Gate für ~5 Läufe bis Welle 100** (ADR 018:
-Boss×6/Super×10, PermDmg 25, CostMult 1.4; Modell `tools/balance_model_runs.py`). — **alles
-uncommitted.** **Bekannte Risiken/offene Fragen:** (a) **5-Läufe-Modell misst nur die
-Boss-Wand, NICHT den HP-Tod durch die jetzt ×10-zähen Normalgegner** (Ork ×25 = 4× Boss) →
-real evtl. mehr Läufe, Playtest nötig; (b) Run 1 stirbt schon am ersten Boss (W10) — gewollt,
-evtl. hart; (c) Stil-Bruch Pixel/Tiny-Swords; (d) echter 1→100-Playtest steht aus.
+**Komfort-/QoL-Feature-Welle + Drache läuft jetzt — Stand committet bis `cdbb01d`, danach
+weitere Tuning-Änderungen uncommitted.** Gameplay-Grundgerüst steht (Wellen 1–100, Sieg,
+XP/Level, Karten, Shop, Elites, 3 neue Gegnerklassen ADR 017, Meta-Gate ADR 018). Diese
+Session kamen viele **Nutzer-getriebene Komfort-/Tuning-Features** dazu:
+- **Speicherstand-Slots** (3 Stück) **vor dem Hauptmenü** wählbar (ADR 019) — `save_slot<N>.json`,
+  Auswahl/Löschen, Alt-`save.json` migriert in Slot 1.
+- **FPS-Regler in den Optionen** (Schiebebalken wie Lautstärke, 30–240) + **Geschwindigkeits-/
+  Zeitraffer-Button x1/x5/x10/x20** im HUD (ADR 020) — beschleunigt die *gesamte* Update-Logik
+  N×/Frame (Balance identisch). FPS-Standard 75→140.
+- **Lexikon/Bestiarium** (Hauptmenü-Button): alle Gegner mit Stats, nur gesehene enthüllt.
+- **SuperBoss-Drache läuft** (geerdeter Walk-Zyklus statt Schweben; ADR 016 aktualisiert) +
+  Code-only Angriffs-Lunge.
+- **Balance-Tweaks (reine Werte):** Elite-HP ×10→×3; **+10 % XP je Welle** (`xp_round_mult`,
+  linear); Wellen-Härte (+40 %/10 Wellen, kurz drin) auf Nutzerwunsch wieder **zurückgesetzt**
+  (`WAVE_TIER_MULT=1.0`).
+
+**Bekannte Risiken/offene Fragen:** (a) FPS 140 ist frame-basiert → Spiel läuft real ~1,87×
+schneller als bei 75 (Bewegung px/Frame); Balance evtl. nachziehen. (b) Zeitraffer x20 spielt
+viele Sounds/Frame (Kakofonie) — akzeptiert. (c) Stil-Bruch Pixel/Tiny-Swords bleibt.
+(d) echter 1→100-Playtest steht weiter aus. (e) Parallel-Session editiert dieselben Dateien —
+Tree teils gemischt.
 
 ## Last session
+
+2026-06-21 (Teil 9) — Tuning-Sprint + Shop-/Combat-Features (ADR 021, 022):
+- **Reine Werte (Nutzer-Tuning, iterativ):** Spieler-Basisschaden 10→15 (`BASE_DAMAGE`, +50%);
+  Gegner langsamer (`enemy_speed_for_wave = min(1.1+wave·0.10, 2.4)`); `CAMERA_ZOOM 1.2→1.4`;
+  **XP +70%** (`XP_GAIN_MULT=1.7`, alle Gegner) + **Münzen +50%** (`COIN_GAIN_MULT=1.5`);
+  **Elite-HP gestuft** (`elite_hp_mult`: Basis ×3, +100%/10 Wellen additiv → W100 ×33);
+  **Boss/SuperBoss +100%** (`BOSS_HP_MULT 6→12`, `SUPERBOSS_HP_MULT 10→20`). (Parallel vom
+  Nutzer: `ENEMY_HP_GLOBAL_MULT` auf 0.25 gesenkt, `WAVE_TIER_MULT` auf 1.0/aus.)
+- **Gestufter Doppelschuss-Shop (ADR 022):** Einmalkauf → gestuftes Upgrade
+  (`upgrades.doppelschuss` 0–2), Stufe 1 „Doppelschuss" 5000 / Stufe 2 „Dreifachschuss" 20000;
+  neue `_TIERED`-Shop-Kategorie (capped, eigene Kostenliste); Gameplay feuert `Stufe` gerade
+  Extra-Schüsse (trifft auch Bosse). Karten-Text „3 Kugeln"→„3 Schuss".
+- **Begrenzte Angriffsreichweite (ADR 022):** `PLAYER_ATTACK_RANGE` aus `CAMERA_ZOOM` abgeleitet
+  (`ATTACK_RANGE_FRAC=0.92`); Turm zielt nur in Sichtweite → Kills immer im Bild.
+- **Aufgeben behält Gold (ADR 022):** Pause→Hauptmenü bucht `gs["coins"]` ins `total_coins`.
+- **SessionStart-Hook (ADR 021):** `tools/session_status.py` + `.claude/settings.json` → Status
+  (Current focus/Next step + neuestes ADR) automatisch bei jedem Session-Start im Kontext.
+- **Verifikation:** `py_compile` aller berührten Module; Headless-Tests (Shop 0→1→2/max, Reichweite
+  ~236px, Aufgeben 36→41 Gold, XP/HP/Münz-Werte); voller Treiber-Flow bis Sieg crashfrei.
+  **Alles uncommitted; Parallel-Session editiert dieselben Dateien (Tree gemischt).**
+
+2026-06-21 (Teil 8) — Komfort-/QoL-Welle + Drache läuft (ADR 016 akt., 019, 020):
+- **Drache (ADR 016 aktualisiert):** vom Schweben auf **geerdeten Walk-Zyklus** umgestellt —
+  detailliertes KI-Drachenbild freigestellt (`key_black_bg` + strikter „nur reines Schwarz"-Pass
+  gegen die eingeschlossene Flügel-Tasche), prozedural fußverankert animiert →
+  `drache_superboss_walk.png` (8 Frames); `SuperBoss` ohne `FLY_LIFT`/Bob. Plus Code-only
+  **Angriffs-Lunge** (sin-Hüllkurve: Vorstoß + Scale + Aura-Clench; rein visuell).
+- **FPS (ADR 020):** Standard 75→140 (`constants.py`); **FPS-Regler** in den Optionen
+  (Schiebebalken, 30–240), treibt `clock.tick` **und** die Feuerrate (`fps_value`). **Speed-/
+  Zeitraffer-Button** x1/x5/x10/x20 im HUD: die gesamte Gameplay-Update-Logik läuft N×/Frame
+  (Update-Block in `for _ in range(time_scale)` gewrappt) → alles gleichmäßig schneller,
+  Balance identisch.
+- **Speicherstände (ADR 019):** `save_data` auf **Mehr-Slot-Modell** (aktiver Slot; bestehende
+  `sd.save(save)`-Aufrufe unverändert). 3 Slots `save_slot<N>.json`, **SlotSelectMenu** als
+  erster State **vor dem Hauptmenü** (Auswahl/Löschen, Migration der Alt-`save.json` in Slot 1).
+  `save_slot*.json` gitignored.
+- **Lexikon:** `BestiaryMenu` + Hauptmenü-Button + `BESTIARY`-State; Katalog aller 9 Gegner mit
+  Stats + Sprite-Thumbnail (lazy aus den Klassen-Loadern), nur **gesehene** enthüllt
+  (`seen_enemies` je Slot persistiert, beim Spawn markiert).
+- **Balance (reine Werte):** Elite-HP `ELITE_HP_MULT 10→3`; **+10 % XP je Welle**
+  (`xp_round_mult = 1 + 0.10·wave`, linear → W100 ×11); kurz eingebaute Wellen-Härte
+  (+40 %/10 Wellen kompoundierend) auf Nutzerwunsch **zurückgesetzt** (`WAVE_TIER_MULT=1.0`).
+- **Verifikation:** headless Renders (FPS-Regler, Lexikon, Slot-Screen, Drache geerdet, Speed x20
+  → schneller Levelup) + voller Treiber Slot→Menü→Spiel→Sieg crashfrei. Treiber um Slot-Pick
+  erweitert.
+- **Commit:** `cdbb01d` bündelt den Großteil (auf Wunsch „alles", inkl. paralleler ADR-017/018-
+  Arbeit). Danach: Drache-Walk, Speed-Button, XP/Elite/Wellen-Härte-Reset noch **uncommitted**.
 
 2026-06-21 (Teil 7) — Feel-/Meta-Balance-Umbau + Sprites animiert (ADR 018):
 - **Sprites:** 3 KI-Charaktere (schwarzer BG) via `tools/key_black_bg.py` gekeyt + via
@@ -319,6 +364,33 @@ Datentabellen-Eintrag mehr).
 
 Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 
+- **D31** — **Speicherstand-Slots vor dem Hauptmenü** → **ADR 019**. Aktiv-Slot-Modell in
+  `save_data` (bestehende `sd.save`-Aufrufe unverändert), 3 `save_slot<N>.json`, `SLOT_SELECT`
+  als Einstiegs-State, Migration der Alt-`save.json` in Slot 1. **Bugfix:** Migration löscht das
+  Original + `delete(1)` entfernt auch die Legacy-Datei (sonst „untötbarer" Slot 1).
+- **D32** — **FPS-Regler + Zeitraffer-Multiplikator** → **ADR 020**. FPS 75→140, Regler in den
+  Optionen; Speed-Button als **ausklappbares Dropdown x1/x2/x3/x5/x10/x20** = Update-Block läuft
+  N×/Frame (Balance identisch), **Taste B** → x1. FPS treibt `clock.tick` und Feuerrate. Ersetzt
+  die erste „Spawn-Rate"-Button-Variante. Dazu ein **`CONTROLS`-Screen** (Pause-Menü-Button
+  „Steuerung") mit allen Tasten/Bedienelementen.
+- **D33** — **Lexikon/Bestiarium** (`BestiaryMenu`, `BESTIARY`-State): Gegner-Katalog mit Stats,
+  nur gesehene enthüllt (`seen_enemies` je Slot). Reine UI/Daten, kein ADR (keine Abwägung).
+- **D34** — **SuperBoss-Drache: Schweben → geerdeter Walk** (ADR 016 aktualisiert) + Code-only
+  Angriffs-Lunge. Detailliertes KI-Bild freigestellt (strikter „nur reines Schwarz"-Pass gegen
+  die eingeschlossene Flügel-Tasche), fußverankert animiert.
+- **D35** — **Balance-Tweaks (reine Werte, Playtest-Regler):** `ELITE_HP_MULT 10→3`;
+  **+10 % XP je Welle** (`xp_round_mult`, linear); Wellen-Härte (+40 %/10 W) auf Nutzerwunsch
+  **zurückgesetzt** (`WAVE_TIER_MULT=1.0`); **Gegner „viel zu stark" → `ENEMY_HP_GLOBAL_MULT
+  0.8→0.25`** (globaler Stärke-Regler stark runter).
+- **D36** — **Tuning-Sprint (reine Werte):** `BASE_DAMAGE 10→15` (+50%); Gegner langsamer
+  (`min(1.1+wave·0.10, 2.4)`); `CAMERA_ZOOM 1.2→1.4`; `XP_GAIN_MULT 1.7` (+70%);
+  `COIN_GAIN_MULT 1.5` (+50%); Elite-HP gestuft (`elite_hp_mult`, +100%/10 W additiv);
+  `BOSS_HP_MULT 6→12` / `SUPERBOSS_HP_MULT 10→20` (+100%). Alle als benannte Regler in balance.py.
+- **D37** — **Gestufter Doppelschuss-Shop + begrenzte Angriffsreichweite + Aufgeben behält Gold**
+  → **ADR 022**. Doppelschuss = capped Upgrade (5000/20000); `PLAYER_ATTACK_RANGE` aus Zoom
+  abgeleitet (Kills im Bild); Pause→Hauptmenü bucht `gs["coins"]`.
+- **D38** — **SessionStart-Hook** → **ADR 021**. `tools/session_status.py` + `.claude/settings.json`
+  speisen den Projekt-Status (Current focus/Next step + neuestes ADR) bei jedem Start ein.
 - **D1** — Doku-Sprache: Deutsch (Code-Bezeichner bleiben Englisch).
 - **D2** — Projektziel: Lernen mit echter Veröffentlichungs-Absicht später.
 - **D3** — Zielplattform: Windows-Desktop `.exe` (z. B. itch.io). Browser/Mac/Linux
@@ -439,9 +511,12 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur),
   ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner), ADR 012 (HP-Scaling super-linear),
   ADR 013 (Boss-Multiplikatoren ×2/×3), ADR 014 (XP-Wellenskalierung),
-  ADR 015 (SuperBoss-Pixel-Art-Drache, abgelöst), ADR 016 (SuperBoss animierter Flug-Drache),
+  ADR 015 (SuperBoss-Pixel-Art-Drache, abgelöst), ADR 016 (SuperBoss-Drache animiert → Walk),
   ADR 017 (drei neue Gegnerklassen: Goblin/OrcBerserker/Necromancer),
-  ADR 018 (Boss-Wand als Meta-Gate, ~5 Läufe; revidiert ADR 013/014).
+  ADR 018 (Boss-Wand als Meta-Gate, ~5 Läufe; revidiert ADR 013/014),
+  ADR 019 (Speicherstand-Slots), ADR 020 (FPS-Regler + Zeitraffer-Multiplikator),
+  ADR 022 (gestufter Doppelschuss-Shop + begrenzte Angriffsreichweite + Aufgeben behält Gold).
+- **Tooling/Workflow** → ADR 021 (SessionStart-Status-Hook).
 - **Phase 4** (Verpacken) → ADR 001 (Python/Pygame → PyInstaller).
 - **Part 2** (Rebirth/Waffen) → ADR 004.
 

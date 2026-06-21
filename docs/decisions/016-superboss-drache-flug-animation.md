@@ -1,9 +1,18 @@
-# ADR 016 — SuperBoss wird ein animierter, fliegender Drache
+# ADR 016 — SuperBoss-Drache: animiert (zunächst fliegend, dann geerdeter Walk)
 
-- **Status:** Accepted
+- **Status:** Accepted (aktualisiert)
 - **Date:** 2026-06-21
-- **Refs:** architecture.md §4 (Gegner-Klassen); progress.md D30; **ersetzt ADR 015**
+- **Refs:** architecture.md §4 (Gegner-Klassen); progress.md D30/D34; **ersetzt ADR 015**
   (statisches Pixel-Art-Standbild)
+
+> **Nachtrag (D34):** Die erste Umsetzung war ein **fliegender** Drache (25-Frame-Strip aus
+> dem 5×5-Sheet + Schwebe-Bob). Auf Nutzerwunsch „nicht schweben, laufend" wurde er auf einen
+> **geerdeten Walk-Zyklus** umgestellt: detailliertes KI-Bild freigestellt (`key_black_bg` +
+> strikter „nur reines Schwarz"-Pass gegen die eingeschlossene Flügel-Tasche), fußverankert
+> prozedural animiert → `drache_superboss_walk.png` (8 Frames); `FLY_LIFT`/Bob entfernt. Plus
+> eine rein-visuelle Angriffs-Lunge. Die Entscheidung „eigener animierter Drachen-Boss" bleibt;
+> nur Fortbewegung (fliegen → laufen) und Quelle (Walk-Sheet → freigestelltes Einzelbild)
+> änderten sich.
 
 ## Context
 Der SuperBoss war seit ADR 015 ein **statisches** Pixel-Art-Standbild des Drachen — er stand

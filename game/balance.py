@@ -34,6 +34,10 @@ LIFESTEAL_PER_HIT   = 1     # HP, die der Spieler je Treffer an einem Gegner hei
 # ---------------------------------------------------------------------------
 
 CAMERA_ZOOM  = 1.4    # Welt wird post-render um diesen Faktor zentriert herangezoomt (größer = alles näher/größer)
+# Spieler-Angriffsreichweite als Anteil der sichtbaren Halb-Höhe (= kleinster sichtbarer Radius
+# bei CAMERA_ZOOM). Der Turm feuert nur auf Gegner innerhalb dieser Reichweite, damit Kills
+# IMMER im sichtbaren Bild passieren (der Zoom schneidet den Rand ab). <1 = etwas Sicherheitsrand.
+ATTACK_RANGE_FRAC = 0.92
 SPRITE_SCALE = 1.1    # zusätzliche Vergrößerung aller Einheiten-/Geschoss-Sprites beim Laden
 ENEMY_SPRITE_SCALE = 1.25  # Gegner-Körper zusätzlich vergrößert (etwas größer als der Turm); Turm bleibt _TOWER_SIZE
 
@@ -88,14 +92,14 @@ def enemies_for_wave(wave: int) -> int:
 ENEMY_HP_BASE        = 30    # Grund-HP (Welle 0)
 ENEMY_HP_PER_WAVE    = 12    # linearer HP-Zuwachs je Welle
 ENEMY_HP_PER_WAVE_SQ = 0.9   # quadratischer HP-Zuwachs (greift v.a. spät → echte Endgame-Wand)
-ENEMY_HP_GLOBAL_MULT = 0.8   # globaler HP-Faktor ALLER Gegner (−20%, Nutzerwunsch)
+ENEMY_HP_GLOBAL_MULT = 0.25  # globaler HP-Faktor ALLER Gegner (stark gesenkt, Gegner waren viel zu stark — Nutzerwunsch)
 
 # Meilenstein-Härtung (Nutzerwunsch): zusätzlich zur wellenweisen Skalierung werden
 # Gegner alle WAVE_TIER_STEP Wellen um WAVE_TIER_MULT−1 stärker — und zwar KOMPOUNDIEREND
 # (Welle 10 ×1.4, Welle 20 ×1.96, … Welle 100 ×1.4^10 ≈ ×28.9). Gilt für HP UND Schaden.
 # Tuning: kleiner = sanfter. Für additiv statt kompoundierend: `1 + (WAVE_TIER_MULT-1)*(wave//WAVE_TIER_STEP)`.
 WAVE_TIER_STEP = 10    # alle so vielen Wellen kommt ein Härte-Schritt dazu
-WAVE_TIER_MULT = 1.4   # Faktor je Schritt (+40 %)
+WAVE_TIER_MULT = 1.0   # Faktor je Schritt — 1.0 = AUS (harte Wellen-Härte zurückgesetzt, Nutzerwunsch)
 
 def wave_tier_mult(wave: int) -> float:
     """Kompoundierender Härte-Faktor auf HP und Schaden, je WAVE_TIER_STEP Wellen ×WAVE_TIER_MULT."""
@@ -138,6 +142,15 @@ XP_GAIN_MULT = 1.7  # globaler XP-Faktor je Kill (+70%, Nutzerwunsch: Spieler le
 def xp_wave_mult(wave: int) -> int:
     """Wellenabhängiger Multiplikator auf den XP-Drop je Kill."""
     return 1 + wave // XP_WAVE_DIV
+
+# "Jede Runde 10% mehr XP" (Nutzerwunsch): zusätzlicher, linear je Welle wachsender
+# XP-Faktor (+10% der Basis pro Welle → Welle 100 = ×11). Bewusst linear, nicht
+# kompoundierend (1.1^Welle würde explodieren). Kleiner = sanfter.
+XP_ROUND_PCT = 0.10
+
+def xp_round_mult(wave: int) -> float:
+    """+XP_ROUND_PCT je Welle (linear) auf den XP-Drop — 'jede Runde mehr XP'."""
+    return 1 + XP_ROUND_PCT * wave
 
 # Beim Levelup ist die Karten-Auswahl kurz klick-gesperrt, damit ein gehaltener/
 # schneller Klick nicht versehentlich sofort eine Karte wählt (ADR 009).

@@ -114,8 +114,20 @@ Wahrheit). JSON-Auslagerung weiter Backlog (ADR 002).
 Draw-Phase** darauf. **Beim Hinzufügen von Verhalten muss man typischerweise an
 allen drei Stellen denselben State behandeln.**
 
-States: `MAIN_MENU`, `OPTIONS`, `IMPROVEMENTS`, `PLAYING`, `WAVE_CLEAR`,
-`UPGRADE`, `PAUSED`, `GAME_OVER`, `VICTORY`.
+States: `SLOT_SELECT`, `MAIN_MENU`, `OPTIONS`, `IMPROVEMENTS`, `BESTIARY`, `PLAYING`,
+`WAVE_CLEAR`, `UPGRADE`, `PAUSED`, `CONTROLS`, `GAME_OVER`, `VICTORY`.
+
+`SLOT_SELECT` (Einstiegs-State, ADR 019): vor dem Hauptmenü wird einer von 3
+Speicherständen (`save_slot<N>.json`) gewählt/gelöscht; Auswahl lädt den Slot.
+`BESTIARY` (Lexikon): Katalog aller Gegner mit Stats, nur **gesehene** enthüllt
+(`seen_enemies` je Slot persistiert). Beide vom Hauptmenü aus erreichbar.
+`CONTROLS` (Steuerungs-Übersicht): aus dem Pause-Menü; listet alle Tasten/Bedienelemente,
+friert die Welt ein wie `PAUSED`.
+
+**Zeitraffer (ADR 020):** im `PLAYING`/`WAVE_CLEAR`/`UPGRADE`-Update läuft der gesamte
+Update-Block `time_scale`-mal pro Frame (ausklappbarer HUD-Button **x1/x2/x3/x5/x10/x20**,
+Taste **B** → x1) — alles gleichmäßig schneller, Balance identisch. **FPS** ist zur Laufzeit
+per Options-Regler einstellbar (treibt `clock.tick` und die Feuerrate).
 
 `VICTORY` (seit Phase 2): erreicht, sobald Welle `WIN_WAVE` (100) geräumt ist
 (SuperBoss besiegt). Eigener Sieg-Screen; R = neuer Lauf, M = Menü — Event/Draw
@@ -171,12 +183,13 @@ Gegnertypen:
   der Iteration). Spawn-Key „necro". Sprite `assets/custom/necromancer_run.png`,
   Fallback = lila Kreis + Beschwör-Aura.
 - `Boss` (alle 10 Wellen) — nutzt die Lancer-Sprites, tötet mit einem Treffer.
-- `SuperBoss` (Drache, alle 50 Wellen, ADR 016) — **animierter Flug-/Flügelschlag-Zyklus**
-  (`assets/custom/drache_superboss_fly.png`, 25-Frame-Strip, `smoothscale`, Seitenverhältnis
-  erhalten) plus leichtes **Schweben** (visueller `FLY_LIFT`+Sinus-Bob; `self.pos` bleibt für
-  die Logik am Boden). Betritt das Bild als Seitenansicht **nur vom Ost-/Westrand**
-  (horizontaler Anmarsch); tötet mit einem Treffer. (Löst das statische Pixel-Standbild aus
-  ADR 015 ab.)
+- `SuperBoss` (Drache, alle 50 Wellen, ADR 016) — **geerdeter Walk-Zyklus**
+  (`assets/custom/drache_superboss_walk.png`, 8-Frame-Strip, fußverankert prozedural animiert,
+  `smoothscale`, Seitenverhältnis erhalten) — der Drache **läuft** am Boden (Wippen im Sprite,
+  kein Schweben). Plus rein-visuelle **Angriffs-Lunge** (sin-Hüllkurve: Vorstoß + Scale +
+  Aura-Clench; `self.pos` bleibt für die Logik fix). Betritt das Bild als Seitenansicht **nur
+  vom Ost-/Westrand**; tötet mit einem Treffer. (Löst das statische Pixel-Standbild ADR 015 und
+  die zwischenzeitliche Flug-Variante ab.)
 
 Wave-Skalierung über die `*_for_wave()`-Funktionen oben in `main.py`. Einhängen
 neuer Gegner in `spawn_enemy_for_wave()`.
@@ -199,7 +212,11 @@ Pro Frame im `PLAYING`-State (vereinfacht):
    **Voll-Auto-Feuer + Autoaim (ADR 010):** sobald `fire_timer <= 0` und ein Gegner
    existiert, feuert der Turm auf den nächsten Gegner (`nearest_enemy_pos()`) im Takt
    `FPS / attack_speed`; ohne Ziel bleibt der Timer ≤0 (sofortiger Schuss beim ersten
-   Gegner). Keine Maus-/Klick-Eingabe. Doppelschuss-Nachzügler laufen über `pending_shots`.
+   Gegner). Keine Maus-/Klick-Eingabe. **Angriffsreichweite (ADR 022):** `nearest_enemy_pos()`
+   zielt nur auf Gegner innerhalb `PLAYER_ATTACK_RANGE = (SCREEN_HEIGHT/2)/CAMERA_ZOOM ·
+   ATTACK_RANGE_FRAC` → Kills liegen immer im sichtbaren Bild (zoom-abhängig). Doppelschuss-
+   Nachzügler laufen über `pending_shots`: die **Stufe** `upgrades.doppelschuss` (0–2) erzeugt so
+   viele gerade Extra-Schüsse aufs Ziel (ADR 022 — trifft auch Einzelziele/Bosse).
 3. **Kollisionen:** `check_projectile_hits()` (Spieler-Geschoss → Gegner, mit
    Pierce-/Multishot-Logik; je Treffer **Lifesteal** `LIFESTEAL_PER_HIT` HP),
    `check_enemy_contact()` (Gegner → Turm). Nahkämpfer **stoppen vor dem Turm und
@@ -264,8 +281,9 @@ Modding nötig werden. Begründung + Alternativen: ADR 002.
 aufgefüllt). „Harter" Zustand (überlebt Programm-Neustart):
 
 - `total_coins`, `best_wave`, `best_coins`
-- `bought` — einmalige Käufe (`"doppelschuss"`, `"gold_boost"`)
-- `upgrades` — Stufenzähler permanenter Verbesserungen (`start_damage`, `start_hp`)
+- `bought` — einmalige Käufe (`"gold_boost"`)
+- `upgrades` — Stufenzähler permanenter Verbesserungen (`start_damage`, `start_hp`,
+  `doppelschuss` 0–2; ADR 022)
 - `settings` — **als Integer-Indizes**, nicht als Rohwerte: `sfx`/`music` 0–10
   (→ Lautstärke `idx/10`), `difficulty` = Index in `DIFFICULTIES`, `fps` 0/1.
 
@@ -275,9 +293,10 @@ Zwei getrennte Upgrade-Systeme:
    Level-up** (XP-getrieben, ADR 008). Wirken über `apply_upgrade()` auf `gs["stats"]`
    bzw. den `Player`.
 2. **Permanente Verbesserungen** (`main_menu.py`, `ImprovementsMenu`): mit Münzen
-   gekauft, persistiert. `_ONE_TIME` (einmalig) und `_INFINITE` (stufenweise,
-   Preis ×`_COST_MULT`). Angewendet via `apply_permanent_bonuses()` zu Laufbeginn
-   bzw. inline (`"gold_boost" in save["bought"]`).
+   gekauft, persistiert. Drei Kategorien: `_INFINITE` (stufenweise, Preis ×`_COST_MULT`),
+   `_TIERED` (gedeckelt, eigene Kostenliste je Stufe — z. B. Doppelschuss 5000→Dreifachschuss
+   20000, ADR 022) und `_ONE_TIME` (einmalig, z. B. Goldene Kugeln). Angewendet via
+   `apply_permanent_bonuses()` zu Laufbeginn bzw. inline (gold_boost; doppelschuss-Stufe).
 
 **Geplante Erweiterung (Part 2, Rebirth):** Das Save-Format bekommt
 freigeschaltete **Waffen** und deren Meta-Upgrades. Diese überleben als Einzige

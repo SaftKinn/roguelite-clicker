@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/tools/session_status.py\"",
+            "statusMessage": "Lese Projekt-Status (progress.md + neuestes ADR)…",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
