@@ -159,9 +159,12 @@ Gegnertypen:
 - `Lancer` (Tank, 5 Richtungs-Angriffsanimationen) — Spawn-Key „tanker"
 - `Monk` (Heiler, heilt Nachbarn + Heal-FX)
 - `Boss` (alle 10 Wellen) — nutzt die Lancer-Sprites, tötet mit einem Treffer.
-- `SuperBoss` (Drache, alle 50 Wellen, ADR 015) — statisches **Pixel-Art-Sprite**
-  (`assets/custom/drache_superboss.png`, NEAREST-skaliert); betritt das Bild als Seitenansicht
-  **nur vom Ost-/Westrand** (horizontaler Anmarsch); tötet mit einem Treffer.
+- `SuperBoss` (Drache, alle 50 Wellen, ADR 016) — **animierter Flug-/Flügelschlag-Zyklus**
+  (`assets/custom/drache_superboss_fly.png`, 25-Frame-Strip, `smoothscale`, Seitenverhältnis
+  erhalten) plus leichtes **Schweben** (visueller `FLY_LIFT`+Sinus-Bob; `self.pos` bleibt für
+  die Logik am Boden). Betritt das Bild als Seitenansicht **nur vom Ost-/Westrand**
+  (horizontaler Anmarsch); tötet mit einem Treffer. (Löst das statische Pixel-Standbild aus
+  ADR 015 ab.)
 
 Wave-Skalierung über die `*_for_wave()`-Funktionen oben in `main.py`. Einhängen
 neuer Gegner in `spawn_enemy_for_wave()`.

@@ -616,32 +616,29 @@ class Boss(Warrior):
 
 class SuperBoss(Warrior):
     """Super Boss (Drache) — alle 50 Wellen. Tötet Spieler mit einem Treffer.
-    Statisches Pixel-Art-Sprite in Seitenansicht; betritt das Bild nur vom Ost- oder
-    Westrand (horizontaler Anmarsch → Blickrichtung passt zur Bewegung)."""
+    Animierter Flug-/Flügelschlag-Zyklus (Seitenansicht, Kopf links) + leichtes
+    Schweben (Bob), damit der Drache fliegt statt am Boden zu laufen. Betritt das Bild
+    nur vom Ost- oder Westrand (horizontaler Anmarsch → Blickrichtung passt zur Bewegung)."""
     RADIUS        = 60     # an die große Drachen-Sprite angepasst (Stop-Distanz + Aura-Ringe)
-    SPRITE_PX     = 170    # Kantenlänge, auf die das 96er-Pixel-Sprite (NEAREST) skaliert wird
+    SPRITE_PX     = 240    # Zielbreite des Flug-Sprites (Höhe proportional, Seitenverhältnis bleibt)
     COLOR_BODY    = ( 70,   0,  15)
     COLOR_OUTLINE = (220,  20,  40)
     COLOR_HP_BAR  = (255,  20,  60)
 
+    # Schweben/Fliegen: konstanter Auftrieb + sinusförmiges Auf-und-Ab (nur visuell —
+    # `self.pos` bleibt für die Spiel-Logik am Boden). Keine Magic Numbers (Golden Rule 2).
+    FLY_LIFT      = 18     # Pixel, um die der Drache visuell über seiner Boden-Position schwebt
+    FLY_BOB_AMP   = 11     # Amplitude des Auf-und-Ab in Pixeln
+    FLY_BOB_SPEED = 0.06   # Winkelgeschwindigkeit des Bob pro Tick
+
     _frames_r         = None
     _frames_l         = None
-    _lancer_atk       = None
-    _atk1_frames_r    = None
-    _atk1_frames_l    = None
-    _atk2_frames_r    = None
-    _atk2_frames_l    = None
-    ATTACK_ANIM_RANGE = 140
 
     def __init__(self, base_speed: float, base_hp: int):
         super().__init__(speed=max(0.25, base_speed * 0.2),
                          max_hp=int(base_hp * balance.SUPERBOSS_HP_MULT))
         self.coin_value = 50
         self._tick      = 0
-        self._lancer_is_attacking = False
-        self._lancer_atk_fr       = 0
-        self._lancer_atk_tk       = 0
-        self._lancer_atk_dir      = 0
         # Drache betritt das Bild nur horizontal (Ost/West) auf Turm-Höhe → die
         # Seitenansicht passt immer zur Laufrichtung (statt aller vier Ränder).
         side = random.choice(("left", "right"))
@@ -659,50 +656,26 @@ class SuperBoss(Warrior):
         except Exception as exc:
             print(f"[SuperBoss] Sprites: {exc}")
             cls._frames_r = cls._frames_l = []
-        cls._lancer_atk = []   # Drache nutzt keine Lancer-Attack-Animationen
 
     def _draw_hp_bar(self, screen, pos) -> None:
         pass
 
     def update(self, target: pygame.math.Vector2) -> None:
         self._tick += 1
-        super().update(target)
-        if not self._lancer_atk:
-            return
-        direction = target - self.pos
-        dist = direction.length()
-        if not self._lancer_is_attacking and dist < self.ATTACK_ANIM_RANGE:
-            self._lancer_is_attacking = True
-            self._lancer_atk_fr       = 0
-            self._lancer_atk_tk       = 0
-            dx = direction.x if not self.facing_left else -direction.x
-            dy = direction.y
-            angle = math.degrees(math.atan2(dy, dx))
-            if   -22.5 <= angle <= 22.5:    self._lancer_atk_dir = 0
-            elif  22.5 <  angle <= 67.5:   self._lancer_atk_dir = 3
-            elif  angle  > 67.5:           self._lancer_atk_dir = 4
-            elif -67.5 <= angle < -22.5:   self._lancer_atk_dir = 1
-            else:                           self._lancer_atk_dir = 2
-        if self._lancer_is_attacking:
-            self._lancer_atk_tk += 1
-            if self._lancer_atk_tk >= _ANIM_PERIOD:
-                self._lancer_atk_tk = 0
-                self._lancer_atk_fr += 1
-                atk_len = len(self._lancer_atk[0][0]) if self._lancer_atk else 0
-                if self._lancer_atk_fr >= atk_len:
-                    self._lancer_is_attacking = False
+        super().update(target)   # Bewegung + Flügelschlag-Zyklus (cycelt _anim_frame)
 
     def draw(self, screen: pygame.Surface) -> None:
         self._load_sprites()
-        pos = (int(self.pos.x), int(self.pos.y))
+        # Visueller Schwebe-Versatz: konstanter Auftrieb + Sinus-Bob (Logik-Pos bleibt unten).
+        bob = int(self.FLY_LIFT + math.sin(self._tick * self.FLY_BOB_SPEED) * self.FLY_BOB_AMP)
+        cx, cy = int(self.pos.x), int(self.pos.y - bob)
         for i in range(3):
             pulse = int(abs(math.sin(self._tick * 0.05 + i * 1.1)) * 10)
-            pygame.draw.circle(screen, self.COLOR_OUTLINE, pos, self.radius + 8 + i * 13 + pulse, width=2)
-        if self._lancer_is_attacking and self._lancer_atk:
-            frames_r, frames_l = self._lancer_atk[self._lancer_atk_dir]
-            frames = frames_l if self.facing_left else frames_r
-            fr     = min(self._lancer_atk_fr, len(frames) - 1)
-            screen.blit(frames[fr], (pos[0] - frames[fr].get_width() // 2,
-                                      pos[1] - frames[fr].get_height() // 2))
-        elif not self._blit_sprite(screen):
-            pygame.draw.circle(screen, self.COLOR_BODY, pos, self.radius)
+            pygame.draw.circle(screen, self.COLOR_OUTLINE, (cx, cy),
+                               self.radius + 8 + i * 13 + pulse, width=2)
+        frames = self._frames_l if self.facing_left else self._frames_r
+        if frames:
+            frame = frames[self._anim_frame % len(frames)]
+            screen.blit(frame, (cx - frame.get_width() // 2, cy - frame.get_height() // 2))
+        else:
+            pygame.draw.circle(screen, self.COLOR_BODY, (cx, cy), self.radius)

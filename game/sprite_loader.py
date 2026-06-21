@@ -152,19 +152,72 @@ def load_black_lancer_attacks(px: int = 96):
     return result
 
 
-def load_drache_superboss(target_px: int = 170):
-    """SuperBoss-Drache (statisches Pixel-Art-Standbild, Seitenansicht, Kopf links).
-    Pixel-Art wird mit NEAREST skaliert (kein Glätten — sonst verwaschen die Pixel).
+_DRACHE_FLY_FRAMES = 25   # Frames im horizontalen Flug-Strip (5×5-AutoSprite-Sheet → 1 Reihe)
+
+
+def load_drache_superboss(target_w: int = 240):
+    """SuperBoss-Drache — animierter Flug-/Flügelschlag-Zyklus (Seitenansicht, Kopf links).
+
+    Quelle: `assets/custom/drache_superboss_fly.png`, ein horizontaler Strip aus
+    `_DRACHE_FLY_FRAMES` gleich breiten Frames (auf eine gemeinsame Bounding-Box
+    zugeschnitten → die Animation ist sauber verankert, kein Zittern). Anders als das
+    alte Pixel-Standbild ist das glatt schattierte Art → mit `smoothscale` skaliert.
+    Das Seitenverhältnis bleibt erhalten (der Drache ist breiter als hoch): auf
+    `target_w` Breite skaliert, Höhe proportional.
+
     Roh-Bild blickt nach LINKS → das ist `_frames_l`, der Flip ergibt `_frames_r`.
     Gibt `(frames_r, frames_l)` zurück; leere Listen, falls das Asset fehlt (Fallback
     auf gezeichnetes Primitiv greift dann in der SuperBoss-Klasse, Golden Rule 5)."""
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "assets", "custom", "drache_superboss.png")
-    surf = pygame.image.load(path).convert_alpha()
-    surf = pygame.transform.scale(surf, (target_px, target_px))   # NEAREST = crisp
-    frames_l = [surf]
-    frames_r = [pygame.transform.flip(surf, True, False)]
+                        "assets", "custom", "drache_superboss_fly.png")
+    sheet  = pygame.image.load(path).convert_alpha()
+    fw     = sheet.get_width() // _DRACHE_FLY_FRAMES
+    fh     = sheet.get_height()
+    th     = max(1, round(fh * target_w / fw))   # Höhe proportional zur Zielbreite
+    frames_l, frames_r = [], []
+    for i in range(_DRACHE_FLY_FRAMES):
+        frame = sheet.subsurface(pygame.Rect(i * fw, 0, fw, fh)).copy()
+        frame = pygame.transform.smoothscale(frame, (target_w, th))
+        frames_l.append(frame)
+        frames_r.append(pygame.transform.flip(frame, True, False))
     return frames_r, frames_l
+
+
+# --- Custom-Gegner aus AutoSprite (eigene Spritesheets in assets/custom/) ----------
+
+_CUSTOM_BASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "assets", "custom")
+
+
+def _load_custom_strip(filename: str, target_px: int) -> list[pygame.Surface]:
+    """Horizontaler Spritesheet-Strip aus assets/custom/ mit quadratischen Frames.
+
+    Die Frame-Breite wird aus der Sheet-Höhe abgeleitet (Frames sind quadratisch) —
+    so ist der Loader robust gegen die Frame-Anzahl, die AutoSprite exportiert: egal
+    ob 4, 6 oder 8 Frames, n = Breite // Höhe. Skaliert wie die übrigen Gegner via
+    _epx. Erwartet ein nach RECHTS blickendes Roh-Sprite."""
+    path  = os.path.join(_CUSTOM_BASE, filename)
+    sheet = pygame.image.load(path).convert_alpha()
+    fs    = sheet.get_height()                 # quadratische Frames: Breite == Höhe
+    n     = max(1, sheet.get_width() // fs)
+    return [
+        pygame.transform.smoothscale(
+            sheet.subsurface((i * fs, 0, fs, fs)),
+            (_epx(target_px), _epx(target_px))
+        )
+        for i in range(n)
+    ]
+
+
+def load_orc_warrior_run(px: int = _ENEMY_PX):
+    """Orc-Warrior Lauf-Animation (AutoSprite-Sheet: assets/custom/orc_warrior_run.png).
+    Roh-Sprite blickt nach RECHTS → _frames_r; der Flip ergibt _frames_l."""
+    return _both_dirs(_load_custom_strip("orc_warrior_run.png", px))
+
+
+def load_orc_warrior_attack(px: int = _ENEMY_PX):
+    """Orc-Warrior Angriffs-Animation (assets/custom/orc_warrior_attack.png)."""
+    return _both_dirs(_load_custom_strip("orc_warrior_attack.png", px))
 
 
 def load_cannonball(size: int = 20):

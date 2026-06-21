@@ -11,15 +11,31 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 bereit für echten Playtest.** Zwei Balance-Hebel sind committet: (1) Boss-HP-Multiplikatoren
 ×8/×25 → ×2/×3 (ADR 013, `ba7c997`); (2) Kill-XP skaliert mit der Welle (`xp_wave_mult =
 1+wave//8`, `XP_WAVE_DIV=8`, ADR 014, `d06414e`) — Modell: Endlevel ~98, **0/10 Bosse über dem
-Walk-Budget** (vorher 9/10). Dazu ist der **SuperBoss jetzt ein Pixel-Art-Drache** (ADR 015,
-statisches 96er-Sprite, NEAREST-skaliert, Spawn Ost/West) — **uncommitted**. **Bekannte
+Walk-Budget** (vorher 9/10). Dazu ist der **SuperBoss jetzt ein animierter, fliegender Drache** (ADR 016,
+25-Frame-Strip aus dem 5×5-Spritesheet, `smoothscale`, Schwebe-Bob; ersetzt das statische
+Pixel-Sprite aus ADR 015) — **uncommitted**. **Bekannte
 Risiken/offene Fragen:** (a) Level-Inflation (~98 → fast alle Karten, Build-Tiefe?); (b)
 Stil-Bruch Pixel-Boss vs. glatte Tiny-Swords-Gegner; (c) der echte 1→100-Playtest steht noch
 aus (F4 taugt nicht).
 
 ## Last session
 
-2026-06-21 (Teil 4) — SuperBoss-Drache als Pixel-Art-Sprite (ADR 015):
+2026-06-21 (Teil 5) — SuperBoss fliegt jetzt: animierter Drache (ADR 016, **ersetzt 015**):
+- Nutzer lieferte ein sauberes **5×5-Spritesheet** (25 Frames Flug-/Lauf-Zyklus, **Alpha-
+  Hintergrund, kein Wasserzeichen** — anders als das parallel gelieferte Walk-GIF) und den
+  Wunsch „ihn etwas fliegen lassen". Sheet deterministisch zu einem **25-Frame-Strip** auf
+  gemeinsamer Alpha-Bounding-Box (200×144) verarbeitet → `assets/custom/drache_superboss_fly.png`.
+- `load_drache_superboss(target_w=240)` zerlegt den Strip und **`smoothscale`t** ihn
+  (glattes Art, kein NEAREST mehr), Seitenverhältnis erhalten. Animation läuft **gratis** über
+  `Warrior.update` (cycelt `_anim_frame`); die tote Lancer-Attack-Maschinerie entfernt.
+- **„Fliegen" = rein visuell:** `SuperBoss.draw` versetzt die Zeichen-Position um `FLY_LIFT`
+  (18) + `sin(tick·0.06)·11` Bob; `self.pos` bleibt am Boden → Stop-Distanz/Treffer/Aura fair.
+  `SPRITE_PX` 170→240 (jetzt Zielbreite).
+- **Verifikation:** headless (25 Frames, 240×173, Animation cycelt, HP 30k korrekt) + Render auf
+  Terrain + voller Treiber-Flow bis Sieg crashfrei + **Live-Shot Welle 100** (Drache fliegt mit
+  Aura/Boss-HP-Bar vom Rand auf den Turm zu). **uncommitted.**
+
+2026-06-21 (Teil 4) — SuperBoss-Drache als Pixel-Art-Sprite (ADR 015, **abgelöst von 016**):
 - Vorhandenes Drachen-Artwork deterministisch zu **Pixel-Art** heruntergerechnet (verkleinern
   + Palette reduzieren + Schwarz/Taschen transparent), Nutzer wählte die 96×96-Lava-Variante.
   Liegt als `assets/custom/drache_superboss.png`.
@@ -301,10 +317,17 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   (vorher Magic Numbers in `enemy.py`). Bewusst nur dieser eine Hebel; zweiter Hebel
   (`ENEMY_HP_PER_WAVE_SQ`/XP-Kurve) für W60+ offen. Revidiert die „×8/×25 bleiben"-Festlegung
   aus ADR 012.
-- **D29** — **SuperBoss = Pixel-Art-Drache** → **ADR 015**. Drachen-Artwork zu 96×96-Pixel-Art
-  heruntergerechnet (`assets/custom/drache_superboss.png`), `load_drache_superboss()` NEAREST-
-  skaliert, `SuperBoss` nutzt es statt Lancer (`RADIUS` 60, `SPRITE_PX` 170, Spawn nur Ost/West).
-  Tradeoff Stil-Bruch (Pixel vs. Tiny-Swords) bewusst akzeptiert.
+- **D30** — **SuperBoss fliegt: animierter Drache** → **ADR 016** (ersetzt D29/ADR 015).
+  Sauberes 5×5-Spritesheet (25 Frames, Alpha, kein Wasserzeichen) → 25-Frame-Strip
+  `drache_superboss_fly.png`; `load_drache_superboss(target_w)` slict + `smoothscale`t
+  (Seitenverhältnis erhalten); Animation gratis über `Warrior.update`; „Fliegen" = visueller
+  `FLY_LIFT`+Sinus-Bob in `draw` (`self.pos` bleibt am Boden → Kollision unverändert).
+  `SPRITE_PX` 170→240. Walk-GIF als Quelle verworfen (Wasserzeichen/weißer BG).
+- **D29** — **SuperBoss = Pixel-Art-Drache** → **ADR 015** (abgelöst von D30/ADR 016). Drachen-
+  Artwork zu 96×96-Pixel-Art heruntergerechnet (`assets/custom/drache_superboss.png`),
+  `load_drache_superboss()` NEAREST-skaliert, `SuperBoss` nutzt es statt Lancer (`RADIUS` 60,
+  `SPRITE_PX` 170, Spawn nur Ost/West). Tradeoff Stil-Bruch (Pixel vs. Tiny-Swords) bewusst
+  akzeptiert.
 - **D28** — **Animierter Drachenlord-Sprite verworfen.** SuperBoss aus KI-Video (Frame-Pipeline)
   gebaut, vom Nutzer optisch abgelehnt, vollständig zurückgerollt (nie committet). Ersetzt durch
   D29 (Pixel-Art-Standbild).
@@ -324,7 +347,7 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur),
   ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner), ADR 012 (HP-Scaling super-linear),
   ADR 013 (Boss-Multiplikatoren ×2/×3), ADR 014 (XP-Wellenskalierung),
-  ADR 015 (SuperBoss-Pixel-Art-Drache).
+  ADR 015 (SuperBoss-Pixel-Art-Drache, abgelöst), ADR 016 (SuperBoss animierter Flug-Drache).
 - **Phase 4** (Verpacken) → ADR 001 (Python/Pygame → PyInstaller).
 - **Part 2** (Rebirth/Waffen) → ADR 004.
 

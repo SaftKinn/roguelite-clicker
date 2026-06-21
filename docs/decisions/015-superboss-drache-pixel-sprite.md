@@ -1,5 +1,5 @@
 # ADR 015 — SuperBoss erhält ein statisches Pixel-Art-Drachen-Sprite
-- **Status:** Accepted
+- **Status:** Superseded by ADR 016 (animierter, fliegender Drache)
 - **Date:** 2026-06-21
 - **Refs:** architecture.md §4 (Gegner-Klassen); progress.md D29; ersetzt einen zuvor
   verworfenen, nie committeten Video-Animations-Versuch
