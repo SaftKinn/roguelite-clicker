@@ -158,8 +158,10 @@ Gegnertypen:
 - `Archer` (Fernkampf, erzeugt `EnemyProjectile`) — Spawn-Key „rusher"
 - `Lancer` (Tank, 5 Richtungs-Angriffsanimationen) — Spawn-Key „tanker"
 - `Monk` (Heiler, heilt Nachbarn + Heal-FX)
-- `Boss` (alle 10 Wellen), `SuperBoss` (alle 50) — beide nutzen die Lancer-Sprites
-  und töten den Spieler mit einem Treffer.
+- `Boss` (alle 10 Wellen) — nutzt die Lancer-Sprites, tötet mit einem Treffer.
+- `SuperBoss` (Drache, alle 50 Wellen, ADR 015) — statisches **Pixel-Art-Sprite**
+  (`assets/custom/drache_superboss.png`, NEAREST-skaliert); betritt das Bild als Seitenansicht
+  **nur vom Ost-/Westrand** (horizontaler Anmarsch); tötet mit einem Treffer.
 
 Wave-Skalierung über die `*_for_wave()`-Funktionen oben in `main.py`. Einhängen
 neuer Gegner in `spawn_enemy_for_wave()`.

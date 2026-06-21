@@ -615,8 +615,11 @@ class Boss(Warrior):
 # ---------------------------------------------------------------------------
 
 class SuperBoss(Warrior):
-    """Super Boss — alle 50 Wellen. Tötet Spieler mit einem Treffer."""
-    RADIUS        = 50
+    """Super Boss (Drache) — alle 50 Wellen. Tötet Spieler mit einem Treffer.
+    Statisches Pixel-Art-Sprite in Seitenansicht; betritt das Bild nur vom Ost- oder
+    Westrand (horizontaler Anmarsch → Blickrichtung passt zur Bewegung)."""
+    RADIUS        = 60     # an die große Drachen-Sprite angepasst (Stop-Distanz + Aura-Ringe)
+    SPRITE_PX     = 170    # Kantenlänge, auf die das 96er-Pixel-Sprite (NEAREST) skaliert wird
     COLOR_BODY    = ( 70,   0,  15)
     COLOR_OUTLINE = (220,  20,  40)
     COLOR_HP_BAR  = (255,  20,  60)
@@ -639,6 +642,12 @@ class SuperBoss(Warrior):
         self._lancer_atk_fr       = 0
         self._lancer_atk_tk       = 0
         self._lancer_atk_dir      = 0
+        # Drache betritt das Bild nur horizontal (Ost/West) auf Turm-Höhe → die
+        # Seitenansicht passt immer zur Laufrichtung (statt aller vier Ränder).
+        side = random.choice(("left", "right"))
+        self.pos = pygame.math.Vector2(0 if side == "left" else SCREEN_WIDTH,
+                                       SCREEN_HEIGHT // 2)
+        self.facing_left = (side == "right")
 
     @classmethod
     def _load_sprites(cls) -> None:
@@ -646,12 +655,11 @@ class SuperBoss(Warrior):
             return
         try:
             from . import sprite_loader
-            cls._frames_r, cls._frames_l = sprite_loader.load_black_lancer_run(144)
-            cls._lancer_atk               = sprite_loader.load_black_lancer_attacks(144)
+            cls._frames_r, cls._frames_l = sprite_loader.load_drache_superboss(cls.SPRITE_PX)
         except Exception as exc:
             print(f"[SuperBoss] Sprites: {exc}")
             cls._frames_r = cls._frames_l = []
-            cls._lancer_atk = []
+        cls._lancer_atk = []   # Drache nutzt keine Lancer-Attack-Animationen
 
     def _draw_hp_bar(self, screen, pos) -> None:
         pass

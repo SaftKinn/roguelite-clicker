@@ -53,3 +53,4 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 012 — Gegner-HP super-linear skalieren (gegen multiplikative Spielerkraft)](012-gegner-hp-superlinear.md)
 - [ADR 013 — Boss-HP-Multiplikatoren senken (×8/×25 → ×2/×3), datengestützt per Modell](013-boss-hp-multiplikatoren-senken.md)
 - [ADR 014 — XP pro Kill skaliert mit der Welle (Wurzel-Fix gegen die Endgame-Wand)](014-xp-wellenskalierung.md)
+- [ADR 015 — SuperBoss erhält ein statisches Pixel-Art-Drachen-Sprite](015-superboss-drache-pixel-sprite.md)

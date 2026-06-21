@@ -152,6 +152,21 @@ def load_black_lancer_attacks(px: int = 96):
     return result
 
 
+def load_drache_superboss(target_px: int = 170):
+    """SuperBoss-Drache (statisches Pixel-Art-Standbild, Seitenansicht, Kopf links).
+    Pixel-Art wird mit NEAREST skaliert (kein Glätten — sonst verwaschen die Pixel).
+    Roh-Bild blickt nach LINKS → das ist `_frames_l`, der Flip ergibt `_frames_r`.
+    Gibt `(frames_r, frames_l)` zurück; leere Listen, falls das Asset fehlt (Fallback
+    auf gezeichnetes Primitiv greift dann in der SuperBoss-Klasse, Golden Rule 5)."""
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "assets", "custom", "drache_superboss.png")
+    surf = pygame.image.load(path).convert_alpha()
+    surf = pygame.transform.scale(surf, (target_px, target_px))   # NEAREST = crisp
+    frames_l = [surf]
+    frames_r = [pygame.transform.flip(surf, True, False)]
+    return frames_r, frames_l
+
+
 def load_cannonball(size: int = 20):
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "assets", "Tiny Swords (Free Pack)", "Cannonball.png")

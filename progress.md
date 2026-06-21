@@ -7,25 +7,36 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-**Endgame-Wand auf beiden Hebeln datengestützt entschärft — bereit für echten Playtest.**
-Das read-only Modell (`tools/balance_model.py`) hat zwei Fixes getrieben: (1) Boss-HP-
-Multiplikatoren ×8/×25 → **×2/×3** (ADR 013, SuperBoss W100 255k→31k); (2) **Kill-XP skaliert
-jetzt mit der Welle** (`xp_wave_mult = 1+wave//8`, `XP_WAVE_DIV=8`, ADR 014) — vorher flach,
-Spieler hing auf W100 bei ~Level 33 mit zu wenig DPS. Mit dem XP-Fix: Modell-Endlevel ~98,
-**0/10 Bosse über dem Walk-Budget** (vorher 9/10). Bewusst gewählt: „Root-Fix pur" (nur XP,
-HP unverändert) statt HP-lastiger Combo. **Bekanntes Risiko: Level-Inflation** (~98 → fast
-alle Karten erreichbar, Build-Tiefe verwässert). Alles uncommitted (ADR 013 ist committet
-`ba7c997`; ADR 014 neu, uncommitted). **Offen: der echte 1→100-Playtest** — bestätigt er
-~Level 98 als gutes Gefühl und die Boss-TTKs?
+**Endgame-Balance datengestützt entschärft + SuperBoss hat ein eigenes Drachen-Sprite —
+bereit für echten Playtest.** Zwei Balance-Hebel sind committet: (1) Boss-HP-Multiplikatoren
+×8/×25 → ×2/×3 (ADR 013, `ba7c997`); (2) Kill-XP skaliert mit der Welle (`xp_wave_mult =
+1+wave//8`, `XP_WAVE_DIV=8`, ADR 014, `d06414e`) — Modell: Endlevel ~98, **0/10 Bosse über dem
+Walk-Budget** (vorher 9/10). Dazu ist der **SuperBoss jetzt ein Pixel-Art-Drache** (ADR 015,
+statisches 96er-Sprite, NEAREST-skaliert, Spawn Ost/West) — **uncommitted**. **Bekannte
+Risiken/offene Fragen:** (a) Level-Inflation (~98 → fast alle Karten, Build-Tiefe?); (b)
+Stil-Bruch Pixel-Boss vs. glatte Tiny-Swords-Gegner; (c) der echte 1→100-Playtest steht noch
+aus (F4 taugt nicht).
 
 ## Last session
+
+2026-06-21 (Teil 4) — SuperBoss-Drache als Pixel-Art-Sprite (ADR 015):
+- Vorhandenes Drachen-Artwork deterministisch zu **Pixel-Art** heruntergerechnet (verkleinern
+  + Palette reduzieren + Schwarz/Taschen transparent), Nutzer wählte die 96×96-Lava-Variante.
+  Liegt als `assets/custom/drache_superboss.png`.
+- `sprite_loader.load_drache_superboss()` lädt es **NEAREST-skaliert** (Pixel-Art scharf);
+  `SuperBoss` nutzt es statt der Lancer-Sprites (`_lancer_atk=[]`, `RADIUS` 50→60,
+  `SPRITE_PX=170`), **Spawn nur Ost/West** auf Turm-Höhe; pulsierende Aura-Ringe bleiben.
+- **Verifikation:** headless Instanz (Rand-Spawn, Frame 170², R60, HP 30690) + Render auf
+  Terrain (boss-groß, blickt zum Turm); voller Treiber-Flow bis Welle 100 → Sieg crashfrei.
+- Bekannter Tradeoff: **Stil-Bruch** (Pixel-Boss vs. glatte Tiny-Swords-Gegner) — bewusst per
+  Nutzerwunsch. Größe via `SPRITE_PX`/`RADIUS` tunebar.
 
 2026-06-21 (Teil 3) — SuperBoss-Sprite aus KI-Video (Drachenlord) **verworfen**:
 - Versuch, den SuperBoss als animierten Drachen aus einem Kling-MP4 zu setzen (Frame-Extraktion
   + Keying-Pipeline). **Vom Nutzer verworfen — Sprite gefiel optisch nicht**, alles rückgängig
   gemacht (enemy.py/sprite_loader.py via git checkout; Banner/Sieg-Text/Doku manuell zurück;
-  Assets + Tool + ADR 015 gelöscht). **Offen: ein neuer SuperBoss-Sprite** (Nutzer liefert).
-  Die Balance-Arbeit (ADR 013/014) blieb davon unberührt.
+  Assets + Tool + nie committete ADR gelöscht). Ersetzt durch das Pixel-Art-Sprite oben
+  (Teil 4). Die Balance-Arbeit (ADR 013/014) blieb unberührt.
 
 2026-06-21 (Teil 2) — Zweiter Endgame-Hebel: XP-Wellenskalierung (ADR 014):
 - **Modell um zwei Hebel erweitert** (`xp_wave_scale`/`xp_wave_div` = Lever B, `sq`-Override =
@@ -290,9 +301,13 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   (vorher Magic Numbers in `enemy.py`). Bewusst nur dieser eine Hebel; zweiter Hebel
   (`ENEMY_HP_PER_WAVE_SQ`/XP-Kurve) für W60+ offen. Revidiert die „×8/×25 bleiben"-Festlegung
   aus ADR 012.
-- **D28** — **Drachenlord-Sprite verworfen.** Animierter SuperBoss aus KI-Video (Pipeline +
-  ADR 015) wurde gebaut, vom Nutzer aber optisch abgelehnt und vollständig zurückgerollt
-  (kein ADR-Eintrag mehr). Offen: neuer SuperBoss-Sprite vom Nutzer.
+- **D29** — **SuperBoss = Pixel-Art-Drache** → **ADR 015**. Drachen-Artwork zu 96×96-Pixel-Art
+  heruntergerechnet (`assets/custom/drache_superboss.png`), `load_drache_superboss()` NEAREST-
+  skaliert, `SuperBoss` nutzt es statt Lancer (`RADIUS` 60, `SPRITE_PX` 170, Spawn nur Ost/West).
+  Tradeoff Stil-Bruch (Pixel vs. Tiny-Swords) bewusst akzeptiert.
+- **D28** — **Animierter Drachenlord-Sprite verworfen.** SuperBoss aus KI-Video (Frame-Pipeline)
+  gebaut, vom Nutzer optisch abgelehnt, vollständig zurückgerollt (nie committet). Ersetzt durch
+  D29 (Pixel-Art-Standbild).
 - **D27** — **XP pro Kill skaliert mit der Welle** → **ADR 014** (zweiter Endgame-Hebel).
   `gs["xp"] += enemy.coin_value * xp_wave_mult(wave)`, `xp_wave_mult = 1+wave//XP_WAVE_DIV`,
   `XP_WAVE_DIV=8` (neu in `balance.py`). Modell-gesweept: Lever A (SQ senken) allein reicht
@@ -308,7 +323,8 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 2** (Welle 100 + Sieg) → ADR 004 (Run-Modell), ADR 006 (Wellen-Cap).
 - **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur),
   ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner), ADR 012 (HP-Scaling super-linear),
-  ADR 013 (Boss-Multiplikatoren ×2/×3), ADR 014 (XP-Wellenskalierung).
+  ADR 013 (Boss-Multiplikatoren ×2/×3), ADR 014 (XP-Wellenskalierung),
+  ADR 015 (SuperBoss-Pixel-Art-Drache).
 - **Phase 4** (Verpacken) → ADR 001 (Python/Pygame → PyInstaller).
 - **Part 2** (Rebirth/Waffen) → ADR 004.
 
@@ -328,8 +344,8 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 3 — Inhaltszuwachs:** angefangen (2026-06-20). Erste Inhalte: Passiv-Combat +
   Autoaim (ADR 010), Elite-Gegner + Reward (ADR 011), super-lineares HP-Scaling (ADR 012),
   Stats-Overlay (C), Boss-Multiplikatoren entschärft (ADR 013) + Balance-Modell-Tool, XP-
-  Wellenskalierung (ADR 014). Noch offen: neuer SuperBoss-Sprite (Drachen-Versuch verworfen),
-  weitere Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen, Dornen, Reroll …) + ein echter
+  Wellenskalierung (ADR 014), SuperBoss-Pixel-Art-Drache (ADR 015). Noch offen: weitere
+  Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen, Dornen, Reroll …) + ein echter
   1→100-Balance-Lauf (inkl. Level-Inflations-Check); alles per Playtest.
 - **Phase 4 — Politur & `.exe`:** offen
 - **Part 2 — Rebirth/Waffen:** offen (Backlog)
