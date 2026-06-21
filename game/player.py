@@ -1,4 +1,5 @@
 import os
+import random
 import pygame
 from . import ui_loader
 from . import balance
@@ -44,8 +45,21 @@ class Player:
         self.y      = SCREEN_HEIGHT // 2
         self.max_hp = MAX_HP
         self.hp     = MAX_HP
+        # Verteidigungs-/Lifesteal-Werte aus den Karten (ADR 025); von `_sync_player_defense`
+        # aus gs["stats"] gespiegelt, damit die Treffer-Funktionen sie ohne stats-Durchreichung kennen.
+        self.armor          = 0.0   # Anteil Schadensreduktion (0..ARMOR_CAP)
+        self.dodge          = 0.0   # Chance, einen Treffer komplett zu vermeiden (0..DODGE_CAP)
+        self.thorns_pct     = 0.0   # Anteil reflektierten Nahkampf-Schadens
+        self.hp_regen       = 0.0   # HP/Sekunde (Regeneration)
+        self.lifesteal_flat = 0     # flache HP/Treffer zusätzlich zur Basis
+        self.lifesteal_pct  = 0.0   # Anteil des Treffer-Schadens als HP
 
     def take_damage(self, amount: int) -> None:
+        # Ausweichen: mit `dodge`-Chance kompletten Treffer vermeiden (greift NICHT gegen
+        # den Boss-Oneshot, der in main.py player.hp direkt auf 0 setzt — ADR 025).
+        if self.dodge and random.random() < self.dodge:
+            return
+        amount *= (1.0 - self.armor)   # Rüstung reduziert den eingehenden Schaden
         self.hp = max(0, self.hp - amount)
 
     @property

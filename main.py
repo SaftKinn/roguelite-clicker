@@ -30,7 +30,17 @@ from game.balance     import (MELEE_REACH,
                               PERMANENT_DAMAGE_PER_LEVEL, PERMANENT_HP_PER_LEVEL,
                               GOLD_BOOST_MULT, DOPPELSCHUSS_DELAY,
                               ELITE_SPAWN_CHANCE, ELITE_HP_MULT, elite_hp_mult, ELITE_REWARD_MULT,
-                              ELITE_COLOR)
+                              ELITE_COLOR,
+                              # Karten-Farbgruppen (ADR 025)
+                              UPGRADE_LIFESTEAL_PCT, UPGRADE_LIFESTEAL_FLAT,
+                              UPGRADE_ARMOR_PCT, ARMOR_CAP, UPGRADE_HP_REGEN,
+                              UPGRADE_THORNS_PCT, THORNS_CAP, UPGRADE_DODGE_PCT, DODGE_CAP,
+                              UPGRADE_COIN_PCT, UPGRADE_XP_PCT, UPGRADE_REROLL_CHARGES,
+                              # Shop-Ausbau (ADR 026)
+                              PERMANENT_ATTACK_SPEED_PER_LEVEL, PERMANENT_BULLET_SIZE_PER_LEVEL,
+                              PERMANENT_LIFESTEAL_PER_LEVEL, PERMANENT_COIN_MULT_PER_LEVEL,
+                              PERMANENT_XP_MULT_PER_LEVEL, PERMANENT_FREE_REROLLS_PER_LEVEL,
+                              DEFAULT_CARD_COUNT, EXTRA_CARD_COUNT)
 
 WAVE_CLEAR_DELAY    = 70    # kürzere Pause zwischen Wellen (knackiger, ADR 008)
 CONTACT_DIST        = PLAYER_RADIUS + ENEMY_RADIUS
@@ -98,14 +108,35 @@ def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
     return enemy
 
 
+def _sync_player_defense(stats: dict, player: Player) -> None:
+    """Spiegelt die Verteidigungs-/Lifesteal-Werte aus gs["stats"] auf das `player`-Objekt,
+    damit die Treffer-Funktionen (take_damage, check_projectile_hits) sie direkt kennen (ADR 025)."""
+    player.armor          = stats["armor"]
+    player.dodge          = stats["dodge"]
+    player.thorns_pct     = stats["thorns_pct"]
+    player.hp_regen       = stats["hp_regen"]
+    player.lifesteal_flat = stats["lifesteal_flat"]
+    player.lifesteal_pct  = stats["lifesteal_pct"]
+
+
 def apply_permanent_bonuses(player: Player, stats: dict, save: dict) -> None:
     upgrades = save.get("upgrades", {})
-    stats["damage"] += upgrades.get("start_damage", 0) * PERMANENT_DAMAGE_PER_LEVEL
+    stats["damage"]       += upgrades.get("start_damage", 0)       * PERMANENT_DAMAGE_PER_LEVEL
+    stats["attack_speed"] += upgrades.get("start_attack_speed", 0) * PERMANENT_ATTACK_SPEED_PER_LEVEL
+    stats["bullet_size"]  += upgrades.get("start_bullet_size", 0)  * PERMANENT_BULLET_SIZE_PER_LEVEL
+    stats["lifesteal_flat"]+= upgrades.get("start_lifesteal", 0)   * PERMANENT_LIFESTEAL_PER_LEVEL
+    stats["rerolls"]       = upgrades.get("free_rerolls", 0)       * PERMANENT_FREE_REROLLS_PER_LEVEL
     bonus_hp = upgrades.get("start_hp", 0) * PERMANENT_HP_PER_LEVEL
     if bonus_hp > 0:
         player.max_hp += bonus_hp
         player.hp      = player.max_hp
-    # gold_boost + doppelschuss checked inline during gameplay
+    _sync_player_defense(stats, player)
+    # gold_boost + doppelschuss + coin_mult/xp_mult werden inline im Gameplay gelesen
+
+
+def _card_count(save: dict) -> int:
+    """Karten pro Levelup: 4 wenn die „Vierte Karte" gekauft wurde (ADR 026), sonst 3."""
+    return EXTRA_CARD_COUNT if "extra_card" in save.get("bought", []) else DEFAULT_CARD_COUNT
 
 
 def spawn_projectiles(origin: pygame.math.Vector2, mouse_pos: tuple,
@@ -153,8 +184,8 @@ def check_projectile_hits(projectiles: list, enemies: list,
                           dmg_numbers: list, kills: list, player=None) -> bool:
     """Gibt True zurück wenn mindestens ein (nicht-tödlicher) Treffer erfolgte.
 
-    Lifesteal (ADR 009): je Treffer an einem Gegner heilt der Spieler
-    `LIFESTEAL_PER_HIT` HP (bis max_hp).
+    Lifesteal (ADR 009/025): je Treffer heilt der Spieler die Basis `LIFESTEAL_PER_HIT`
+    plus die Karten-Boni `lifesteal_flat` (flach) und `lifesteal_pct` (% des Schadens), bis max_hp.
     """
     any_hit = False
     for proj in projectiles:
@@ -165,8 +196,11 @@ def check_projectile_hits(projectiles: list, enemies: list,
                 continue
             if proj.pos.distance_to(enemy.pos) < proj.radius + enemy.radius:
                 enemy.take_damage(proj.damage)
-                if player is not None and LIFESTEAL_PER_HIT:
-                    player.hp = min(player.max_hp, player.hp + LIFESTEAL_PER_HIT)
+                if player is not None:
+                    heal = (LIFESTEAL_PER_HIT + player.lifesteal_flat
+                            + proj.damage * player.lifesteal_pct)
+                    if heal:
+                        player.hp = min(player.max_hp, player.hp + heal)
                 dmg_numbers.append(
                     DamageNumber(enemy.pos.x, enemy.pos.y - 14, proj.damage)
                 )
@@ -181,30 +215,54 @@ def check_projectile_hits(projectiles: list, enemies: list,
 
 
 def check_enemy_contact(enemies: list, player: Player,
-                        player_center: pygame.math.Vector2) -> None:
+                        player_center: pygame.math.Vector2) -> list:
+    """Nahkampf-Kontakt der Gegner mit dem Turm. Gibt die Liste der Gegner zurück, die durch
+    Dornen (ADR 025) gestorben sind, damit der Aufrufer Münzen/XP/Sound dafür bucht."""
+    thorns_kills = []
     for enemy in enemies:
         if not enemy.alive:
             continue
         if enemy.pos.distance_to(player_center) < PLAYER_RADIUS + enemy.radius + MELEE_REACH:
             if isinstance(enemy, (Boss, SuperBoss)):
-                # Bosse töten den Spieler bei Berührung mit einem Treffer
+                # Bosse töten den Spieler bei Berührung mit einem Treffer — bewusst ungemindert
+                # (Armor/Dodge greifen NICHT, sonst trivialisieren sie Bosse, ADR 025).
                 if enemy.melee_attack():
-                    player.take_damage(player.max_hp)
+                    player.hp = 0
             elif (dmg := enemy.melee_attack()):
                 player.take_damage(dmg)
-            # Gegner bleibt am Leben — nur Projektile töten ihn
+                # Dornen: Nahkämpfer nehmen einen Anteil des erlittenen (Vor-Armor-)Schadens zurück
+                if player.thorns_pct:
+                    enemy.take_damage(dmg * player.thorns_pct)
+                    if not enemy.alive:
+                        thorns_kills.append(enemy)
+            # Gegner bleibt am Leben — nur Projektile/Dornen töten ihn
+    return thorns_kills
 
 
 def apply_upgrade(upgrade_id: str, stats: dict, player=None) -> None:
+    # ROT — Schaden
     if   upgrade_id == "damage":    stats["damage"]       += UPGRADE_DAMAGE
     elif upgrade_id == "speed":     stats["bullet_speed"] += UPGRADE_BULLET_SPEED
     elif upgrade_id == "size":      stats["bullet_size"]  += UPGRADE_BULLET_SIZE
     elif upgrade_id == "attackspeed": stats["attack_speed"] += UPGRADE_ATTACK_SPEED
     elif upgrade_id == "multishot": stats["multishot"]     = True
     elif upgrade_id == "pierce":    stats["pierce"]        = True
+    elif upgrade_id == "lifesteal_pct":  stats["lifesteal_pct"]  += UPGRADE_LIFESTEAL_PCT
+    elif upgrade_id == "lifesteal_flat": stats["lifesteal_flat"] += UPGRADE_LIFESTEAL_FLAT
+    # BLAU — Verteidigung
+    elif upgrade_id == "armor":     stats["armor"]      = min(ARMOR_CAP,  stats["armor"]      + UPGRADE_ARMOR_PCT)
+    elif upgrade_id == "thorns":    stats["thorns_pct"] = min(THORNS_CAP, stats["thorns_pct"] + UPGRADE_THORNS_PCT)
+    elif upgrade_id == "dodge":     stats["dodge"]      = min(DODGE_CAP,  stats["dodge"]      + UPGRADE_DODGE_PCT)
+    elif upgrade_id == "hp_regen":  stats["hp_regen"]  += UPGRADE_HP_REGEN
     elif upgrade_id == "max_hp" and player is not None:
         player.max_hp += UPGRADE_MAX_HP
         player.hp      = min(player.hp + UPGRADE_MAX_HP, player.max_hp)
+    # GOLD — Geld (diesen Lauf) / WEISS — XP (diesen Lauf)
+    elif upgrade_id == "coin_boost": stats["coin_mult"] += UPGRADE_COIN_PCT
+    elif upgrade_id == "xp_boost":   stats["xp_mult"]   += UPGRADE_XP_PCT
+    elif upgrade_id == "reroll":     stats["rerolls"]   += UPGRADE_REROLL_CHARGES
+    if player is not None:
+        _sync_player_defense(stats, player)
 
 
 def fresh_game_state(wave: int = 1) -> dict:
@@ -218,7 +276,13 @@ def fresh_game_state(wave: int = 1) -> dict:
                 fire_timer=0,   # Cooldown bis zum nächsten Auto-Schuss (ADR 009)
                 stats=dict(damage=BASE_DAMAGE, bullet_speed=10, bullet_size=5,
                            pierce=False, multishot=False,
-                           attack_speed=BASE_ATTACK_SPEED),
+                           attack_speed=BASE_ATTACK_SPEED,
+                           # Karten-Farbgruppen (ADR 025) — alle Default „aus"
+                           lifesteal_pct=0.0, lifesteal_flat=0,        # ROT
+                           armor=0.0, hp_regen=0.0, thorns_pct=0.0, dodge=0.0,  # BLAU
+                           coin_mult=1.0,                              # GOLD (Lauf)
+                           xp_mult=1.0, rerolls=0),                    # WEISS (Lauf)
+                _regen_accum=0.0,   # Laufzeit-Akku für HP-Regen (kein Balance-Wert)
                 banner=None)
 
 
@@ -279,6 +343,7 @@ def draw_stats_panel(screen: pygame.Surface, font: pygame.font.Font,
                      stats: dict, player, lifesteal: int) -> None:
     """Overlay mit den aktuellen Spieler-Stats (Toggle über Taste C)."""
     ja_nein = lambda b: "Ja" if b else "Nein"
+    ls_flat = lifesteal + stats['lifesteal_flat']    # Basis + flacher Karten-Bonus
     rows = [
         ("Schaden/Kugel",  f"{stats['damage']}"),
         ("Angriffstempo",  f"{stats['attack_speed']:.2f}/s"),
@@ -286,9 +351,18 @@ def draw_stats_panel(screen: pygame.Surface, font: pygame.font.Font,
         ("Kugelgröße",     f"{stats['bullet_size']}"),
         ("Mehrfachschuss", ja_nein(stats['multishot'])),
         ("Durchschlag",    ja_nein(stats['pierce'])),
-        ("Lifesteal",      f"{lifesteal} HP/Treffer"),
-        ("HP",             f"{int(player.hp)}/{int(player.max_hp)}"),
+        ("Lifesteal",      f"{ls_flat} HP/Treffer"),
     ]
+    # Defensiv-/Eco-Werte nur zeigen, wenn aktiv (Panel kompakt halten, ADR 025)
+    if stats['lifesteal_pct'] > 0: rows.append(("Lifesteal %",  f"{int(stats['lifesteal_pct']*100)}%"))
+    if stats['armor']        > 0: rows.append(("Rüstung",       f"{int(stats['armor']*100)}%"))
+    if stats['dodge']        > 0: rows.append(("Ausweichen",    f"{int(stats['dodge']*100)}%"))
+    if stats['thorns_pct']   > 0: rows.append(("Dornen",        f"{int(stats['thorns_pct']*100)}%"))
+    if stats['hp_regen']     > 0: rows.append(("Regeneration",  f"{stats['hp_regen']:.0f} HP/s"))
+    if stats['coin_mult']  != 1.0: rows.append(("Münz-Bonus",   f"x{stats['coin_mult']:.2f}"))
+    if stats['xp_mult']    != 1.0: rows.append(("XP-Bonus",     f"x{stats['xp_mult']:.2f}"))
+    if stats['rerolls']      > 0: rows.append(("Rerolls",       f"{stats['rerolls']}"))
+    rows.append(("HP",             f"{int(player.hp)}/{int(player.max_hp)}"))
     title = "Deine Stats  (C)"
     pad, line_h, gap = 12, font.get_linesize(), 24
     label_w = max(font.size(lbl)[0] for lbl, _ in rows)
@@ -669,15 +743,21 @@ def main():
                         snd.play("ui_click")
 
                 elif state == "UPGRADE":
-                    chosen = upgrade_menu.handle_click(mouse_pos)
-                    if chosen:
-                        apply_upgrade(chosen, gs["stats"], player)
-                        gs["obtained"].add(chosen)
-                        gs["pending_levelups"] = max(0, gs["pending_levelups"] - 1)
-                        if gs["pending_levelups"] > 0:
-                            upgrade_menu.roll(gs["obtained"])   # weitere Level-up-Karte
-                        else:
-                            state = "PLAYING"
+                    # Reroll (WEISS, ADR 025): vorhandene Charge zieht 3/4 Karten neu
+                    if gs["stats"]["rerolls"] > 0 and upgrade_menu.handle_reroll_click(mouse_pos):
+                        gs["stats"]["rerolls"] -= 1
+                        upgrade_menu.roll(gs["obtained"], _card_count(save))
+                        snd.play("ui_click")
+                    else:
+                        chosen = upgrade_menu.handle_click(mouse_pos)
+                        if chosen:
+                            apply_upgrade(chosen, gs["stats"], player)
+                            gs["obtained"].add(chosen)
+                            gs["pending_levelups"] = max(0, gs["pending_levelups"] - 1)
+                            if gs["pending_levelups"] > 0:
+                                upgrade_menu.roll(gs["obtained"], _card_count(save))   # weitere Karte
+                            else:
+                                state = "PLAYING"
 
             if event.type == pygame.MOUSEMOTION:
                 if state == "OPTIONS":
@@ -766,7 +846,8 @@ def main():
                 kills    = []
                 had_hits = check_projectile_hits(gs["projectiles"], gs["enemies"], dmg_numbers, kills, player)
                 if had_hits: snd.play("hit")
-                check_enemy_contact(gs["enemies"], player, pc)
+                # Dornen-Kills (ADR 025) zählen wie normale Kills (Münzen/XP/Sound)
+                kills   += check_enemy_contact(gs["enemies"], player, pc)
 
                 # Archer-Pfeile treffen Spieler
                 for ep in gs["enemy_projectiles"]:
@@ -776,8 +857,13 @@ def main():
 
                 gs["enemy_projectiles"] = [ep for ep in gs["enemy_projectiles"] if ep.alive]
 
-                # Münzen & Kill-Sounds
-                gold_mult = GOLD_BOOST_MULT if "gold_boost" in save["bought"] else 1.0
+                # Münzen & Kill-Sounds. Münz-/XP-Faktoren: GOLD-/WEISS-Karten (diesen Lauf,
+                # ADR 025) + permanente Shop-Multiplikatoren über alle Läufe (ADR 026).
+                upg = save.get("upgrades", {})
+                gold_mult  = GOLD_BOOST_MULT if "gold_boost" in save["bought"] else 1.0
+                gold_mult *= gs["stats"]["coin_mult"]
+                gold_mult *= 1 + upg.get("coin_mult", 0) * PERMANENT_COIN_MULT_PER_LEVEL
+                xp_factor  = gs["stats"]["xp_mult"] * (1 + upg.get("xp_mult", 0) * PERMANENT_XP_MULT_PER_LEVEL)
                 for enemy in kills:
                     if isinstance(enemy, SuperBoss):
                         snd.play("kill_superboss")
@@ -793,7 +879,7 @@ def main():
                     # XP_GAIN_MULT (+70%, Nutzerwunsch): skaliert mit der Welle, damit der
                     # Spieler spät genug DPS für die Endgame-Bosse aufbaut. Gilt für ALLE Gegner.
                     gs["xp"]    += round(enemy.coin_value * xp_wave_mult(gs["wave"])
-                                      * xp_round_mult(gs["wave"]) * XP_GAIN_MULT)
+                                      * xp_round_mult(gs["wave"]) * XP_GAIN_MULT * xp_factor)
                     dmg_numbers.append(
                         DamageNumber(enemy.pos.x, enemy.pos.y - 28, val,
                                      color=COLOR_COIN, prefix="+")
@@ -811,6 +897,15 @@ def main():
 
                 for dn in dmg_numbers: dn.update()
                 dmg_numbers = [dn for dn in dmg_numbers if dn.alive]
+
+                # HP-Regeneration (BLAU, ADR 025): zeitbasiert, an die Live-FPS gekoppelt
+                # (wie spawn_interval); im Sub-Tick-Loop → Zeitraffer skaliert automatisch mit.
+                if player.hp_regen and player.alive:
+                    gs["_regen_accum"] += player.hp_regen / options_menu.fps_value
+                    if gs["_regen_accum"] >= 1.0:
+                        whole = int(gs["_regen_accum"])
+                        gs["_regen_accum"] -= whole
+                        player.hp = min(player.max_hp, player.hp + whole)
 
                 if not player.alive:
                     new_record = (gs["wave"]   > save["best_wave"] or
@@ -841,7 +936,7 @@ def main():
                 elif gs["pending_levelups"] > 0:
                     # Levelup mitten in der Welle → Karte wählen, dann weiterspielen (ADR 008)
                     snd.play("wave_clear")
-                    upgrade_menu.roll(gs["obtained"])
+                    upgrade_menu.roll(gs["obtained"], _card_count(save))
                     state = "UPGRADE"
 
                 if gs.get("banner") and gs["banner"]["timer"] > 0:
@@ -979,7 +1074,7 @@ def main():
                     ry += 46
                 controls_back_btn.draw(screen, font, mouse_pos)
             elif state == "UPGRADE":
-                upgrade_menu.draw(screen)
+                upgrade_menu.draw(screen, gs["stats"]["rerolls"])
             elif state == "GAME_OVER":
                 draw_game_over(screen, font_big, font,
                                gs["wave"], gs["coins"],

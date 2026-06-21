@@ -283,20 +283,33 @@ aufgefüllt). „Harter" Zustand (überlebt Programm-Neustart):
 - `total_coins`, `best_wave`, `best_coins`
 - `bought` — einmalige Käufe (`"gold_boost"`)
 - `upgrades` — Stufenzähler permanenter Verbesserungen (`start_damage`, `start_hp`,
-  `doppelschuss` 0–2; ADR 022)
+  `doppelschuss` 0–2; ADR 022; plus ADR 026: `start_attack_speed`, `start_bullet_size`,
+  `start_lifesteal`, `coin_mult`, `xp_mult`, `free_rerolls`). Alt-Saves ohne neue Subkeys
+  sind ok — Zugriff überall via `upgrades.get(key, 0)`.
 - `settings` — **als Integer-Indizes**, nicht als Rohwerte: `sfx`/`music` 0–10
   (→ Lautstärke `idx/10`), `difficulty` = Index in `DIFFICULTIES`, `fps` 0/1.
+
+**Farbgruppen (ADR 025):** Karten UND Shop-Käufe sind in vier Gruppen gegliedert — **ROT**
+Schaden, **BLAU** Verteidigung, **GOLD** Geld, **WEISS** XP. Farben/Titel zentral in
+`balance.GROUP_COLORS`/`GROUP_TITLES` (eine Quelle, kein Drift). Karten rendern als getöntes
+Rundrechteck je Akzentfarbe (asset-frei); der Shop zeigt eine Spalte je Gruppe.
 
 Zwei getrennte Upgrade-Systeme:
 
 1. **In-Run-Karten** (`upgrade_menu.py`): temporär, nur aktueller Lauf; Auswahl **bei
    Level-up** (XP-getrieben, ADR 008). Wirken über `apply_upgrade()` auf `gs["stats"]`
-   bzw. den `Player`.
+   bzw. den `Player`. Neben Offensive nun auch Lifesteal (`lifesteal_pct`/`lifesteal_flat`),
+   Verteidigung (`armor`/`hp_regen`/`thorns_pct`/`dodge`), Eco (`coin_mult`/`xp_mult`) und
+   `reroll` (ADR 025). Defensiv-/Lifesteal-Werte werden via `_sync_player_defense()` auf den
+   `Player` gespiegelt, damit `take_damage`/`check_projectile_hits`/`check_enemy_contact` sie
+   kennen. **Reroll** = Button im Level-up-Overlay (Charges aus `gs["stats"]["rerolls"]`).
 2. **Permanente Verbesserungen** (`main_menu.py`, `ImprovementsMenu`): mit Münzen
    gekauft, persistiert. Drei Kategorien: `_INFINITE` (stufenweise, Preis ×`_COST_MULT`),
    `_TIERED` (gedeckelt, eigene Kostenliste je Stufe — z. B. Doppelschuss 5000→Dreifachschuss
-   20000, ADR 022) und `_ONE_TIME` (einmalig, z. B. Goldene Kugeln). Angewendet via
-   `apply_permanent_bonuses()` zu Laufbeginn bzw. inline (gold_boost; doppelschuss-Stufe).
+   20000, ADR 022) und `_ONE_TIME` (einmalig, z. B. Goldene Kugeln, Vierte Karte). Angewendet via
+   `apply_permanent_bonuses()` zu Laufbeginn bzw. inline (gold_boost; doppelschuss-Stufe;
+   `coin_mult`/`xp_mult` als globale Faktoren im Münz-/XP-Drop, ADR 026). Layout/Klick teilen
+   sich den Iterator `_iter_shop_slots()` (4 Spalten = Farbgruppen, kein Drift).
 
 **Geplante Erweiterung (Part 2, Rebirth):** Das Save-Format bekommt
 freigeschaltete **Waffen** und deren Meta-Upgrades. Diese überleben als Einzige

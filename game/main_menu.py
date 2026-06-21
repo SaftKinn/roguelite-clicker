@@ -19,25 +19,46 @@ DIFF_MODIFIERS = {
     "Schwer": {"hp_mult": 1.4,  "spawn_bonus": -25},
 }
 
-# Gestufte Käufe (capped, eigene Kostenliste je Stufe) — Reihe 1, Spalte 0
+# Farbgruppen (ADR 025/026): jede Karte/jeder Kauf trägt eine `group`; die Farbe kommt
+# zentral aus balance.GROUP_COLORS (eine Quelle für Karten + Shop). Der Shop ist nach diesen
+# vier Gruppen in Spalten gegliedert (Schaden/Verteidigung/Geld/XP).
+_R, _B, _G, _W = balance.GROUP_RED, balance.GROUP_BLUE, balance.GROUP_GOLD, balance.GROUP_WHITE
+
+# Gestufte Käufe (capped, eigene Kostenliste je Stufe)
 _TIERED = [
-    {"id": "doppelschuss", "name": "Doppelschuss",
+    {"id": "doppelschuss", "group": _R, "name": "Doppelschuss",
      "tiers": ["+1 Schuss (2 gesamt)", "+2 Schuss (3 gesamt)"],
-     "costs": [balance.COST_DOPPELSCHUSS, balance.COST_DREIFACHSCHUSS],
-     "color": (220, 180, 40)},
+     "costs": [balance.COST_DOPPELSCHUSS, balance.COST_DREIFACHSCHUSS]},
 ]
 
-# Einmalige Käufe (Preise/Effekte zentral in balance.py) — Reihe 1, restliche Spalten
+# Einmalige Käufe (Preise/Effekte zentral in balance.py)
 _ONE_TIME = [
-    {"id": "gold_boost",   "name": "Goldene Kugeln", "desc": f"+{int((balance.GOLD_BOOST_MULT - 1) * 100)}% Münzen aus Kills", "cost": balance.COST_GOLD_BOOST, "color": (255, 210,   0)},
+    {"id": "gold_boost", "group": _G, "name": "Goldene Kugeln", "desc": f"+{int((balance.GOLD_BOOST_MULT - 1) * 100)}% Münzen aus Kills", "cost": balance.COST_GOLD_BOOST},
+    {"id": "extra_card", "group": _W, "name": "Vierte Karte",   "desc": f"Levelup zeigt {balance.EXTRA_CARD_COUNT} statt {balance.DEFAULT_CARD_COUNT} Karten", "cost": balance.COST_EXTRA_CARD},
 ]
 
 # Unendlich steigerbare Upgrades (Preise/Effekte zentral in balance.py)
 _INFINITE = [
-    {"id": "start_damage", "name": "Startschaden", "per_level": f"+{balance.PERMANENT_DAMAGE_PER_LEVEL} Schaden", "base_cost": balance.COST_START_DAMAGE, "color": (200,  60,  60)},
-    {"id": "start_hp",     "name": "Start-HP",     "per_level": f"+{balance.PERMANENT_HP_PER_LEVEL} HP",         "base_cost": balance.COST_START_HP,     "color": ( 60, 200, 100)},
+    {"id": "start_damage",       "group": _R, "name": "Startschaden",      "per_level": f"+{balance.PERMANENT_DAMAGE_PER_LEVEL} Schaden",       "base_cost": balance.COST_START_DAMAGE},
+    {"id": "start_attack_speed", "group": _R, "name": "Start-Tempo",       "per_level": f"+{balance.PERMANENT_ATTACK_SPEED_PER_LEVEL}/s Tempo",  "base_cost": balance.COST_START_ATTACK_SPEED},
+    {"id": "start_bullet_size",  "group": _R, "name": "Start-Kugelgröße",  "per_level": f"+{balance.PERMANENT_BULLET_SIZE_PER_LEVEL} Radius",    "base_cost": balance.COST_START_BULLET_SIZE},
+    {"id": "start_lifesteal",    "group": _R, "name": "Start-Lebensraub",  "per_level": f"+{balance.PERMANENT_LIFESTEAL_PER_LEVEL} HP/Treffer",  "base_cost": balance.COST_START_LIFESTEAL},
+    {"id": "start_hp",           "group": _B, "name": "Start-HP",          "per_level": f"+{balance.PERMANENT_HP_PER_LEVEL} HP",                 "base_cost": balance.COST_START_HP},
+    {"id": "coin_mult",          "group": _G, "name": "Münz-Meister",      "per_level": f"+{int(balance.PERMANENT_COIN_MULT_PER_LEVEL*100)}% Münzen (immer)", "base_cost": balance.COST_COIN_MULT},
+    {"id": "xp_mult",            "group": _W, "name": "Weisheit",          "per_level": f"+{int(balance.PERMANENT_XP_MULT_PER_LEVEL*100)}% XP (immer)",       "base_cost": balance.COST_XP_MULT},
+    {"id": "free_rerolls",       "group": _W, "name": "Glückshand",        "per_level": f"+{balance.PERMANENT_FREE_REROLLS_PER_LEVEL} Reroll/Lauf",            "base_cost": balance.COST_FREE_REROLLS},
 ]
 _COST_MULT = balance.COST_MULT   # Preismultiplikator pro Stufe
+
+# Spaltenreihenfolge des Shops (eine Spalte je Farbgruppe)
+_GROUP_ORDER = (_R, _B, _G, _W)
+
+
+def _shop_entries():
+    """Alle Käufe als (kind, entry) — kind ∈ {'infinite','tiered','one_time'}."""
+    return ([("infinite", e) for e in _INFINITE]
+            + [("tiered", e)  for e in _TIERED]
+            + [("one_time", e) for e in _ONE_TIME])
 
 # Rückwärtskompatibilität für main.py-Import
 IMPROVEMENTS = _ONE_TIME + _TIERED + [{"id": i["id"]} for i in _INFINITE]
@@ -649,27 +670,22 @@ class BestiaryMenu:
 # Verbesserungen-Menü
 # ---------------------------------------------------------------------------
 
-SLOT_W, SLOT_H = 290, 140
-SLOT_GAP       = 20
+# Shop-Layout: vier Spalten (eine je Farbgruppe), Käufe untereinander (ADR 026).
+SHOP_COL_W   = 288
+SHOP_COL_GAP = 18
+SHOP_SLOT_H  = 88
+SHOP_ROW_GAP = 10
+SHOP_GRID_TOP = 150
 
 
 class ImprovementsMenu:
     def __init__(self):
         self._fonts_ready = False
-        cx        = SCREEN_WIDTH // 2
-        total_w   = 2 * SLOT_W + SLOT_GAP
-        self._sx  = cx - total_w // 2
-        self._sy  = 148
+        cx = SCREEN_WIDTH // 2
+        self._grid_x = cx - (4 * SHOP_COL_W + 3 * SHOP_COL_GAP) // 2
         self.back_btn = Button(
             pygame.Rect(cx - BTN_W // 2, SCREEN_HEIGHT - 82, BTN_W, BTN_H),
             "Zurück", (60, 160, 220)
-        )
-
-    def _slot_rect(self, row: int, col: int) -> pygame.Rect:
-        return pygame.Rect(
-            self._sx + col * (SLOT_W + SLOT_GAP),
-            self._sy + row * (SLOT_H + SLOT_GAP),
-            SLOT_W, SLOT_H
         )
 
     def _load_fonts(self) -> None:
@@ -679,80 +695,86 @@ class ImprovementsMenu:
             self.font_sm    = pygame.font.SysFont("Arial", 13)
             self._fonts_ready = True
 
+    def _iter_shop_slots(self):
+        """Layout-Iterator: yield (rect, kind, entry) je Kauf, gruppiert in 4 Farb-Spalten.
+        EINE Quelle für draw() UND handle_click() → kein Drift zwischen Klick und Zeichnung."""
+        cols = {g: [] for g in _GROUP_ORDER}
+        for kind, e in _shop_entries():
+            cols[e["group"]].append((kind, e))
+        for ci, g in enumerate(_GROUP_ORDER):
+            x = self._grid_x + ci * (SHOP_COL_W + SHOP_COL_GAP)
+            for ri, (kind, e) in enumerate(cols[g]):
+                y = SHOP_GRID_TOP + ri * (SHOP_SLOT_H + SHOP_ROW_GAP)
+                yield pygame.Rect(x, y, SHOP_COL_W, SHOP_SLOT_H), kind, e
+
+    def _entry_state(self, kind: str, e: dict, save: dict):
+        """Gibt (state, cost) zurück. state ∈ buyable|locked|bought|maxed; cost = nächster Preis oder None."""
+        upgrades = save.get("upgrades", {})
+        if kind == "infinite":
+            cost = upgrade_cost(e["base_cost"], upgrades.get(e["id"], 0))
+            return ("buyable" if save["total_coins"] >= cost else "locked"), cost
+        if kind == "tiered":
+            lvl = upgrades.get(e["id"], 0)
+            if lvl >= len(e["costs"]):
+                return "maxed", None
+            cost = e["costs"][lvl]
+            return ("buyable" if save["total_coins"] >= cost else "locked"), cost
+        # one_time
+        if e["id"] in save["bought"]:
+            return "bought", None
+        cost = e["cost"]
+        return ("buyable" if save["total_coins"] >= cost else "locked"), cost
+
     # ------------------------------------------------------------------
 
     def handle_click(self, pos: tuple, save: dict) -> str | None:
         if self.back_btn.is_hovered(pos):
             return "back"
-
-        upgrades = save.setdefault("upgrades", {"start_damage": 0, "start_hp": 0})
-
-        for i, inf in enumerate(_INFINITE):
-            if not self._slot_rect(0, i).collidepoint(pos):
+        save.setdefault("upgrades", {})
+        for rect, kind, e in self._iter_shop_slots():
+            if not rect.collidepoint(pos):
                 continue
-            lvl  = upgrades.get(inf["id"], 0)
-            cost = upgrade_cost(inf["base_cost"], lvl)
-            if save["total_coins"] >= cost:
-                save["total_coins"]  -= cost
-                upgrades[inf["id"]]   = lvl + 1
-                sd.save(save)
-
-        # Reihe 1: gestufte Käufe (links) + einmalige Käufe (rechts)
-        for i, entry in enumerate(_TIERED + _ONE_TIME):
-            if not self._slot_rect(1, i).collidepoint(pos):
-                continue
-            if "costs" in entry:                       # gestuft (capped)
-                lvl = upgrades.get(entry["id"], 0)
-                if lvl < len(entry["costs"]) and save["total_coins"] >= entry["costs"][lvl]:
-                    save["total_coins"]   -= entry["costs"][lvl]
-                    upgrades[entry["id"]]  = lvl + 1
-                    sd.save(save)
-            else:                                      # einmalig
-                if entry["id"] not in save["bought"] and save["total_coins"] >= entry["cost"]:
-                    save["total_coins"] -= entry["cost"]
-                    save["bought"].append(entry["id"])
-                    sd.save(save)
-
+            state, cost = self._entry_state(kind, e, save)
+            if cost is None or save["total_coins"] < cost:
+                return None
+            save["total_coins"] -= cost
+            if kind == "one_time":
+                save["bought"].append(e["id"])
+            else:
+                save["upgrades"][e["id"]] = save["upgrades"].get(e["id"], 0) + 1
+            sd.save(save)
+            return None
         return None
 
     # ------------------------------------------------------------------
 
     def _draw_slot(self, screen, mouse_pos, rect: pygame.Rect,
-                   color, name_txt, desc_txt, cost_txt,
-                   state: str, special: bool = False) -> None:
-        # state: "buyable" | "bought" | "locked"
-        hovered = rect.collidepoint(mouse_pos) and state != "bought"
+                   color, name_txt, desc_txt, cost_txt, state: str) -> None:
+        bought_like = state in ("bought", "maxed")
+        hovered = rect.collidepoint(mouse_pos) and not bought_like
 
         bg = (38, 38, 55) if hovered and state == "buyable" else (28, 28, 42)
         pygame.draw.rect(screen, bg, rect, border_radius=8)
-
-        border_col = (color if state in ("bought", "buyable") and (state == "bought" or hovered)
-                      else (55, 55, 75))
-        border_w   = 2 if (state == "bought" or (hovered and state == "buyable")) else 1
-        pygame.draw.rect(screen, border_col, rect, width=border_w, border_radius=8)
-
-        # Accent stripe left
-        pygame.draw.rect(screen, color,
-                         pygame.Rect(rect.x, rect.y + 8, 4, rect.height - 16),
-                         border_radius=2)
+        active = bought_like or hovered
+        pygame.draw.rect(screen, color if active else (55, 55, 75), rect,
+                         width=2 if active else 1, border_radius=8)
+        # Kopfband in Gruppenfarbe
+        pygame.draw.rect(screen, color, (rect.x, rect.y, rect.width, 5),
+                         border_top_left_radius=8, border_top_right_radius=8)
 
         rx, ry = rect.x, rect.y
-        name_c = color if state == "bought" else (255, 255, 255)
-        screen.blit(self.font.render(name_txt, True, name_c),              (rx + 14, ry + 12))
-        screen.blit(self.font_sm.render(desc_txt, True, (140, 140, 160)),  (rx + 14, ry + 40))
+        name_c = color if bought_like else (255, 255, 255)
+        screen.blit(self.font.render(name_txt, True, name_c),             (rx + 12, ry + 12))
+        screen.blit(self.font_sm.render(desc_txt, True, (150, 150, 170)), (rx + 12, ry + 38))
 
-        if state == "bought":
-            ok = self.font.render("✓ Gekauft", True, color)
-            screen.blit(ok, (rx + 14, ry + rect.height - ok.get_height() - 12))
+        sy = ry + rect.height - 22
+        if bought_like:
+            screen.blit(self.font_sm.render("Gekauft" if state == "bought" else "Max ausgebaut", True, color), (rx + 12, sy))
         elif state == "locked":
-            screen.blit(self.font_sm.render(cost_txt, True, (180, 150, 50)), (rx + 14, ry + 62))
-            no = self.font_sm.render("Nicht genug Münzen", True, (180, 60, 60))
-            screen.blit(no, (rx + 14, ry + rect.height - no.get_height() - 12))
+            screen.blit(self.font_sm.render(f"{cost_txt}  (zu teuer)", True, (185, 90, 90)), (rx + 12, sy))
         else:  # buyable
-            screen.blit(self.font_sm.render(cost_txt, True, (180, 150, 50)), (rx + 14, ry + 62))
-            if hovered:
-                hint = self.font_sm.render("← Klicken zum Kaufen", True, color)
-                screen.blit(hint, (rx + 14, ry + rect.height - hint.get_height() - 12))
+            txt = "← Klicken zum Kaufen" if hovered else cost_txt
+            screen.blit(self.font_sm.render(txt, True, color if hovered else (200, 170, 60)), (rx + 12, sy))
 
     def draw(self, screen: pygame.Surface, mouse_pos: tuple, save: dict) -> None:
         self._load_fonts()
@@ -762,55 +784,27 @@ class ImprovementsMenu:
 
         title = self.font_title.render("Verbesserungen", True, (255, 220, 60))
         screen.blit(title, (cx - title.get_width() // 2, 50))
-
         coins_surf = self.font.render(f"Münzen:  {save['total_coins']}", True, (220, 180, 40))
         screen.blit(coins_surf, (cx - coins_surf.get_width() // 2, 98))
 
-        # --- Unendliche Upgrades (oben) ---
-        for i, inf in enumerate(_INFINITE):
-            rect = self._slot_rect(0, i)
-            lvl  = upgrades.get(inf["id"], 0)
-            cost = upgrade_cost(inf["base_cost"], lvl)
-            state = "buyable" if save["total_coins"] >= cost else "locked"
-            self._draw_slot(screen, mouse_pos, rect,
-                            color    = inf["color"],
-                            name_txt = f"{inf['name']}   Lv.{lvl}",
-                            desc_txt = inf["per_level"],
-                            cost_txt = f"Kosten: {cost} Münzen",
-                            state    = state)
-            inf_lbl = self.font_sm.render("∞", True, inf["color"])
-            screen.blit(inf_lbl, (rect.right - inf_lbl.get_width() - 10, rect.y + 10))
+        # Spalten-Überschriften je Farbgruppe (Schaden/Verteidigung/Geld/XP)
+        for ci, g in enumerate(_GROUP_ORDER):
+            x   = self._grid_x + ci * (SHOP_COL_W + SHOP_COL_GAP)
+            hdr = self.font.render(balance.GROUP_TITLES[g], True, balance.GROUP_COLORS[g])
+            screen.blit(hdr, (x + SHOP_COL_W // 2 - hdr.get_width() // 2, SHOP_GRID_TOP - 30))
 
-        # --- Reihe 1: gestufte (links) + einmalige Käufe (rechts) ---
-        for i, entry in enumerate(_TIERED + _ONE_TIME):
-            rect = self._slot_rect(1, i)
-            if "costs" in entry:                       # gestuft
-                lvl   = upgrades.get(entry["id"], 0)
-                maxed = lvl >= len(entry["costs"])
-                if maxed:
-                    state, cost_txt = "bought", "Maximal ausgebaut"
-                else:
-                    cost  = entry["costs"][lvl]
-                    state = "buyable" if save["total_coins"] >= cost else "locked"
-                    cost_txt = f"Kosten: {cost} Münzen"
-                self._draw_slot(screen, mouse_pos, rect,
-                                color    = entry["color"],
-                                name_txt = f"{entry['name']}  Lv.{lvl}/{len(entry['costs'])}",
-                                desc_txt = entry["tiers"][min(lvl, len(entry["tiers"]) - 1)],
-                                cost_txt = cost_txt,
-                                state    = state,
-                                special  = True)
-            else:                                      # einmalig
-                bought = entry["id"] in save["bought"]
-                state  = ("bought"  if bought
-                          else "buyable" if save["total_coins"] >= entry["cost"]
-                          else "locked")
-                self._draw_slot(screen, mouse_pos, rect,
-                                color    = entry["color"],
-                                name_txt = entry["name"],
-                                desc_txt = entry["desc"],
-                                cost_txt = f"Kosten: {entry['cost']} Münzen",
-                                state    = state,
-                                special  = True)
+        for rect, kind, e in self._iter_shop_slots():
+            color       = balance.GROUP_COLORS[e["group"]]
+            state, cost = self._entry_state(kind, e, save)
+            lvl         = upgrades.get(e["id"], 0)
+            if kind == "infinite":
+                name_txt, desc_txt = f"{e['name']}  Lv.{lvl}", e["per_level"]
+            elif kind == "tiered":
+                name_txt = f"{e['name']}  Lv.{lvl}/{len(e['costs'])}"
+                desc_txt = e["tiers"][min(lvl, len(e["tiers"]) - 1)]
+            else:
+                name_txt, desc_txt = e["name"], e["desc"]
+            cost_txt = "" if cost is None else f"{cost} Münzen"
+            self._draw_slot(screen, mouse_pos, rect, color, name_txt, desc_txt, cost_txt, state)
 
         self.back_btn.draw(screen, self.font, mouse_pos)

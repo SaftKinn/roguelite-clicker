@@ -182,6 +182,35 @@ UPGRADE_MAX_HP       = 40           # "Max HP": +Maximale HP (heilt zugleich um 
 UPGRADE_ATTACK_SPEED = 0.2          # "Angriffstempo": +0.2 Schüsse/Sek. je Karte (additiv, ADR 009)
 MULTISHOT_ANGLES     = (-15, 0, 15) # "Dreifachschuss": Streuwinkel der Kugeln (Anzahl = len)
 
+# --- ROT (Schaden): Lifesteal-Karten (stapelbar, gedeckelt auf max_hp, ADR 025) ---
+UPGRADE_LIFESTEAL_PCT  = 0.05   # "Lebensraub": +5% des ausgeteilten Schadens als HP/Treffer je Stufe
+UPGRADE_LIFESTEAL_FLAT = 2      # "Vampirschlag": +2 HP/Treffer je Stufe (flach)
+
+# --- BLAU (Verteidigung, ADR 025) ---
+UPGRADE_ARMOR_PCT = 0.06   # "Rüstung": eingehender Schaden -6% je Stufe (additiv)
+ARMOR_CAP         = 0.75   # max. 75% Schadensreduktion (Deckel, sonst Unsterblichkeit)
+UPGRADE_HP_REGEN  = 2.0    # "Regeneration": +2 HP/Sekunde je Stufe
+UPGRADE_THORNS_PCT = 0.20  # "Dornen": Nahkämpfer nehmen 20% des erlittenen (Vor-Armor-)Schadens je Stufe
+THORNS_CAP        = 1.0    # max. 100% Reflect
+UPGRADE_DODGE_PCT = 0.05   # "Ausweichen": +5% Chance, einen Treffer komplett zu vermeiden je Stufe
+DODGE_CAP         = 0.50   # max. 50% Ausweichchance
+
+# --- GOLD (Geld, gilt für diesen Lauf, stapelbar, ADR 025) ---
+UPGRADE_COIN_PCT = 0.15    # "Goldgier"/"Schatzfund": +15% Münzen aus Kills je Stufe
+
+# --- WEISS (XP, gilt für diesen Lauf, stapelbar, ADR 025) ---
+UPGRADE_XP_PCT         = 0.15  # "Gelehrsamkeit": +15% XP-Gewinn je Stufe
+UPGRADE_REROLL_CHARGES = 1     # "Neuwurf": +1 Reroll-Charge im Levelup-Screen je Karte
+
+# --- Farbgruppen der Karten/Shop-Käufe (ADR 025) — eine Quelle für Karten + Shop ---
+GROUP_RED, GROUP_BLUE, GROUP_GOLD, GROUP_WHITE = "red", "blue", "gold", "white"
+GROUP_COLORS = {GROUP_RED:   (200,  60,  60),   # Schaden
+                GROUP_BLUE:  ( 60, 140, 220),   # Verteidigung
+                GROUP_GOLD:  (240, 190,  40),   # Geld
+                GROUP_WHITE: (225, 225, 235)}   # XP
+GROUP_TITLES = {GROUP_RED: "Schaden", GROUP_BLUE: "Verteidigung",
+                GROUP_GOLD: "Geld",   GROUP_WHITE: "XP"}
+
 
 # ---------------------------------------------------------------------------
 # Permanente Verbesserungen (Münz-Shop) — Effekte
@@ -191,6 +220,16 @@ PERMANENT_DAMAGE_PER_LEVEL = 25     # "Startschaden": +Schaden je Stufe (stärke
 PERMANENT_HP_PER_LEVEL     = 40     # "Start-HP": +Max-HP je Stufe
 GOLD_BOOST_MULT            = 1.5    # "Goldene Kugeln": Münz-Faktor aus Kills
 DOPPELSCHUSS_DELAY         = 8      # "Doppelschuss": Frames Verzögerung bis zur zweiten Kugel
+
+# Shop-Ausbau (ADR 026) — weitere Dauer-Stats + globale Meta-Multiplikatoren
+PERMANENT_ATTACK_SPEED_PER_LEVEL = 0.08  # "Start-Angriffstempo": +0.08 Schuss/s je Stufe
+PERMANENT_BULLET_SIZE_PER_LEVEL  = 3     # "Start-Kugelgröße": +3 Kugelradius je Stufe
+PERMANENT_LIFESTEAL_PER_LEVEL    = 1     # "Start-Lebensraub": +1 flach HP/Treffer je Stufe
+PERMANENT_COIN_MULT_PER_LEVEL    = 0.05  # "Münz-Meister": +5% Münzen ÜBER ALLE Läufe je Stufe
+PERMANENT_XP_MULT_PER_LEVEL      = 0.05  # "Weisheit": +5% XP ÜBER ALLE Läufe je Stufe
+PERMANENT_FREE_REROLLS_PER_LEVEL = 1     # "Glückshand": +1 Gratis-Reroll pro Lauf je Stufe
+DEFAULT_CARD_COUNT = 3   # Karten pro Levelup (Standard)
+EXTRA_CARD_COUNT   = 4   # Karten pro Levelup, wenn "extra_card" gekauft
 
 
 # ---------------------------------------------------------------------------
@@ -203,3 +242,12 @@ COST_START_HP      = 75     # Basispreis "Start-HP"
 COST_DOPPELSCHUSS  = 5000   # Stufe 1 "Doppelschuss" (+1 Schuss)
 COST_DREIFACHSCHUSS = 20000 # Stufe 2 "Dreifachschuss" (+2 Schuss) — Ausbau des Doppelschuss
 COST_GOLD_BOOST    = 80     # Einmalkauf "Goldene Kugeln"
+
+# Shop-Ausbau (ADR 026) — Basispreise der neuen Käufe (∞ skalieren mit COST_MULT)
+COST_START_ATTACK_SPEED = 120    # Basispreis "Start-Angriffstempo" (∞)
+COST_START_BULLET_SIZE  = 90     # Basispreis "Start-Kugelgröße" (∞)
+COST_START_LIFESTEAL    = 150    # Basispreis "Start-Lebensraub" (∞)
+COST_COIN_MULT          = 200    # Basispreis "Münz-Meister" (∞, global über alle Läufe)
+COST_XP_MULT            = 200    # Basispreis "Weisheit" (∞, global über alle Läufe)
+COST_FREE_REROLLS       = 300    # Basispreis "Glückshand" (∞)
+COST_EXTRA_CARD         = 1200   # Einmalkauf "Vierte Karte"

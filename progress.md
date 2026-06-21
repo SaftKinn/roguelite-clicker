@@ -31,8 +31,33 @@ Hebel `ENEMY_HP_PER_WAVE_SQ`/Tier-3-Härte. (c) **Originale Warrior/Archer/Gobli
 nicht mehr direkt** (nur Basisklasse + Summon-Default), bleiben aber im Lexikon. (d) FPS 140 ist
 frame-basiert (~1,87× schneller als 75); Zeitraffer x20 = Sound-Kakofonie (akzeptiert). (e) echter
 1→150-Playtest steht aus. (f) Parallel-Session editiert dieselben Dateien — Tree teils gemischt.
+(g) **Karten-Farbgruppen + Shop-Ausbau sind drin (ADR 025/026), aber balance-ungetestet** — die
+%-Werte (Lifesteal/Armor/Dornen/Dodge, Coin-/XP-Mult) und neuen Shop-Preise brauchen einen Playtest,
+v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Karten teilen sich noch
+`Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-21 (Teil 12) — **Karten-Farbgruppen + Shop-Ausbau (ADR 025, 026):**
+- **4 Farbgruppen** (ROT Schaden / BLAU Verteidigung / GOLD Geld / WEISS XP), zentral in
+  `balance.GROUP_COLORS`/`GROUP_TITLES` (Karten + Shop). Karten rendern als **getöntes
+  Rundrechteck** je Akzentfarbe (asset-frei; Gold/Weiß hatten keine Button-PNGs).
+- **Neue Karten (ADR 025):** ROT `lifesteal_pct` (+5% Schaden als HP) + `lifesteal_flat` (+2 HP/
+  Treffer); BLAU `armor` (−6%/Stufe, Cap 75%), `hp_regen` (2 HP/s), `thorns` (20% Reflect),
+  `dodge` (5%/Stufe, Cap 50%); GOLD `coin_boost`; WEISS `xp_boost` + `reroll`. Hooks:
+  `_sync_player_defense` (Spiegelung auf `player`); Lifesteal in `check_projectile_hits`;
+  Armor/Dodge in `Player.take_damage`; Dornen in `check_enemy_contact` (gibt Dornen-Kills zurück
+  → Münzen/XP/Sound); HP-Regen FPS-stabiler Akku-Tick. **Boss-Oneshot** `player.hp = 0` (umgeht
+  Armor/Dodge bewusst). **Reroll = Button** im Levelup-Overlay (`gs["stats"]["rerolls"]`).
+- **Shop-Ausbau (ADR 026):** ∞-Käufe Start-Tempo/Start-Kugelgröße/Start-Lebensraub + globale
+  Meta-Mult `coin_mult`/`xp_mult` (über alle Läufe, im Drop) + `free_rerolls`; Einmalkauf „Vierte
+  Karte" (`extra_card` → 4 statt 3 via `_card_count`). **4-Spalten-Layout** nach Farbgruppe;
+  draw + handle_click teilen `_iter_shop_slots()` (kein Drift). `save_data`-Defaults erweitert.
+- **Verifikation:** Render-Shots (`render_cards4`/`render_shop`/`render_stats`); deterministisch
+  Armor 40→20, Dodge 100%→0, Lifesteal 50→66, Dornen-Kill; Shop-Kauf aller Typen + Zu-teuer-Sperre
+  (100000→93480). **Treiber-Menü-Fix** (Start-Klick aus echtem MainMenu-Layout abgeleitet). Voller
+  Treiber-Flow bis Sieg crashfrei. **Hinweis:** Kauftest schrieb in Slot 1 → auf sauberen Standard
+  zurückgesetzt. Noch nicht committet.
 
 2026-06-21 (Teil 11) — **Tier-Roster: 15 reskinnte Gegner + Welle 150 (ADR 024):**
 - **15 Gegner via Vererbung:** `_CustomSpriteMixin` (lädt `assets/custom/<name>_run.png`,

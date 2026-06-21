@@ -15,7 +15,11 @@ _active_slot = 1
 _DEFAULT = {
     "total_coins":  0,
     "bought":       [],   # Einmalige Käufe: "gold_boost"
-    "upgrades":     {"start_damage": 0, "start_hp": 0, "doppelschuss": 0},  # Stufenzähler (doppelschuss 0–2)
+    # Stufenzähler (doppelschuss 0–2). Neue ∞-Käufe (ADR 026) default 0; Alt-Saves ohne
+    # diese Subkeys sind unkritisch, weil der Code überall `upgrades.get(key, 0)` nutzt.
+    "upgrades":     {"start_damage": 0, "start_hp": 0, "doppelschuss": 0,
+                     "start_attack_speed": 0, "start_bullet_size": 0, "start_lifesteal": 0,
+                     "coin_mult": 0, "xp_mult": 0, "free_rerolls": 0},
     "best_wave":    0,
     "best_coins":   0,
     "settings":     {"difficulty": 1, "sfx": 7, "music": 5, "fps": 0, "framerate": 5},
