@@ -101,6 +101,18 @@ def xp_to_next(level: int, wave: int) -> int:
     """Nötige XP für den nächsten Levelup, abhängig von Stufe und Welle."""
     return round(XP_BASE + (level - 1) * XP_PER_LEVEL + wave * XP_PER_WAVE)
 
+# XP pro Kill skaliert mit der Welle (ADR 014, Wurzel-Fix gegen die Endgame-Wand):
+# Vorher gab ein Kill nur die flache Klassen-Basis `enemy.coin_value` (1/3, ×5 Elite) —
+# unabhängig von der Welle, während die Gegner-HP super-linear wächst. Folge: Der Spieler
+# blieb auf Welle 100 bei ~Level 33 und hatte zu wenig DPS für die späten Bosse. Mit diesem
+# Multiplikator (gedämpft ggü. dem ×-Münzfaktor `coin_value_for_wave` = wave//3) levelt der
+# Spieler spät weiter (Modell: ~Level 98 auf W100, alle Bosse im Walk-Budget).
+XP_WAVE_DIV = 8     # XP-Wellenfaktor = 1 + wave // XP_WAVE_DIV (kleiner = stärker)
+
+def xp_wave_mult(wave: int) -> int:
+    """Wellenabhängiger Multiplikator auf den XP-Drop je Kill."""
+    return 1 + wave // XP_WAVE_DIV
+
 # Beim Levelup ist die Karten-Auswahl kurz klick-gesperrt, damit ein gehaltener/
 # schneller Klick nicht versehentlich sofort eine Karte wählt (ADR 009).
 LEVELUP_INPUT_LOCK_S = 0.75   # Sekunden Klick-Sperre nach Erscheinen des Karten-Screens

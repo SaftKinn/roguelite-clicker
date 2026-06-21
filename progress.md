@@ -7,19 +7,42 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-**Boss-Wand datengestützt entschärft, Wurzel-Problem benannt.** Ein read-only Balance-
-Modell (`tools/balance_model.py`) hat die Endgame-Frage mit Zahlen beantwortet statt mit
-Vibes: Der Spieler erreicht auf W100 nur **~Level 33, nicht 60+** (Kill-XP skaliert nicht
-mit der Welle!), und der Bosskampf ist ein **DPS-Rennen gegen die Anlaufzeit** (~5 s Boss /
-~8 s SuperBoss), weil Bosse one-shotten und der Turm stationär ist. Konsequenz: Boss-HP-
-Multiplikatoren von ×8/×25 auf **×2/×3** gesenkt (ADR 013, neue Konstanten `BOSS_HP_MULT`/
-`SUPERBOSS_HP_MULT` in `balance.py`; SuperBoss W100 255k→**31k**). **Wichtig: das Modell
-zeigt, dass W60–W100 für *frische* Spieler weiter hart bleiben** — der quadratische Basis-HP
-(ADR 012) dominiert dort, das vollständig fair zu machen braucht einen **zweiten Hebel**
-(`ENEMY_HP_PER_WAVE_SQ` runter und/oder XP-Kurve). Uncommitted. **Offen weiterhin: ein
-echter 1→100-Playtest.**
+**Endgame-Wand auf beiden Hebeln datengestützt entschärft — bereit für echten Playtest.**
+Das read-only Modell (`tools/balance_model.py`) hat zwei Fixes getrieben: (1) Boss-HP-
+Multiplikatoren ×8/×25 → **×2/×3** (ADR 013, SuperBoss W100 255k→31k); (2) **Kill-XP skaliert
+jetzt mit der Welle** (`xp_wave_mult = 1+wave//8`, `XP_WAVE_DIV=8`, ADR 014) — vorher flach,
+Spieler hing auf W100 bei ~Level 33 mit zu wenig DPS. Mit dem XP-Fix: Modell-Endlevel ~98,
+**0/10 Bosse über dem Walk-Budget** (vorher 9/10). Bewusst gewählt: „Root-Fix pur" (nur XP,
+HP unverändert) statt HP-lastiger Combo. **Bekanntes Risiko: Level-Inflation** (~98 → fast
+alle Karten erreichbar, Build-Tiefe verwässert). Alles uncommitted (ADR 013 ist committet
+`ba7c997`; ADR 014 neu, uncommitted). **Offen: der echte 1→100-Playtest** — bestätigt er
+~Level 98 als gutes Gefühl und die Boss-TTKs?
 
 ## Last session
+
+2026-06-21 (Teil 3) — SuperBoss-Sprite aus KI-Video (Drachenlord) **verworfen**:
+- Versuch, den SuperBoss als animierten Drachen aus einem Kling-MP4 zu setzen (Frame-Extraktion
+  + Keying-Pipeline). **Vom Nutzer verworfen — Sprite gefiel optisch nicht**, alles rückgängig
+  gemacht (enemy.py/sprite_loader.py via git checkout; Banner/Sieg-Text/Doku manuell zurück;
+  Assets + Tool + ADR 015 gelöscht). **Offen: ein neuer SuperBoss-Sprite** (Nutzer liefert).
+  Die Balance-Arbeit (ADR 013/014) blieb davon unberührt.
+
+2026-06-21 (Teil 2) — Zweiter Endgame-Hebel: XP-Wellenskalierung (ADR 014):
+- **Modell um zwei Hebel erweitert** (`xp_wave_scale`/`xp_wave_div` = Lever B, `sq`-Override =
+  Lever A) und Dosis gesweept. Befund: Lever A allein reicht nie (SQ 0,3 → noch 5/10 Bosse
+  über Budget); voller Münzfaktor (XP wie Münzen, `//3`) überschießt → Level 164, triviales
+  Endgame. Sweet Spot = gedämpftes Lever B.
+- **Entscheidung (D27): „Root-Fix pur", `XP_WAVE_DIV=8`** → `gs["xp"] += enemy.coin_value *
+  xp_wave_mult(wave)` mit `xp_wave_mult = 1+wave//8`. W1–7 unverändert (×1), W100 ×13. Modell:
+  Endlevel ~98, 0/10 Bosse über Budget (W90 4,3 s/Bud 4,7 s; W100 6,5 s/Bud 8,2 s). Bewusst
+  gegen HP-lastige Combos (niedrigeres Level, mehr Build-Vielfalt) zugunsten *einfacher* ein
+  Hebel — Risiko Level-Inflation akzeptiert.
+- **Verifikation:** `xp_wave_mult` headless (W1–7 ×1 … W100 ×13); Modell 0/10 über Budget;
+  voller Treiber-Flow bis Sieg crashfrei.
+- **Doku-Sync:** ADR 014 + README-Index; `architecture.md` §5 (XP-Formel) + §11 (beide Hebel,
+  Level-Inflation-Risiko); dieser `progress.md`-Eintrag.
+
+2026-06-21 — Boss-Wand per Balance-Modell entschärft (ADR 013):
 
 2026-06-21 — Boss-Wand per Balance-Modell entschärft (ADR 013):
 - **Read-only Balance-Modell** `tools/balance_model.py` gebaut (Analyse-Tool, kein Spiel-
@@ -149,16 +172,16 @@ echter 1→100-Playtest.**
 
 ## Next concrete step
 
-**Ein echter 1→100-Lauf (kein F4!)** mit den neuen ×2/×3-Bossen — fühlen sich die Bosse
-jetzt fair an (im/nah am Walk-Budget), und wie weit trägt es ins Endgame? Das Modell sagt:
-W10–W50 ok, **W60–W100 fresh weiter hart**. Falls der Playtest das bestätigt, ist der
-**zweite Hebel** dran — Entscheidung zwischen (a) `ENEMY_HP_PER_WAVE_SQ` senken (trifft auch
-Trash/Elites) und (b) **XP-Kurve fixen**, damit der Spieler über Level 33 hinauskommt
-(Wurzel-Fix: Kill-XP wellenskalieren ODER `xp_to_next` abflachen → mehr DPS). Das Modell
-(`python tools/balance_model.py`) durchrechnet beide vorab.
+**Ein echter 1→100-Lauf (kein F4!)** mit beiden Hebeln drin (ADR 013 ×2/×3 + ADR 014 XP-
+Wellenskalierung). Leitfragen: (1) Fühlen sich die späten Bosse als knappes, faires DPS-
+Rennen an (Modell: alle im Walk-Budget)? (2) **Fühlt sich ~Level 98 gut an oder nach „alles
+mitnehmen"?** Wenn die Build-Entscheidung zu sehr verwässert, ist der Gegen-Hebel ein HP-
+lastigeres Re-Tuning: größeres `XP_WAVE_DIV` (weniger Level) + niedrigeres
+`ENEMY_HP_PER_WAVE_SQ` (z. B. `//20 + SQ 0,4` → Modell-Level ~61). Das Modell
+(`python tools/balance_model.py`) rechnet Varianten vorab durch.
 
-(Realitäts-Check zum Modell: ein echter Lauf liefert die *tatsächliche* Level-Kurve und
-DPS — wenn sie stark von ~Level 33 / ~870 DPS abweicht, Modell-Annahmen nachziehen.)
+(Realitäts-Check: ein echter Lauf liefert die *tatsächliche* Level-Kurve — weicht sie stark
+von ~Level 98 ab, Modell-Annahmen [Kartenpolitik, Elite-Rate] nachziehen.)
 
 Danach **Phase 3 (Inhaltszuwachs):** naheliegend sind weitere Karten/Upgrades (Ideen-
 Liste aus Brainstorm: Crit, Explosiv-/Kettenschuss, DoT, Regen, Dornen, „Gelehrter"
@@ -177,12 +200,12 @@ Datentabellen-Eintrag mehr).
 - **Waffen-Upgrades (Part 2):** Wie genau Waffen im Verbesserungsmenü upgradebar
   sind — offen.
 - **Wellen-Skalierung:** ✅ Zahl gekappt (Hybrid-Cap, ADR 006) + HP super-linear
-  (ADR 012) + Boss-Multiplikatoren ×2/×3 (ADR 013, SuperBoss 31k). Modell zeigt: W60–W100
-  bleiben fresh hart, weil der quadratische Basis-HP dominiert. Folge-Frage: zweiter Hebel
-  `ENEMY_HP_PER_WAVE_SQ` ODER XP-Kurve? — Entscheidung nach echtem 1→100-Playtest.
-- **Spieler-Progression (neu, ADR 013):** Kill-XP = Klassen-Basis (1/3), skaliert **nicht**
-  mit der Welle → Spieler endet ~Level 33, nicht 60+. Ist das gewollt (knappe Build-Tiefe)
-  oder soll die XP-Kurve den Spieler weiter hochziehen? — offen.
+  (ADR 012) + Boss-Multiplikatoren ×2/×3 (ADR 013) + XP-Wellenskalierung (ADR 014). Modell:
+  alle Bosse im Walk-Budget. Folge-Frage: trägt es über einen echten 1→100-Lauf? — offen.
+- **Spieler-Progression (ADR 014):** ✅ Kill-XP skaliert jetzt mit der Welle (`1+wave//8`) →
+  Modell-Endlevel ~98 statt 33. Folge-Frage: **Level-Inflation** — verwässert ~98 die Build-
+  Entscheidung (fast alle Karten)? Gegen-Hebel = größeres `XP_WAVE_DIV` + niedrigeres `SQ`. —
+  offen bis Playtest.
 - **Elite-Reward (ADR 011):** ✅ Umgesetzt → `ELITE_REWARD_MULT=5` (×5 Münzen **und** XP).
   Folge-Frage: ist ×5 gegen ×10 HP der richtige Punkt? (Playtest-Regler.)
 - **Autoaim-Priorisierung (ADR 010):** zielt simpel auf den **nächsten** Gegner. Reicht
@@ -267,6 +290,15 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   (vorher Magic Numbers in `enemy.py`). Bewusst nur dieser eine Hebel; zweiter Hebel
   (`ENEMY_HP_PER_WAVE_SQ`/XP-Kurve) für W60+ offen. Revidiert die „×8/×25 bleiben"-Festlegung
   aus ADR 012.
+- **D28** — **Drachenlord-Sprite verworfen.** Animierter SuperBoss aus KI-Video (Pipeline +
+  ADR 015) wurde gebaut, vom Nutzer aber optisch abgelehnt und vollständig zurückgerollt
+  (kein ADR-Eintrag mehr). Offen: neuer SuperBoss-Sprite vom Nutzer.
+- **D27** — **XP pro Kill skaliert mit der Welle** → **ADR 014** (zweiter Endgame-Hebel).
+  `gs["xp"] += enemy.coin_value * xp_wave_mult(wave)`, `xp_wave_mult = 1+wave//XP_WAVE_DIV`,
+  `XP_WAVE_DIV=8` (neu in `balance.py`). Modell-gesweept: Lever A (SQ senken) allein reicht
+  nicht, voller Münzfaktor überschießt (Level 164) → gedämpftes `//8` = Endlevel ~98, 0/10
+  Bosse über Budget. Bewusst „Root-Fix pur" (nur XP, HP unverändert) statt HP-lastiger Combo;
+  Risiko Level-Inflation akzeptiert. Löst die offene Progressions-Frage aus ADR 013.
 
 ## Phase → ADR map
 
@@ -276,7 +308,7 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 2** (Welle 100 + Sieg) → ADR 004 (Run-Modell), ADR 006 (Wellen-Cap).
 - **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur),
   ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner), ADR 012 (HP-Scaling super-linear),
-  ADR 013 (Boss-Multiplikatoren ×2/×3).
+  ADR 013 (Boss-Multiplikatoren ×2/×3), ADR 014 (XP-Wellenskalierung).
 - **Phase 4** (Verpacken) → ADR 001 (Python/Pygame → PyInstaller).
 - **Part 2** (Rebirth/Waffen) → ADR 004.
 
@@ -295,8 +327,9 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   das **Balance-Feintuning** eines durchgespielten 1→100-Laufs (HP/Speed vs. DPS).
 - **Phase 3 — Inhaltszuwachs:** angefangen (2026-06-20). Erste Inhalte: Passiv-Combat +
   Autoaim (ADR 010), Elite-Gegner + Reward (ADR 011), super-lineares HP-Scaling (ADR 012),
-  Stats-Overlay (C), Boss-Multiplikatoren entschärft (ADR 013) + Balance-Modell-Tool. Noch
-  offen: weitere Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen, Dornen, Reroll …),
-  zweiter Endgame-Hebel (W60+) + ein echter 1→100-Balance-Lauf; alles per Playtest.
+  Stats-Overlay (C), Boss-Multiplikatoren entschärft (ADR 013) + Balance-Modell-Tool, XP-
+  Wellenskalierung (ADR 014). Noch offen: neuer SuperBoss-Sprite (Drachen-Versuch verworfen),
+  weitere Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen, Dornen, Reroll …) + ein echter
+  1→100-Balance-Lauf (inkl. Level-Inflations-Check); alles per Playtest.
 - **Phase 4 — Politur & `.exe`:** offen
 - **Part 2 — Rebirth/Waffen:** offen (Backlog)

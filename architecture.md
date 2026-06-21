@@ -187,7 +187,8 @@ Pro Frame im `PLAYING`-State (vereinfacht):
    bleiben bei Berührung sofort tödlich.
 4. **Münzen/FX:** Kills geben Münzen (`coin_value_for_wave()`, optional ×1.5 bei
    `gold_boost`), erzeugen `DamageNumber`-FX.
-5. **XP/Level (ADR 008):** Jeder Kill gibt XP (`enemy.coin_value`); erreicht `xp` die
+5. **XP/Level (ADR 008, 014):** Jeder Kill gibt XP (`enemy.coin_value * xp_wave_mult(wave)`
+   — Klassen-Basis × Wellenfaktor `1+wave//XP_WAVE_DIV`, ADR 014); erreicht `xp` die
    wellenabhängige Schwelle `xp_to_next(level, wave)`, gibt es einen Levelup
    (`pending_levelups`). Bei offenem Levelup geht `PLAYING` → `UPGRADE` (1-aus-3-Karte,
    **keine** Wellen-Erhöhung) und danach zurück. Karten kommen **nur** aus Level-ups.
@@ -325,16 +326,17 @@ Dämpfungsfaktor.
 - **Endgame-Balance noch nicht durch echten Lauf bestätigt.** Die Gegner*zahl* ist
   gekappt (ADR 006: ≤`MAX_ENEMIES_PER_WAVE` gesamt, ≤`MAX_CONCURRENT_ENEMIES` gleichzeitig),
   und Gegner-*HP* skaliert super-linear gegen die multiplikative Spielerkraft (ADR 012).
-  Boss-HP-Multiplikatoren auf ×2 / ×3 gesenkt (ADR 013, SuperBoss W100 jetzt ~31k HP), weil
-  ein Read-only-Modell (`tools/balance_model.py`) zeigte, dass die alten ×8/×25 gegen die
-  reale Spieler-DPS unfaire Wände ab ~W40 waren. **Wichtige Modell-Befunde:** (1) der Spieler
-  erreicht auf W100 nur **~Level 33** (nicht 60+) — Kill-XP ist die Klassen-Basis und skaliert
-  **nicht** mit der Welle, während Levelup-Kosten steigen; (2) Bosse one-shotten bei Kontakt
-  und der Turm ist stationär → der Bosskampf ist ein **DPS-Rennen gegen die Anlaufzeit**
-  (~5 s Boss / ~8 s SuperBoss), HP/Lifesteal helfen nicht. Offen: ob ×2/×3 + `ENEMY_HP_PER_WAVE_SQ`
-  über einen echten 1→100-Lauf tragen; das Modell zeigt, dass W60+ für *frische* Spieler
-  weiter hart bleibt (quadratischer Basis-HP dominiert). F4 friert Level/Stats ein, taugt
-  nicht zum Endgame-Test.
+  Zwei datengestützte Hebel (Read-only-Modell `tools/balance_model.py`) haben die Endgame-Wand
+  entschärft: (1) Boss-HP-Multiplikatoren ×8/×25 → ×2/×3 (ADR 013, SuperBoss W100 ~31k HP);
+  (2) **Kill-XP skaliert jetzt mit der Welle** (`xp_wave_mult = 1+wave//8`, ADR 014) — vorher
+  flach, wodurch der Spieler auf W100 bei ~Level 33 festhing und zu wenig DPS hatte. Mit dem
+  XP-Fix landet er im Modell bei ~Level 98 und legt **alle Bosse im Walk-Budget** (W90 4,3 s /
+  Budget 4,7 s; W100 6,5 s / 8,2 s). **Schlüssel-Mechanik:** Bosse one-shotten bei Kontakt und
+  der Turm ist stationär → der Bosskampf ist ein **DPS-Rennen gegen die Anlaufzeit**, HP/Lifesteal
+  helfen nicht. **Offene Risiken:** (a) Level-Inflation (~98) verwässert die Build-*Entscheidung*
+  (fast alle Karten erreichbar; Gegen-Hebel: größeres `XP_WAVE_DIV` + niedrigeres
+  `ENEMY_HP_PER_WAVE_SQ`); (b) alle Zahlen sind Modellprognose — der echte 1→100-Lauf muss sie
+  bestätigen (F4 friert Level/Stats ein, taugt nicht dafür).
 - **Performance bei vielen Entitäten.** Kollisionsprüfung ist O(Geschosse ×
   Gegner) ohne räumliche Optimierung. Bei großen Wellen beobachten.
 - **Python-Verpackung.** PyInstaller-`.exe` mit Pygame + vielen Assets kann

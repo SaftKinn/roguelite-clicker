@@ -17,6 +17,7 @@ from game.balance     import (BASE_SPAWN_INTERVAL, MELEE_REACH,
                               WIN_WAVE, MAX_CONCURRENT_ENEMIES, CAMERA_ZOOM,
                               enemies_for_wave, enemy_hp_for_wave,
                               enemy_speed_for_wave, coin_value_for_wave, xp_to_next,
+                              xp_wave_mult,
                               UPGRADE_DAMAGE, UPGRADE_BULLET_SPEED,
                               UPGRADE_BULLET_SIZE, UPGRADE_MAX_HP, MULTISHOT_ANGLES,
                               BASE_ATTACK_SPEED, UPGRADE_ATTACK_SPEED, LIFESTEAL_PER_HIT,
@@ -641,7 +642,9 @@ def main():
                 else:                               snd.play("kill")
                 val = int(coin_value_for_wave(gs["wave"]) * enemy.coin_value * gold_mult)
                 gs["coins"] += val
-                gs["xp"]    += enemy.coin_value   # XP-Drop = Münzwert des Gegners (ADR 008)
+                # XP-Drop = Klassen-Basis × Wellenfaktor (ADR 008 + ADR 014): skaliert mit
+                # der Welle, damit der Spieler spät genug DPS für die Endgame-Bosse aufbaut.
+                gs["xp"]    += enemy.coin_value * xp_wave_mult(gs["wave"])
                 dmg_numbers.append(
                     DamageNumber(enemy.pos.x, enemy.pos.y - 28, val,
                                  color=COLOR_COIN, prefix="+")

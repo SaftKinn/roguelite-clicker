@@ -73,13 +73,23 @@ def _avg_xp_per_nonboss_kill(wave: int) -> float:
     return base * elite_factor
 
 
-def _xp_income_for_wave(wave: int) -> float:
+def _xp_income_for_wave(wave: int, xp_wave_scale: bool = False,
+                        xp_wave_div: int = 3) -> float:
+    # Lever B: XP skaliert mit der Welle (gedaempft), statt nur die flache Klassen-
+    # Basis zu geben -> Spieler levelt spaet weiter. div=3 entspricht coin_value_for_wave
+    # (zu stark); groessere div = sanfter.
+    wmult = (1 + wave // xp_wave_div) if xp_wave_scale else 1.0
     if wave % 50 == 0:
-        return 50.0           # SuperBoss coin_value
+        return 50.0 * wmult           # SuperBoss coin_value
     if wave % 10 == 0:
-        return 10.0           # Boss coin_value
+        return 10.0 * wmult           # Boss coin_value
     n = B.enemies_for_wave(wave)
-    return n * _avg_xp_per_nonboss_kill(wave)
+    return n * _avg_xp_per_nonboss_kill(wave) * wmult
+
+
+def _hp_for_wave(wave: int, sq: float) -> int:
+    # wie B.enemy_hp_for_wave, aber mit override-barem quadratischem Term (Lever A)
+    return int(B.ENEMY_HP_BASE + wave * B.ENEMY_HP_PER_WAVE + wave * wave * sq)
 
 
 # --- Karten-Policy: was ein realistischer Spieler aus 3 Angeboten waehlt ---
@@ -100,11 +110,16 @@ def _pick(offered, owned):
 
 
 def simulate(start_damage_levels=0, seed=42, bullets_on_boss=1.0,
-             boss_mult=None, super_mult=None):
+             boss_mult=None, super_mult=None, xp_wave_scale=True, sq=None,
+             xp_wave_div=None):
     if boss_mult is None:
         boss_mult = B.BOSS_HP_MULT
     if super_mult is None:
         super_mult = B.SUPERBOSS_HP_MULT
+    if sq is None:
+        sq = B.ENEMY_HP_PER_WAVE_SQ
+    if xp_wave_div is None:
+        xp_wave_div = B.XP_WAVE_DIV       # Default = Live-Stand aus balance.py
     """Ein 1->100-Lauf. Gibt pro Boss-Welle eine Zeile + Endbild zurueck."""
     rng = random.Random(seed)
     # Run-Start-Stats (fresh_game_state) + permanente Shop-Boni (apply_permanent_bonuses)
@@ -120,7 +135,7 @@ def simulate(start_damage_levels=0, seed=42, bullets_on_boss=1.0,
 
     rows = []
     for wave in range(1, B.WIN_WAVE + 1):
-        xp += _xp_income_for_wave(wave)
+        xp += _xp_income_for_wave(wave, xp_wave_scale, xp_wave_div)
         while xp >= xp_to_next:
             xp -= xp_to_next
             level += 1
@@ -138,7 +153,7 @@ def simulate(start_damage_levels=0, seed=42, bullets_on_boss=1.0,
         boss_dps = damage * attack_speed * bullets_on_boss
 
         if wave % 10 == 0:                      # Boss- oder SuperBoss-Welle
-            base_hp = B.enemy_hp_for_wave(wave, 1.0)
+            base_hp = _hp_for_wave(wave, sq)
             mult = super_mult if wave % 50 == 0 else boss_mult
             boss_hp = int(base_hp * mult)
             ttk = boss_hp / boss_dps if boss_dps else float("inf")
@@ -168,16 +183,33 @@ def _print_scenario(name, **kw):
 if __name__ == "__main__":
     print("BALANCE-MODELL (read-only) — Spieler-DPS vs Gegner-HP ueber einen 1->100-Lauf")
     print("Annahmen: Einzelziel-DPS = damage * attack_speed (Multishot/Durchschlag zaehlen")
-    print("nicht gegen Einzel-Boss). XP/Kill = Klassen-Basis (1/3), x5 Elite — NICHT")
-    print(f"wellenskaliert. TTK>30s = unfaire Boss-Wand. Konstanten live aus balance.py:")
+    print("nicht gegen Einzel-Boss). XP/Kill = Klassen-Basis (1/3, x5 Elite) x Wellenfaktor")
+    print(f"(1+wave//{B.XP_WAVE_DIV}, ADR 014). 'WAND' = Boss-TTK ueber dem Walk-Budget.")
     print(f"  ENEMY_HP_PER_WAVE_SQ={B.ENEMY_HP_PER_WAVE_SQ}  ELITE_REWARD_MULT={B.ELITE_REWARD_MULT}"
-          f"  XP_BASE={B.XP_BASE}/PER_LEVEL={B.XP_PER_LEVEL}/PER_WAVE={B.XP_PER_WAVE}")
+          f"  XP_WAVE_DIV={B.XP_WAVE_DIV}  XP_BASE={B.XP_BASE}/PER_LEVEL={B.XP_PER_LEVEL}/PER_WAVE={B.XP_PER_WAVE}")
 
     print(f"\n##### IST-ZUSTAND (live aus balance.py: Boss x{B.BOSS_HP_MULT}"
-          f" / SuperBoss x{B.SUPERBOSS_HP_MULT}) #####")
+          f" / SuperBoss x{B.SUPERBOSS_HP_MULT}, XP-Fix div={B.XP_WAVE_DIV}) #####")
     _print_scenario("Frischer Lauf (keine permanenten Shop-Boni)", start_damage_levels=0)
     _print_scenario("Gut ausgeruestet (Startschaden Stufe 5 = +75 Dmg)", start_damage_levels=5)
 
-    print("\n\n##### VERGLEICH: alter Stand vor ADR 013 (Boss x8 / SuperBoss x25) #####")
+    print(f"\n\n##### ZWEITER HEBEL (ADR 014): XP skaliert mit der Welle"
+          f" (1+wave//{B.XP_WAVE_DIV}) #####")
+
+    def summary(name, **kw):
+        rows, lvl_ups, lvl = simulate(start_damage_levels=0, **kw)
+        over = sum(1 for w, dps, hp, ttk, bud, fm, t in rows if ttk > bud)
+        w90 = next(r for r in rows if r[0] == 90)
+        w100 = next(r for r in rows if r[0] == 100)
+        print(f"  {name:<40} Endlevel~{lvl:>3} | Bosse ueber Budget: {over:>2}/10 "
+              f"| W90 TTK {w90[3]:>5.1f}s/Bud {w90[4]:.1f}s "
+              f"| W100 TTK {w100[3]:>5.1f}s/Bud {w100[4]:.1f}s")
+
+    summary(f"LIVE (ADR 014: div={B.XP_WAVE_DIV}, SQ={B.ENEMY_HP_PER_WAVE_SQ})")
+    print("  --- zum Vergleich: ohne den XP-Fix (alter Stand, nur ADR 013) ---")
+    summary("ohne XP-Fix (flache Kill-XP)", xp_wave_scale=False)
+
+    print("\n\n##### VERGLEICH: ganz alter Stand vor ADR 013 (Boss x8 / SuperBoss x25,"
+          " ohne XP-Fix) #####")
     _print_scenario("Frischer Lauf — alt", start_damage_levels=0,
-                    boss_mult=8, super_mult=25)
+                    boss_mult=8, super_mult=25, xp_wave_scale=False)
