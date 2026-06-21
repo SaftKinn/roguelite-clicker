@@ -13,12 +13,14 @@ vorgesehen — vorerst sind es Python-Konstanten.
 # Spawn & Nahkampf
 # ---------------------------------------------------------------------------
 
-# Hinweis: Seit dem ~2h-Rebalance (ADR 007) ist der Spawn-Floor (Gesamt-Gegner ×
-# Spawn-Interval) das Rückgrat der Spielzeit. Welle 100 ≈ 2 Stunden bei 1.25x
-# Spielgeschwindigkeit (FPS 75, siehe constants.py). Alle Werte hier sind die
-# Stellschrauben für das Feintuning nach dem Playtest.
+# Hinweis: Das Spawn-Tempo ist seit ADR 023 NICHT mehr das Rückgrat der Spielzeit —
+# eine Welle spawnt ihre Gegner immer über ein festes Wandzeit-Fenster (WAVE_SPAWN_SECONDS,
+# FPS-unabhängig, siehe spawn_interval_ticks). Die Lauflänge ergibt sich jetzt aus
+# Gegner-HP-Kurve × Spielerkraft (wie schnell geräumt wird), nicht aus gestreckten Spawns.
+# Alle Werte hier sind die Stellschrauben für das Feintuning nach dem Playtest.
 
-BASE_SPAWN_INTERVAL = 60    # Grund-Ticks zwischen zwei Spawns (länger gestreckt; bei FPS 75 = 0.8 s)
+BASE_SPAWN_INTERVAL = 60    # (Alt) feste Ticks zwischen Spawns — ersetzt durch das 10-s-Spawnfenster unten
+WAVE_SPAWN_SECONDS  = 10.0  # nach so vielen Sekunden ist die KOMPLETTE Welle gespawnt (Nutzerwunsch)
 MELEE_REACH         = 6     # kleiner Puffer, damit der anhaltende Gegner sicher in Reichweite ist
 
 ATTACK_DAMAGE       = 22    # Nahkampf-Schaden pro Treffer (deutlich tödlicher, ADR 008)
@@ -85,6 +87,18 @@ def enemies_for_wave(wave: int) -> int:
         return 1
     # Hybrid: Gesamtzahl steigt linear, plateaut beim Cap (Concurrent-Cap bremst zusätzlich)
     return min(5 + (wave - 1) * 3, MAX_ENEMIES_PER_WAVE)
+
+def spawn_interval_ticks(wave: int, fps: int) -> int:
+    """Ticks zwischen zwei Spawns, so dass ALLE Gegner der Welle in WAVE_SPAWN_SECONDS
+    gespawnt sind. Da der spawn_timer bei 0 startet, erscheint der letzte der N Gegner bei
+    N×Intervall → Intervall = WAVE_SPAWN_SECONDS×fps / N legt ihn genau auf das Fenster-Ende.
+    An die Live-FPS gekoppelt (FPS-Regler), damit es echte Sekunden bleiben.
+    Bosswelle (N=1): sofort spawnen statt 10 s leeres Feld. Hinweis: der Concurrent-Cap
+    (MAX_CONCURRENT_ENEMIES) kann das Fenster dehnen, wenn der Spieler nicht schnell genug räumt."""
+    n = enemies_for_wave(wave)
+    if n <= 1:
+        return 1
+    return max(1, round(WAVE_SPAWN_SECONDS * fps / n))
 
 # Gegner-HP wächst SUPER-LINEAR (linear + quadratisch), damit es mit der multiplikativen
 # Spielerkraft (Schaden × Angriffstempo × Multishot × Durchschlag) mithalten kann — eine

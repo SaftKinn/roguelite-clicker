@@ -16,9 +16,9 @@ from game.fx           import DamageNumber, COLOR_COIN
 from game.terrain      import Terrain
 from game import save_data  as sd
 from game import ui_loader
-from game.balance     import (BASE_SPAWN_INTERVAL, MELEE_REACH,
+from game.balance     import (MELEE_REACH,
                               WIN_WAVE, MAX_CONCURRENT_ENEMIES, CAMERA_ZOOM,
-                              enemies_for_wave, enemy_hp_for_wave, wave_tier_mult,
+                              enemies_for_wave, spawn_interval_ticks, enemy_hp_for_wave, wave_tier_mult,
                               enemy_speed_for_wave, coin_value_for_wave, xp_to_next,
                               xp_wave_mult, xp_round_mult, XP_GAIN_MULT, COIN_GAIN_MULT, ATTACK_RANGE_FRAC,
                               UPGRADE_DAMAGE, UPGRADE_BULLET_SPEED,
@@ -676,12 +676,15 @@ def main():
                         sd.save(save)
 
         # --- Update ---
-        spawn_interval = BASE_SPAWN_INTERVAL + diff_mod["spawn_bonus"]
         # Zeitraffer: die gesamte Gameplay-Update-Logik läuft N×/Frame (x1/x5/x10/x20).
         time_scale = SPEED_MULTS[speed_mult_idx] if state in ("PLAYING", "WAVE_CLEAR", "UPGRADE") else 1
 
         for _ in range(time_scale):
             if state == "PLAYING":
+                # Spawn-Fenster: alle Gegner der Welle sind nach WAVE_SPAWN_SECONDS (10 s) gespawnt;
+                # an die Live-FPS gekoppelt. diff_mod["spawn_bonus"] nudged das Tempo je Schwierigkeit.
+                spawn_interval = max(1, spawn_interval_ticks(gs["wave"], options_menu.fps_value)
+                                     + diff_mod["spawn_bonus"])
                 gs["spawn_timer"] += 1
                 # Concurrent-Cap: nur nachspawnen, wenn nicht schon zu viele am Turm stehen
                 if (gs["spawn_remaining"] > 0 and gs["spawn_timer"] >= spawn_interval

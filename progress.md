@@ -27,9 +27,26 @@ Session kamen viele **Nutzer-getriebene Komfort-/Tuning-Features** dazu:
 schneller als bei 75 (Bewegung px/Frame); Balance evtl. nachziehen. (b) Zeitraffer x20 spielt
 viele Sounds/Frame (Kakofonie) — akzeptiert. (c) Stil-Bruch Pixel/Tiny-Swords bleibt.
 (d) echter 1→100-Playtest steht weiter aus. (e) Parallel-Session editiert dieselben Dateien —
-Tree teils gemischt.
+Tree teils gemischt. (f) **Headless-Treiber kommt nicht mehr ins PLAYING** (Lauf-Starten-Klick
+greift nicht — Menü-Flow-Bruch, vmtl. Parallel-Session/Slot-Layout); blockiert die Screenshot-
+Verifikation, bis der Treiber/Menü-Flow gefixt ist. (g) Spawn-Tempo ist seit ADR 023 **wandzeit-
+stabil** (10 s/Welle, FPS-unabhängig) — der frühere Spawn-Floor als Spielzeit-Rückgrat entfällt,
+Endgame-Lauflänge neu zu beobachten.
 
 ## Last session
+
+2026-06-21 (Teil 10) — **Spawn über festes 10-s-Wandzeit-Fenster (ADR 023):**
+- Auf Nutzerwunsch („eine Welle dauert 10 s, bis dahin alle Gegner gespawnt"): fixes
+  `BASE_SPAWN_INTERVAL` ersetzt durch `spawn_interval_ticks(wave, fps) =
+  round(WAVE_SPAWN_SECONDS·fps / enemies_for_wave(wave))` in `game/balance.py`
+  (`WAVE_SPAWN_SECONDS = 10.0`). An **Live-FPS** gekoppelt → echtes Sekunden-Fenster,
+  FPS-Regler-stabil. Bosswellen (N=1): Sonderfall sofort. `diff_mod["spawn_bonus"]`
+  bleibt additiver Nudge. Berechnung in `main.py` in den PLAYING-Block verschoben
+  (gs ist im Menü None → NoneType-Crash gefixt). `BASE_SPAWN_INTERVAL` = nur noch Alt-Doku.
+- Verifikation: deterministische Sim (W1/5/99 @ FPS 75 & 140 → letzter Spawn ~10,0 s, alle N;
+  Boss ~0,01 s). **Achtung:** Headless-Treiber kam nicht über das Menü hinaus (Lauf-Starten-
+  Klick griff nicht — wirkt wie ein paralleler Menü-Flow-Bruch, NICHT von dieser Änderung);
+  PLAYING-Pfad daher nur per Simulation geprüft, nicht per Screenshot.
 
 2026-06-21 (Teil 9) — Tuning-Sprint + Shop-/Combat-Features (ADR 021, 022):
 - **Reine Werte (Nutzer-Tuning, iterativ):** Spieler-Basisschaden 10→15 (`BASE_DAMAGE`, +50%);

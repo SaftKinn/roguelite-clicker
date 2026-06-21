@@ -83,9 +83,13 @@ def key(k):
     pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=k, mod=0, unicode=""))
 
 
-# Button-/Karten-Koordinaten — aus den Layout-Formeln in game/main_menu.py
-# bzw. game/upgrade_menu.py gerechnet (1280×720).
-START_BTN = (640, 291)   # Hauptmenü „Lauf Starten"
+# Button-/Karten-Koordinaten. „Lauf Starten" wird aus dem ECHTEN MainMenu-Layout
+# abgeleitet (Rects entstehen nur aus Konstanten — kein Display/Font nötig), damit
+# der Treiber nicht bricht, wenn ein Menüpunkt dazukommt (z. B. „Lexikon" → 5 Buttons,
+# verschob die feste y=291 in den Spalt zwischen zwei Buttons).
+from game.main_menu import MainMenu as _MM   # noqa: E402
+_menu = _MM()
+START_BTN = _menu.buttons[_menu.button_ids.index("start")].rect.center
 CARD0     = (340, 380)   # erste Upgrade-Karte
 
 
