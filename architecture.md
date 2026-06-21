@@ -324,10 +324,17 @@ Dämpfungsfaktor.
 
 - **Endgame-Balance noch nicht durch echten Lauf bestätigt.** Die Gegner*zahl* ist
   gekappt (ADR 006: ≤`MAX_ENEMIES_PER_WAVE` gesamt, ≤`MAX_CONCURRENT_ENEMIES` gleichzeitig),
-  und Gegner-*HP* skaliert super-linear gegen die multiplikative Spielerkraft (ADR 012,
-  SuperBoss W100 ~255k HP). Offen: ob `ENEMY_HP_PER_WAVE_SQ` so kalibriert ist, dass ein
-  echter Welle-100-Spieler (Level ~60+) den SuperBoss in fairer Zeit legt — nur per
-  echtem 1→100-Playtest prüfbar (F4 friert Level/Stats ein, taugt nicht dafür).
+  und Gegner-*HP* skaliert super-linear gegen die multiplikative Spielerkraft (ADR 012).
+  Boss-HP-Multiplikatoren auf ×2 / ×3 gesenkt (ADR 013, SuperBoss W100 jetzt ~31k HP), weil
+  ein Read-only-Modell (`tools/balance_model.py`) zeigte, dass die alten ×8/×25 gegen die
+  reale Spieler-DPS unfaire Wände ab ~W40 waren. **Wichtige Modell-Befunde:** (1) der Spieler
+  erreicht auf W100 nur **~Level 33** (nicht 60+) — Kill-XP ist die Klassen-Basis und skaliert
+  **nicht** mit der Welle, während Levelup-Kosten steigen; (2) Bosse one-shotten bei Kontakt
+  und der Turm ist stationär → der Bosskampf ist ein **DPS-Rennen gegen die Anlaufzeit**
+  (~5 s Boss / ~8 s SuperBoss), HP/Lifesteal helfen nicht. Offen: ob ×2/×3 + `ENEMY_HP_PER_WAVE_SQ`
+  über einen echten 1→100-Lauf tragen; das Modell zeigt, dass W60+ für *frische* Spieler
+  weiter hart bleibt (quadratischer Basis-HP dominiert). F4 friert Level/Stats ein, taugt
+  nicht zum Endgame-Test.
 - **Performance bei vielen Entitäten.** Kollisionsprüfung ist O(Geschosse ×
   Gegner) ohne räumliche Optimierung. Bei großen Wellen beobachten.
 - **Python-Verpackung.** PyInstaller-`.exe` mit Pygame + vielen Assets kann

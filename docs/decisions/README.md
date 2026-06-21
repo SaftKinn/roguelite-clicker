@@ -51,3 +51,4 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 010 — Voll-Auto-Feuer + Autoaim (Wende zum Idle-Tower-Defense)](010-vollauto-feuer-autoaim.md)
 - [ADR 011 — Elite-Gegner (10 % Chance, 10× HP)](011-elite-gegner.md)
 - [ADR 012 — Gegner-HP super-linear skalieren (gegen multiplikative Spielerkraft)](012-gegner-hp-superlinear.md)
+- [ADR 013 — Boss-HP-Multiplikatoren senken (×8/×25 → ×2/×3), datengestützt per Modell](013-boss-hp-multiplikatoren-senken.md)

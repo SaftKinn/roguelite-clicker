@@ -51,6 +51,15 @@ ELITE_HP_MULT      = 10            # Elite-HP = normale Gegner-HP × diesem Fakt
 ELITE_REWARD_MULT  = 5             # Elite gibt Münzen UND XP × diesem Faktor (lohnendes Ziel)
 ELITE_COLOR        = (255, 60, 60) # Ring-Markierung um Elites (damit sie erkennbar sind)
 
+# Boss-HP-Multiplikatoren auf die (super-lineare) Wellen-Basis-HP. Bewusst niedrig:
+# Bosse one-shotten bei Kontakt und der Turm ist stationär → der Kampf ist ein reines
+# DPS-Rennen gegen die Anlauf-Zeit des Bosses (~5 s Boss / ~8 s SuperBoss bei FPS 75).
+# Seit dem quadratischen HP-Term (ADR 012) liefert die Basis-HP schon den Großteil der
+# Endgame-Wand; hohe Multiplikatoren oben drauf machten Bosse ab ~W40 unfair (ADR 013,
+# Modell: tools/balance_model.py).
+BOSS_HP_MULT      = 2   # normaler Boss (alle 10 Wellen)
+SUPERBOSS_HP_MULT = 3   # SuperBoss (Welle 50 & 100)
+
 
 # ---------------------------------------------------------------------------
 # Wellen-Skalierung

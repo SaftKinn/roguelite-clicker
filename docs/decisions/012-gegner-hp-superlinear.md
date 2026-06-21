@@ -19,6 +19,9 @@ Build legte den SuperBoss auf Welle 100 mühelos; Welle 100 war keine Wand.
   während das frühe Spiel kaum härter wird (Welle 1: 42 statt 40 HP).
 - Boss-/SuperBoss-Multiplikatoren (×8 / ×25 in `enemy.py`) bleiben unverändert und
   erben die steilere Basis automatisch.
+  > **Revidiert durch ADR 013:** Diese Multiplikatoren wurden später auf ×2/×3 gesenkt —
+  > ein Balance-Modell zeigte, dass ×8/×25 auf der quadratischen Basis unfaire Boss-Wände
+  > erzeugten (und die hier angenommene „Level ~60+"-Spielerstärke real eher ~Level 33 ist).
 
 ## Alternatives
 - **Linear steiler (z. B. `Welle·25`):** macht das frühe Spiel zu hart und holt die

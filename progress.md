@@ -7,15 +7,38 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-**Idle-TD-Balance steht, Endgame-Wand wieder hart.** Combat ist passiv (Auto-Feuer +
-Autoaim, ADR 010); Elites geben jetzt **×5 Münzen+XP** (`ELITE_REWARD_MULT`, ADR 011);
-Gegner-HP skaliert **super-linear** gegen die multiplikative Spielerkraft (ADR 012,
-SuperBoss W100 ~255k); **Stats-Overlay auf Taste C**. Alles committet bis `0722e1c`
-(dieser Wrap-up-Doku-Sync ist uncommitted). **Offen: ein echter 1→100-Playtest** — F4
-taugt NICHT dazu (friert Level/Stats ein). Hauptregler `ENEMY_HP_PER_WAVE_SQ` (0.9) gegen
-echte Welle-100-DPS, `ELITE_REWARD_MULT` (×5 vs ×10 HP).
+**Boss-Wand datengestützt entschärft, Wurzel-Problem benannt.** Ein read-only Balance-
+Modell (`tools/balance_model.py`) hat die Endgame-Frage mit Zahlen beantwortet statt mit
+Vibes: Der Spieler erreicht auf W100 nur **~Level 33, nicht 60+** (Kill-XP skaliert nicht
+mit der Welle!), und der Bosskampf ist ein **DPS-Rennen gegen die Anlaufzeit** (~5 s Boss /
+~8 s SuperBoss), weil Bosse one-shotten und der Turm stationär ist. Konsequenz: Boss-HP-
+Multiplikatoren von ×8/×25 auf **×2/×3** gesenkt (ADR 013, neue Konstanten `BOSS_HP_MULT`/
+`SUPERBOSS_HP_MULT` in `balance.py`; SuperBoss W100 255k→**31k**). **Wichtig: das Modell
+zeigt, dass W60–W100 für *frische* Spieler weiter hart bleiben** — der quadratische Basis-HP
+(ADR 012) dominiert dort, das vollständig fair zu machen braucht einen **zweiten Hebel**
+(`ENEMY_HP_PER_WAVE_SQ` runter und/oder XP-Kurve). Uncommitted. **Offen weiterhin: ein
+echter 1→100-Playtest.**
 
 ## Last session
+
+2026-06-21 — Boss-Wand per Balance-Modell entschärft (ADR 013):
+- **Read-only Balance-Modell** `tools/balance_model.py` gebaut (Analyse-Tool, kein Spiel-
+  Code): importiert `balance.py`, simuliert XP/Level/DPS über einen 1→100-Lauf, berechnet
+  Boss-TTK gegen das **Walk-Budget** (Anlaufzeit Rand→Mitte) + den „fairen" HP-Multiplikator
+  je Boss-Welle. Zwei harte Befunde: (1) Spieler endet ~Level 33 (XP/Kill = Klassen-Basis
+  1/3, ×5 Elite, **nicht** wellenskaliert — `main.py:644`); (2) Boss = DPS-Rennen gegen
+  Anlaufzeit, HP/Lifesteal irrelevant (Bosse one-shotten). Alte ×8/×25 → TTK ~294 s fresh
+  auf W100, unfaire Wand ab ~W40.
+- **Boss-Multiplikatoren gesenkt (ADR 013):** `Boss ×8→×2`, `SuperBoss ×25→×3`, als benannte
+  Konstanten `BOSS_HP_MULT`/`SUPERBOSS_HP_MULT` aus `enemy.py`-Magic-Numbers nach `balance.py`
+  gezogen (Golden Rule 2). SuperBoss W100 30.690 HP (war 255.750). Bewusst nur dieser eine
+  Hebel; W60+ bleibt fresh hart (zweiter Hebel offen).
+- **Verifikation:** Boss-HP headless gegen Konstanten geprüft (alle OK); voller Treiber-Flow
+  Menü→Lauf→F4→Welle 100/SuperBoss→Sieg crashfrei.
+- **Doku-Sync:** ADR 013 + README-Index; `architecture.md` §11 (255k→31k, Level-33-Befund,
+  Walk-Budget); dieser `progress.md`-Eintrag.
+
+2026-06-20 — Reward + Endgame-Scaling + Stats-Overlay (ADR 012, Playtest-Session):
 
 2026-06-20 — Reward + Endgame-Scaling + Stats-Overlay (ADR 012, Playtest-Session):
 - **Elite-Reward (ADR 011 ergänzt):** `enemy.coin_value *= ELITE_REWARD_MULT=5` →
@@ -126,13 +149,16 @@ echte Welle-100-DPS, `ELITE_REWARD_MULT` (×5 vs ×10 HP).
 
 ## Next concrete step
 
-**Ein echter 1→100-Lauf (kein F4!):** Der einzige offene Punkt ist, ob die Balance über
-einen *durchgespielten* Lauf trägt — F4 friert Level/Stats ein und taugt nicht dafür.
-Leitfragen: legt ein echter Welle-100-Spieler (Level ~60+) den SuperBoss (255k HP) in
-fairer Zeit, oder ist `ENEMY_HP_PER_WAVE_SQ=0.9` zu hoch? Fühlen sich Elites mit ×5 Reward
-lohnend an? Scalt der Spieler über den ganzen Lauf rund (Anti-Snowball + super-lineare
-Gegner zusammen)? Rückmeldung → `balance.py`-Regler (`ENEMY_HP_PER_WAVE_SQ`,
-`ELITE_REWARD_MULT`, XP-Kurve).
+**Ein echter 1→100-Lauf (kein F4!)** mit den neuen ×2/×3-Bossen — fühlen sich die Bosse
+jetzt fair an (im/nah am Walk-Budget), und wie weit trägt es ins Endgame? Das Modell sagt:
+W10–W50 ok, **W60–W100 fresh weiter hart**. Falls der Playtest das bestätigt, ist der
+**zweite Hebel** dran — Entscheidung zwischen (a) `ENEMY_HP_PER_WAVE_SQ` senken (trifft auch
+Trash/Elites) und (b) **XP-Kurve fixen**, damit der Spieler über Level 33 hinauskommt
+(Wurzel-Fix: Kill-XP wellenskalieren ODER `xp_to_next` abflachen → mehr DPS). Das Modell
+(`python tools/balance_model.py`) durchrechnet beide vorab.
+
+(Realitäts-Check zum Modell: ein echter Lauf liefert die *tatsächliche* Level-Kurve und
+DPS — wenn sie stark von ~Level 33 / ~870 DPS abweicht, Modell-Annahmen nachziehen.)
 
 Danach **Phase 3 (Inhaltszuwachs):** naheliegend sind weitere Karten/Upgrades (Ideen-
 Liste aus Brainstorm: Crit, Explosiv-/Kettenschuss, DoT, Regen, Dornen, „Gelehrter"
@@ -151,8 +177,12 @@ Datentabellen-Eintrag mehr).
 - **Waffen-Upgrades (Part 2):** Wie genau Waffen im Verbesserungsmenü upgradebar
   sind — offen.
 - **Wellen-Skalierung:** ✅ Zahl gekappt (Hybrid-Cap, ADR 006) + HP super-linear
-  (ADR 012). Folge-Frage: ist `ENEMY_HP_PER_WAVE_SQ=0.9` (SuperBoss 255k) gegen echte
-  Welle-100-Spieler-DPS richtig kalibriert? — offen bis zum echten 1→100-Playtest.
+  (ADR 012) + Boss-Multiplikatoren ×2/×3 (ADR 013, SuperBoss 31k). Modell zeigt: W60–W100
+  bleiben fresh hart, weil der quadratische Basis-HP dominiert. Folge-Frage: zweiter Hebel
+  `ENEMY_HP_PER_WAVE_SQ` ODER XP-Kurve? — Entscheidung nach echtem 1→100-Playtest.
+- **Spieler-Progression (neu, ADR 013):** Kill-XP = Klassen-Basis (1/3), skaliert **nicht**
+  mit der Welle → Spieler endet ~Level 33, nicht 60+. Ist das gewollt (knappe Build-Tiefe)
+  oder soll die XP-Kurve den Spieler weiter hochziehen? — offen.
 - **Elite-Reward (ADR 011):** ✅ Umgesetzt → `ELITE_REWARD_MULT=5` (×5 Münzen **und** XP).
   Folge-Frage: ist ×5 gegen ×10 HP der richtige Punkt? (Playtest-Regler.)
 - **Autoaim-Priorisierung (ADR 010):** zielt simpel auf den **nächsten** Gegner. Reicht
@@ -230,6 +260,13 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   zeigt Schaden/Angriffstempo/Kugel-Stats/Multishot/Durchschlag/Lifesteal/HP, liest direkt
   aus `gs["stats"]`+`balance` (keine gespiegelten Werte). `show_stats`-Toggle; Dev-Hint
   um „C Stats" ergänzt.
+- **D26** — **Boss-HP-Multiplikatoren ×8/×25 → ×2/×3** → **ADR 013**. Datengestützt per
+  neuem read-only Modell `tools/balance_model.py` (kein Spiel-Code): Spieler endet ~Level 33
+  (Kill-XP nicht wellenskaliert), Boss = DPS-Rennen gegen Anlaufzeit → alte Multiplikatoren
+  = unfaire Wand ab ~W40. Neue Konstanten `BOSS_HP_MULT`/`SUPERBOSS_HP_MULT` in `balance.py`
+  (vorher Magic Numbers in `enemy.py`). Bewusst nur dieser eine Hebel; zweiter Hebel
+  (`ENEMY_HP_PER_WAVE_SQ`/XP-Kurve) für W60+ offen. Revidiert die „×8/×25 bleiben"-Festlegung
+  aus ADR 012.
 
 ## Phase → ADR map
 
@@ -238,7 +275,8 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **Phase 1** (`game/balance.py`) → ADR 002 (Tuning zentral, JSON später).
 - **Phase 2** (Welle 100 + Sieg) → ADR 004 (Run-Modell), ADR 006 (Wellen-Cap).
 - **Phase 3** (Inhalt) → ADR 002 (neue Werte nach `game/balance.py`), ADR 003 (Struktur),
-  ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner), ADR 012 (HP-Scaling super-linear).
+  ADR 010 (Passiv-Combat/Autoaim), ADR 011 (Elite-Gegner), ADR 012 (HP-Scaling super-linear),
+  ADR 013 (Boss-Multiplikatoren ×2/×3).
 - **Phase 4** (Verpacken) → ADR 001 (Python/Pygame → PyInstaller).
 - **Part 2** (Rebirth/Waffen) → ADR 004.
 
@@ -257,7 +295,8 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   das **Balance-Feintuning** eines durchgespielten 1→100-Laufs (HP/Speed vs. DPS).
 - **Phase 3 — Inhaltszuwachs:** angefangen (2026-06-20). Erste Inhalte: Passiv-Combat +
   Autoaim (ADR 010), Elite-Gegner + Reward (ADR 011), super-lineares HP-Scaling (ADR 012),
-  Stats-Overlay (C). Noch offen: weitere Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen,
-  Dornen, Reroll …) + ein echter 1→100-Balance-Lauf; alles per Playtest.
+  Stats-Overlay (C), Boss-Multiplikatoren entschärft (ADR 013) + Balance-Modell-Tool. Noch
+  offen: weitere Karten/Upgrades (Crit, Explosiv/Kette, DoT, Regen, Dornen, Reroll …),
+  zweiter Endgame-Hebel (W60+) + ein echter 1→100-Balance-Lauf; alles per Playtest.
 - **Phase 4 — Politur & `.exe`:** offen
 - **Part 2 — Rebirth/Waffen:** offen (Backlog)

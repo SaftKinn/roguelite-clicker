@@ -544,7 +544,8 @@ class Boss(Warrior):
     ATTACK_ANIM_RANGE = 120
 
     def __init__(self, base_speed: float, base_hp: int):
-        super().__init__(speed=max(0.4, base_speed * 0.35), max_hp=int(base_hp * 8))
+        super().__init__(speed=max(0.4, base_speed * 0.35),
+                         max_hp=int(base_hp * balance.BOSS_HP_MULT))
         self.coin_value = 10
         self._tick      = 0
         self._lancer_is_attacking = False
@@ -630,7 +631,8 @@ class SuperBoss(Warrior):
     ATTACK_ANIM_RANGE = 140
 
     def __init__(self, base_speed: float, base_hp: int):
-        super().__init__(speed=max(0.25, base_speed * 0.2), max_hp=int(base_hp * 25))
+        super().__init__(speed=max(0.25, base_speed * 0.2),
+                         max_hp=int(base_hp * balance.SUPERBOSS_HP_MULT))
         self.coin_value = 50
         self._tick      = 0
         self._lancer_is_attacking = False
