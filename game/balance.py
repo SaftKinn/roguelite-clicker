@@ -74,8 +74,8 @@ def elite_hp_mult(wave: int) -> float:
 # Seit dem quadratischen HP-Term (ADR 012) liefert die Basis-HP schon den Großteil der
 # Endgame-Wand; hohe Multiplikatoren oben drauf machten Bosse ab ~W40 unfair (ADR 013,
 # Modell: tools/balance_model.py).
-BOSS_HP_MULT      = 12  # normaler Boss (alle 10 Wellen) — +100% (Nutzerwunsch; war 6, ADR 018)
-SUPERBOSS_HP_MULT = 20  # SuperBoss (Welle 50 & 100) — +100% (Nutzerwunsch; war 10, ADR 018)
+BOSS_HP_MULT      = 60  # normaler Boss (alle 10 Wellen) — ×5 (Nutzerwunsch; war 12)
+SUPERBOSS_HP_MULT = 100  # SuperBoss (Welle 50/100/150) — ×5 (Nutzerwunsch; war 20)
 
 
 # ---------------------------------------------------------------------------
