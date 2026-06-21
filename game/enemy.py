@@ -631,6 +631,16 @@ class SuperBoss(Warrior):
     FLY_BOB_AMP   = 11     # Amplitude des Auf-und-Ab in Pixeln
     FLY_BOB_SPEED = 0.06   # Winkelgeschwindigkeit des Bob pro Tick
 
+    # Angriffs-Animation OHNE eigenes Sprite (Code-only): ein kurzer Vorwärts-Satz (Lunge)
+    # auf den Turm + Skalier-/Aura-Blitz, ausgelöst nahe am Turm und dann auf Cooldown.
+    # Alles rein visuell (`self.pos`/Schaden bleiben unberührt) — die sin(p·π)-Hüllkurve
+    # schießt raus und kommt zurück (0 am Anfang/Ende, Maximum in der Mitte).
+    ATTACK_RANGE_PX   = 130    # Distanz zum Turm, ab der ein Angriff startet
+    ATTACK_DURATION   = 22     # Ticks, die ein Lunge dauert
+    ATTACK_INTERVAL   = 80     # Ticks Cooldown zwischen zwei Angriffen
+    ATTACK_LUNGE_PX   = 46     # Spitzen-Versatz des Lunge Richtung Turm (Pixel)
+    ATTACK_SCALE      = 1.16   # Spitzen-Vergrößerung des Sprites im Angriffsmoment
+
     _frames_r         = None
     _frames_l         = None
 
@@ -639,6 +649,10 @@ class SuperBoss(Warrior):
                          max_hp=int(base_hp * balance.SUPERBOSS_HP_MULT))
         self.coin_value = 50
         self._tick      = 0
+        self._atk_active = False
+        self._atk_t      = 0      # Fortschritt im laufenden Lunge (0..ATTACK_DURATION)
+        self._atk_cd     = self.ATTACK_INTERVAL   # erst nach kurzer Annäherung angreifen
+        self._atk_dir    = pygame.math.Vector2(0, 0)   # Lunge-Richtung (zum Turm, bei Start fixiert)
         # Drache betritt das Bild nur horizontal (Ost/West) auf Turm-Höhe → die
         # Seitenansicht passt immer zur Laufrichtung (statt aller vier Ränder).
         side = random.choice(("left", "right"))
@@ -663,19 +677,48 @@ class SuperBoss(Warrior):
     def update(self, target: pygame.math.Vector2) -> None:
         self._tick += 1
         super().update(target)   # Bewegung + Flügelschlag-Zyklus (cycelt _anim_frame)
+        # Angriff auslösen, sobald der Drache am Turm ist und der Cooldown abgelaufen ist.
+        if self._atk_cd > 0:
+            self._atk_cd -= 1
+        if self._atk_active:
+            self._atk_t += 1
+            if self._atk_t >= self.ATTACK_DURATION:   # Lunge fertig → zurück, Cooldown starten
+                self._atk_active = False
+                self._atk_cd     = self.ATTACK_INTERVAL
+        else:
+            direction = target - self.pos
+            if self._atk_cd <= 0 and 0 < direction.length() < self.ATTACK_RANGE_PX:
+                self._atk_active = True
+                self._atk_t      = 0
+                self._atk_dir    = direction.normalize()   # Richtung bei Start fixieren
+
+    def _attack_envelope(self) -> float:
+        """0→1→0-Hüllkurve des laufenden Lunge (Maximum in der Mitte); 0 wenn inaktiv."""
+        if not self._atk_active:
+            return 0.0
+        return math.sin(self._atk_t / self.ATTACK_DURATION * math.pi)
 
     def draw(self, screen: pygame.Surface) -> None:
         self._load_sprites()
-        # Visueller Schwebe-Versatz: konstanter Auftrieb + Sinus-Bob (Logik-Pos bleibt unten).
-        bob = int(self.FLY_LIFT + math.sin(self._tick * self.FLY_BOB_SPEED) * self.FLY_BOB_AMP)
-        cx, cy = int(self.pos.x), int(self.pos.y - bob)
+        env = self._attack_envelope()
+        # Visueller Schwebe-Versatz: konstanter Auftrieb + Sinus-Bob (Logik-Pos bleibt unten),
+        # plus Lunge Richtung Turm im Angriff (env·Richtung·Reichweite).
+        bob = self.FLY_LIFT + math.sin(self._tick * self.FLY_BOB_SPEED) * self.FLY_BOB_AMP
+        cx = int(self.pos.x + self._atk_dir.x * env * self.ATTACK_LUNGE_PX)
+        cy = int(self.pos.y - bob + self._atk_dir.y * env * self.ATTACK_LUNGE_PX)
+        # Aura-Ringe pulsieren immer; im Angriff zucken sie heller und enger zusammen.
+        ring_w = 2 + int(env * 3)
         for i in range(3):
             pulse = int(abs(math.sin(self._tick * 0.05 + i * 1.1)) * 10)
             pygame.draw.circle(screen, self.COLOR_OUTLINE, (cx, cy),
-                               self.radius + 8 + i * 13 + pulse, width=2)
+                               self.radius + 8 + i * 13 + pulse - int(env * 14), width=ring_w)
         frames = self._frames_l if self.facing_left else self._frames_r
         if frames:
             frame = frames[self._anim_frame % len(frames)]
+            if env > 0:   # im Angriff kurz vergrößern (Scale-Blitz)
+                scale = 1 + env * (self.ATTACK_SCALE - 1)
+                frame = pygame.transform.smoothscale(
+                    frame, (int(frame.get_width() * scale), int(frame.get_height() * scale)))
             screen.blit(frame, (cx - frame.get_width() // 2, cy - frame.get_height() // 2))
         else:
             pygame.draw.circle(screen, self.COLOR_BODY, (cx, cy), self.radius)
