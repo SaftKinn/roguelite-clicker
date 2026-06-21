@@ -7,6 +7,9 @@ from game.constants    import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE, BG_COLOR
 from game.player       import Player, RADIUS as PLAYER_RADIUS, MAX_HP
 from game.enemy        import (Warrior, Archer, Lancer, Monk, Goblin, OrcBerserker,
                               Necromancer, Boss, SuperBoss, EnemyProjectile,
+                              SkeletonWarrior, BoneSwarmling, SkeletonArcher, BoneColossus, Lich,
+                              ImpWarrior, Hellhound, DemonCaster, PitBrute, DemonSummoner,
+                              DrakeWarrior, Wyrmling, DrakeArcher, ScaleTitan, DragonPriest,
                               RADIUS as ENEMY_RADIUS)
 from game.projectile   import Projectile
 from game.upgrade_menu import UpgradeMenu
@@ -40,6 +43,23 @@ PLAYER_ATTACK_RANGE = (SCREEN_HEIGHT / 2) / CAMERA_ZOOM * ATTACK_RANGE_FRAC
 # ---------------------------------------------------------------------------
 
 
+# Tier-Roster (ADR 024): pro 50-Wellen-Abschnitt eine reskinnte Variante je Rolle.
+# tanker (Lancer) und monk (Monk) behalten ihr Tiny-Swords-Original über alle Tiers.
+TIER_ROSTER = [
+    {"basic": SkeletonWarrior, "rusher": SkeletonArcher, "goblin": BoneSwarmling,
+     "orc": BoneColossus, "necro": Lich},                          # Welle 1–50   (Untote)
+    {"basic": ImpWarrior, "rusher": DemonCaster, "goblin": Hellhound,
+     "orc": PitBrute, "necro": DemonSummoner},                     # Welle 51–100  (Dämonen)
+    {"basic": DrakeWarrior, "rusher": DrakeArcher, "goblin": Wyrmling,
+     "orc": ScaleTitan, "necro": DragonPriest},                    # Welle 101–150 (Drachen-Brut)
+]
+
+
+def tier_for_wave(wave: int) -> int:
+    """0 = Welle 1–50, 1 = 51–100, 2 = 101–150 (gedeckelt)."""
+    return min((wave - 1) // 50, len(TIER_ROSTER) - 1)
+
+
 def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
     base_hp    = enemy_hp_for_wave(wave, hp_mult)
     base_speed = enemy_speed_for_wave(wave)
@@ -60,13 +80,11 @@ def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
         kinds          = ["basic", "rusher", "tanker", "monk", "goblin", "orc", "necro"]
         weights        = [24, 18, 12, 9, 16, 10, 11]
     kind = random.choices(kinds, weights=weights)[0]
-    if   kind == "rusher": enemy = Archer(base_speed, base_hp)
-    elif kind == "tanker": enemy = Lancer(base_speed, base_hp)
+    # tanker (Lancer) und monk (Monk) bleiben über alle Tiers ihr Tiny-Swords-Original;
+    # die übrigen Rollen (basic/rusher/goblin/orc/necro) liefert das Tier-Roster reskinnt.
+    if   kind == "tanker": enemy = Lancer(base_speed, base_hp)
     elif kind == "monk":   enemy = Monk(base_speed, base_hp)
-    elif kind == "goblin": enemy = Goblin(base_speed, base_hp)
-    elif kind == "orc":    enemy = OrcBerserker(base_speed, base_hp)
-    elif kind == "necro":  enemy = Necromancer(base_speed, base_hp)
-    else:                  enemy = Warrior(speed=base_speed, max_hp=base_hp)
+    else:                  enemy = TIER_ROSTER[tier_for_wave(wave)][kind](base_speed, base_hp)
     # Wellen-Härte: alle 10 Wellen +40 % auf Schaden (HP steckt schon in base_hp via
     # enemy_hp_for_wave). Kompoundierend mit der Wellenhöhe.
     enemy.dmg_mult = wave_tier_mult(wave)
@@ -325,7 +343,7 @@ def draw_victory(screen, font_big, font, wave, coins_earned, best_wave, new_reco
 
     rows = [
         (font_big.render("SIEG!",                         True, (255, 220,  60)), cy - 100),
-        (font.render("SuperBoss in Welle 100 bezwungen",  True, (220, 220, 240)), cy - 24),
+        (font.render(f"SuperBoss in Welle {WIN_WAVE} bezwungen", True, (220, 220, 240)), cy - 24),
         (font.render(f"+{coins_earned} Münzen verdient",  True, COLOR_COIN),      cy + 14),
     ]
     if new_record:
@@ -539,8 +557,8 @@ def main():
                         for e in gs["enemies"]: e.alive = False
                         gs["spawn_remaining"] = 0
                     elif event.key == pygame.K_F4:
-                        # Auf Welle 99 springen (nächste Clear → SuperBoss Welle 100 → Sieg)
-                        gs["wave"]            = 99
+                        # Auf WIN_WAVE-1 springen (nächste Clear → finaler SuperBoss → Sieg)
+                        gs["wave"]            = WIN_WAVE - 1
                         for e in gs["enemies"]: e.alive = False
                         gs["spawn_remaining"] = 0
                     elif event.key == pygame.K_F5:
@@ -667,6 +685,10 @@ def main():
                     if changed:
                         if changed == "sfx":   snd.set_sfx_vol(options_menu.sfx_volume)
                         else:                  snd.set_music_vol(options_menu.music_volume)
+
+            if event.type == pygame.MOUSEWHEEL:
+                if state == "BESTIARY":
+                    bestiary_menu.scroll(event.y)
 
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 if state == "OPTIONS":

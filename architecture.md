@@ -129,7 +129,7 @@ Update-Block `time_scale`-mal pro Frame (ausklappbarer HUD-Button **x1/x2/x3/x5/
 Taste **B** → x1) — alles gleichmäßig schneller, Balance identisch. **FPS** ist zur Laufzeit
 per Options-Regler einstellbar (treibt `clock.tick` und die Feuerrate).
 
-`VICTORY` (seit Phase 2): erreicht, sobald Welle `WIN_WAVE` (100) geräumt ist
+`VICTORY` (seit Phase 2): erreicht, sobald Welle `WIN_WAVE` (150, ADR 024) geräumt ist
 (SuperBoss besiegt). Eigener Sieg-Screen; R = neuer Lauf, M = Menü — Event/Draw
 teilen sich die Logik mit `GAME_OVER`, die Update-Phase ist (wie `GAME_OVER`) ein
 No-Op.
@@ -232,7 +232,7 @@ Pro Frame im `PLAYING`-State (vereinfacht):
    **keine** Wellen-Erhöhung) und danach zurück. Karten kommen **nur** aus Level-ups.
 6. **Wellen-Ende:** keine Gegner mehr + `spawn_remaining == 0` → `WAVE_CLEAR` → nach
    kurzem Delay **direkt zur nächsten Welle** (`WAVE_CLEAR` rückt `wave` vor, setzt
-   Boss-Banner/-Musik). War es Welle `WIN_WAVE` (100), stattdessen → `VICTORY` (Sieg).
+   Boss-Banner/-Musik). War es Welle `WIN_WAVE` (150), stattdessen → `VICTORY` (Sieg).
    Tod des Turms → `GAME_OVER`. **Spawn-Gate:** pro Welle max. `MAX_ENEMIES_PER_WAVE`
    Gegner gesamt, und es wird nur nachgespawnt, solange weniger als
    `MAX_CONCURRENT_ENEMIES` leben (deckelt Performance + Belagerungs-DPS).
@@ -306,10 +306,12 @@ einen Rebirth — siehe §8 und ADR 004.
 
 ## 8. Run-Modell & Rebirth (Sieg-Bedingung)
 
-**MVP-Sieg (seit Phase 2):** **Welle `WIN_WAVE` (100) räumen = den SuperBoss
-besiegen = gewonnen.** Der `VICTORY`-State zeigt einen Sieg-Screen; `best_wave`/
-`best_coins`/`total_coins` werden gebucht, der Lauf endet sauber (R = neuer Lauf,
-M = Menü). Damit Welle 100 überhaupt erreichbar bleibt, deckelt Phase 2 die
+**MVP-Sieg (seit Phase 2, erweitert ADR 024):** **Welle `WIN_WAVE` (150) räumen = den
+finalen SuperBoss besiegen = gewonnen.** Die 150 Wellen gliedern sich in **3 Tiers à 50**
+(Untote / Dämonen / Drachen-Brut) mit je 5 reskinnten Gegner-Archetypen (`TIER_ROSTER` in
+`main.py`, Gegner-Reskins in `enemy.py`); SuperBoss bei 50/100/150. Der `VICTORY`-State zeigt
+einen Sieg-Screen; `best_wave`/`best_coins`/`total_coins` werden gebucht, der Lauf endet sauber
+(R = neuer Lauf, M = Menü). Damit Welle 150 überhaupt erreichbar bleibt, deckelt Phase 2 die
 Gegnerzahl (`MAX_ENEMIES_PER_WAVE` gesamt + `MAX_CONCURRENT_ENEMIES` gleichzeitig);
 Schwierigkeit kommt spät v. a. über HP/Speed-Skalierung statt Masse. Begründung:
 ADR 006. (Vorher war das Spiel endlos.)

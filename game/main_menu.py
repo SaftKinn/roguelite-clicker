@@ -485,6 +485,39 @@ class BestiaryMenu:
          "stats": ["HP-Faktor ×25", "doppelter Schaden", "Belohnung: 4"]},
         {"key": "Necromancer",  "name": "Nekromant",    "role": "Beschwörer",
          "stats": ["HP-Faktor ×6.0", "beschwört Goblins", "Belohnung: 4"]},
+        # --- Tier 1 — Untote (Welle 1–50) ---
+        {"key": "SkeletonWarrior", "name": "Skelett-Krieger", "role": "Nahkämpfer · W1–50",
+         "stats": ["HP-Faktor ×1.0", "Tempo: normal", "Belohnung: 1"]},
+        {"key": "BoneSwarmling", "name": "Knochen-Schwarm", "role": "Schwarm · W1–50",
+         "stats": ["HP-Faktor ×2.5", "Tempo: sehr schnell", "Belohnung: 1"]},
+        {"key": "SkeletonArcher", "name": "Skelett-Schütze", "role": "Fernkämpfer · W1–50",
+         "stats": ["HP-Faktor ×0.4", "schießt", "Belohnung: 1"]},
+        {"key": "BoneColossus", "name": "Knochen-Koloss", "role": "Brecher · W1–50",
+         "stats": ["HP-Faktor ×25", "doppelter Schaden", "Belohnung: 4"]},
+        {"key": "Lich", "name": "Lich", "role": "Beschwörer · W1–50",
+         "stats": ["HP-Faktor ×6.0", "beschwört Knochen-Schwarm", "Belohnung: 4"]},
+        # --- Tier 2 — Dämonen (Welle 51–100) ---
+        {"key": "ImpWarrior", "name": "Imp-Krieger", "role": "Nahkämpfer · W51–100",
+         "stats": ["HP-Faktor ×1.0", "Tempo: normal", "Belohnung: 1"]},
+        {"key": "Hellhound", "name": "Höllenhund", "role": "Schwarm · W51–100",
+         "stats": ["HP-Faktor ×2.5", "Tempo: sehr schnell", "Belohnung: 1"]},
+        {"key": "DemonCaster", "name": "Dämon-Magier", "role": "Fernkämpfer · W51–100",
+         "stats": ["HP-Faktor ×0.4", "schießt", "Belohnung: 1"]},
+        {"key": "PitBrute", "name": "Höllen-Brecher", "role": "Brecher · W51–100",
+         "stats": ["HP-Faktor ×25", "doppelter Schaden", "Belohnung: 4"]},
+        {"key": "DemonSummoner", "name": "Dämonen-Beschwörer", "role": "Beschwörer · W51–100",
+         "stats": ["HP-Faktor ×6.0", "beschwört Höllenhunde", "Belohnung: 4"]},
+        # --- Tier 3 — Drachen-Brut (Welle 101–150) ---
+        {"key": "DrakeWarrior", "name": "Drakonier-Krieger", "role": "Nahkämpfer · W101–150",
+         "stats": ["HP-Faktor ×1.0", "Tempo: normal", "Belohnung: 1"]},
+        {"key": "Wyrmling", "name": "Wyrmling", "role": "Schwarm · W101–150",
+         "stats": ["HP-Faktor ×2.5", "Tempo: sehr schnell", "Belohnung: 1"]},
+        {"key": "DrakeArcher", "name": "Drakonier-Schütze", "role": "Fernkämpfer · W101–150",
+         "stats": ["HP-Faktor ×0.4", "schießt", "Belohnung: 1"]},
+        {"key": "ScaleTitan", "name": "Schuppen-Titan", "role": "Brecher · W101–150",
+         "stats": ["HP-Faktor ×25", "doppelter Schaden", "Belohnung: 4"]},
+        {"key": "DragonPriest", "name": "Drachen-Priester", "role": "Beschwörer · W101–150",
+         "stats": ["HP-Faktor ×6.0", "beschwört Wyrmlinge", "Belohnung: 4"]},
         {"key": "Boss",         "name": "Boss",         "role": "alle 10 Wellen",
          "stats": ["HP ×6 der Basis", "tötet mit 1 Treffer", "Belohnung: 10"]},
         {"key": "SuperBoss",    "name": "Drache",       "role": "Welle 50 & 100",
@@ -493,10 +526,15 @@ class BestiaryMenu:
     _COLS = 3
     _CARD_W, _CARD_H, _GAP = 384, 150, 16
     _THUMB = 84
+    _TOP = 104              # y-Start der ersten Karten-Reihe
+    _HEADER_H = 100         # Kopfband (Titel/Fortschritt) — maskiert hochgescrollte Karten
+    _SCROLL_STEP = 60       # Pixel pro Mausrad-Raste
 
     def __init__(self):
         self._fonts_ready = False
         self._thumbs = {}   # key -> Surface | False (Cache, lazy geladen)
+        self._scroll = 0        # vertikaler Scroll-Offset (24 Einträge passen nicht auf einen Schirm)
+        self._max_scroll = 0    # in draw aus der Inhaltshöhe berechnet
         cx = SCREEN_WIDTH // 2
         self.back_btn = Button(
             pygame.Rect(cx - BTN_W // 2, SCREEN_HEIGHT - BTN_H - 24, BTN_W, BTN_H),
@@ -533,11 +571,15 @@ class BestiaryMenu:
     def handle_click(self, pos: tuple) -> str | None:
         return "back" if self.back_btn.is_hovered(pos) else None
 
+    def scroll(self, notches: int) -> None:
+        """Mausrad: notches>0 = nach oben blättern. Clamp gegen _max_scroll (in draw gesetzt)."""
+        self._scroll = max(0, min(self._max_scroll, self._scroll - notches * self._SCROLL_STEP))
+
     def _card_rect(self, i: int) -> pygame.Rect:
         col, row = i % self._COLS, i // self._COLS
         grid_w = self._COLS * self._CARD_W + (self._COLS - 1) * self._GAP
         sx = SCREEN_WIDTH // 2 - grid_w // 2
-        sy = 104
+        sy = self._TOP - self._scroll
         return pygame.Rect(sx + col * (self._CARD_W + self._GAP),
                            sy + row * (self._CARD_H + self._GAP),
                            self._CARD_W, self._CARD_H)
@@ -546,15 +588,17 @@ class BestiaryMenu:
         self._load_fonts()
         screen.fill(BG_COLOR)
         cx = SCREEN_WIDTH // 2
-        title = self.font_title.render("Lexikon", True, (255, 220, 60))
-        screen.blit(title, (cx - title.get_width() // 2, 38))
-        n_seen = sum(1 for e in self._CATALOG if e["key"] in seen)
-        prog = self.font_sm.render(f"{n_seen} / {len(self._CATALOG)} entdeckt",
-                                   True, (140, 140, 165))
-        screen.blit(prog, (cx - prog.get_width() // 2, 84))
+        # Scroll-Grenzen aus der Inhaltshöhe (24 Einträge ⇒ 8 Reihen, passt nicht mehr).
+        rows      = -(-len(self._CATALOG) // self._COLS)
+        foot_y    = SCREEN_HEIGHT - BTN_H - 32
+        content_h = self._TOP + (rows - 1) * (self._CARD_H + self._GAP) + self._CARD_H
+        self._max_scroll = max(0, content_h - foot_y)
+        self._scroll     = max(0, min(self._max_scroll, self._scroll))
 
         for i, entry in enumerate(self._CATALOG):
             r = self._card_rect(i)
+            if r.bottom < self._HEADER_H or r.top > foot_y:
+                continue   # außerhalb des Sichtfensters → überspringen
             is_seen = entry["key"] in seen
             pygame.draw.rect(screen, (30, 30, 44), r, border_radius=10)
             pygame.draw.rect(screen, (70, 70, 95) if is_seen else (45, 45, 60),
@@ -582,6 +626,21 @@ class BestiaryMenu:
                                 tb.centery - q.get_height() // 2))
                 lock = self.font_name.render("???", True, (110, 110, 130))
                 screen.blit(lock, (tb.right + 14, r.centery - lock.get_height() // 2))
+
+        # Kopf- und Fußband maskieren Karten, die über/unter das Sichtfenster ragen.
+        pygame.draw.rect(screen, BG_COLOR, (0, 0, SCREEN_WIDTH, self._HEADER_H))
+        foot_y = SCREEN_HEIGHT - BTN_H - 32
+        pygame.draw.rect(screen, BG_COLOR, (0, foot_y, SCREEN_WIDTH, SCREEN_HEIGHT - foot_y))
+
+        title = self.font_title.render("Lexikon", True, (255, 220, 60))
+        screen.blit(title, (cx - title.get_width() // 2, 38))
+        n_seen = sum(1 for e in self._CATALOG if e["key"] in seen)
+        prog = self.font_sm.render(f"{n_seen} / {len(self._CATALOG)} entdeckt",
+                                   True, (140, 140, 165))
+        screen.blit(prog, (cx - prog.get_width() // 2, 84))
+        if self._max_scroll > 0:
+            hint = self.font_sm.render("Mausrad zum Blättern", True, (120, 120, 150))
+            screen.blit(hint, (cx - hint.get_width() // 2, foot_y + 6))
 
         self.back_btn.draw(screen, self.font_name, mouse_pos)
 

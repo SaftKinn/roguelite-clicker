@@ -232,6 +232,13 @@ def load_necromancer_run(px: int = _ENEMY_PX):
     return _both_dirs(_load_custom_strip("necromancer_run.png", px))
 
 
+def load_custom_enemy(name: str, px: int = _ENEMY_PX):
+    """Generischer Reskin-Loader: assets/custom/<name>_run.png → (frames_r, frames_l).
+    Für die Tier-Gegner (Untote/Dämonen/Drachen-Brut), die per animate_walk.py aus
+    EINEM Standbild erzeugt werden. Roh-Sprite blickt nach RECHTS → _frames_r."""
+    return _both_dirs(_load_custom_strip(f"{name}_run.png", px))
+
+
 def load_cannonball(size: int = 20):
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "assets", "Tiny Swords (Free Pack)", "Cannonball.png")

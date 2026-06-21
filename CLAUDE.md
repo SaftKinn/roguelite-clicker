@@ -57,7 +57,8 @@ selbst auf den nächsten Gegner (Autoaim, ADR 010), Treffer heilen (Lifesteal). 
 spawnen wellenweise und laufen auf den Turm zu (ein Teil als zähe Elites, ADR 011).
 Gegner-Kills geben XP; bei jedem Level-up wählt man eine von drei Karten; Münzen kaufen
 dauerhafte Verbesserungen.
-**Sieg = Welle 100 schaffen.** Danach (geplant) ein Rebirth, der neue Waffen freischaltet.
+**Sieg = Welle 150 schaffen** (3 Tiers à 50 Wellen mit eigenen Gegner-Sätzen, ADR 024).
+Danach (geplant) ein Rebirth, der neue Waffen freischaltet.
 
 Vollständiges Design in `architecture.md`, Plan in `roadmap.md`. **Bei
 Design-Unklarheit gewinnt `architecture.md` — und wer eine Entscheidung ändert,
@@ -78,8 +79,8 @@ Spieler-Tasten (im `PLAYING`-State): **C** blendet die eigenen Stats ein/aus (Ov
 mit der vollen Tastenübersicht.
 
 Dev-Tasten (nur im `PLAYING`-State): **F1** alle Gegner töten · **F2** zu Welle 9
-· **F3** zu Welle 49 · **F4** zu Welle 99 (→ SuperBoss/​Sieg testen; friert Level/Stats
-ein → **kein** Endgame-Balance-Test) · **F5** Levelup erzwingen (Karten testen) ·
+· **F3** zu Welle 49 · **F4** zu `WIN_WAVE`−1 (Welle 149 → finaler SuperBoss/​Sieg testen;
+friert Level/Stats ein → **kein** Endgame-Balance-Test) · **F5** Levelup erzwingen (Karten testen) ·
 **F11** Fullscreen · **ESC** Pause/zurück.
 
 ---

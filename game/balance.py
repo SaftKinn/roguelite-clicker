@@ -48,7 +48,7 @@ ENEMY_SPRITE_SCALE = 1.25  # Gegner-Körper zusätzlich vergrößert (etwas grö
 # Sieg & Wellen-Caps (Phase 2, ADR 004/006; Mengen ADR 007)
 # ---------------------------------------------------------------------------
 
-WIN_WAVE               = 100   # Lauf endet als Sieg beim Räumen dieser Welle (SuperBoss)
+WIN_WAVE               = 150   # Lauf endet als Sieg beim Räumen dieser Welle (SuperBoss; 3 Tiers à 50)
 MAX_ENEMIES_PER_WAVE   = 30    # Obergrenze Gesamt-Gegner je Normalwelle (weniger Gegner, Playtest)
 MAX_CONCURRENT_ENEMIES = 30    # max. gleichzeitig lebende Gegner — deckelt Perf + Belagerungs-DPS
 

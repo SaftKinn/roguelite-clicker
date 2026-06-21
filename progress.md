@@ -7,33 +7,48 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-**Komfort-/QoL-Feature-Welle + Drache läuft jetzt — Stand committet bis `cdbb01d`, danach
-weitere Tuning-Änderungen uncommitted.** Gameplay-Grundgerüst steht (Wellen 1–100, Sieg,
-XP/Level, Karten, Shop, Elites, 3 neue Gegnerklassen ADR 017, Meta-Gate ADR 018). Diese
-Session kamen viele **Nutzer-getriebene Komfort-/Tuning-Features** dazu:
-- **Speicherstand-Slots** (3 Stück) **vor dem Hauptmenü** wählbar (ADR 019) — `save_slot<N>.json`,
-  Auswahl/Löschen, Alt-`save.json` migriert in Slot 1.
-- **FPS-Regler in den Optionen** (Schiebebalken wie Lautstärke, 30–240) + **Geschwindigkeits-/
-  Zeitraffer-Button x1/x5/x10/x20** im HUD (ADR 020) — beschleunigt die *gesamte* Update-Logik
-  N×/Frame (Balance identisch). FPS-Standard 75→140.
-- **Lexikon/Bestiarium** (Hauptmenü-Button): alle Gegner mit Stats, nur gesehene enthüllt.
-- **SuperBoss-Drache läuft** (geerdeter Walk-Zyklus statt Schweben; ADR 016 aktualisiert) +
-  Code-only Angriffs-Lunge.
-- **Balance-Tweaks (reine Werte):** Elite-HP ×10→×3; **+10 % XP je Welle** (`xp_round_mult`,
-  linear); Wellen-Härte (+40 %/10 Wellen, kurz drin) auf Nutzerwunsch wieder **zurückgesetzt**
-  (`WAVE_TIER_MULT=1.0`).
+**Gegner-Roster-Erweiterung (Tier-System) + Welle 150 stehen — ADR 024.** Gameplay-
+Grundgerüst steht (jetzt **Wellen 1–150**, Sieg, XP/Level, Karten, Shop, Elites, Meta-Gate
+ADR 018). Diese Session kam die **15-Gegner-Tier-Welle** dazu:
+- **3 Wellen-Tiers × 5 Archetypen = 15 reskinnte Gegner** (ADR 024): Tier 1 Untote (W1–50),
+  Tier 2 Dämonen (W51–100), Tier 3 Drachen-Brut (W101–150). Erben die Mechanik der 5 Rollen-
+  Klassen (`Warrior/Goblin/Archer/OrcBerserker/Necromancer`) via `_CustomSpriteMixin`,
+  tauschen nur Optik. `TIER_ROSTER` + `tier_for_wave` in `main.py` wählen die Klasse je Tier;
+  **Rollen-Spawn-Gewichte unverändert**. `tanker`(Lancer)/`monk`(Monk) bleiben Original.
+  `Necromancer.SUMMON_CLASS`-Hook → Beschwörer rufen ihren Tier-Schwarm.
+- **Welle 150** (`WIN_WAVE 100→150`); SuperBoss bei 50/100/150; Siegestext + Dev-Taste **F4**
+  jetzt `WIN_WAVE`-abgeleitet statt hartkodiert.
+- **Lexikon-Scroll:** 24 Einträge → Mausrad-Scrolling in `BestiaryMenu` (Kopf-/Fußband-Maske,
+  Sichtfenster-Cull). Neue Tier-Einträge mit Wellen-Label (z. B. „Nahkämpfer · W101–150").
+- **Sprite-Workflow:** PNGs entstehen extern (Leonardo.ai) als **Einzel-Standbild** →
+  `tools/animate_walk.py` → `assets/custom/<name>_run.png`. Generischer Loader
+  `sprite_loader.load_custom_enemy`. **Prompt-Kit** liegt im Plan-File `ich-will-mehr-png-s-*`.
 
-**Bekannte Risiken/offene Fragen:** (a) FPS 140 ist frame-basiert → Spiel läuft real ~1,87×
-schneller als bei 75 (Bewegung px/Frame); Balance evtl. nachziehen. (b) Zeitraffer x20 spielt
-viele Sounds/Frame (Kakofonie) — akzeptiert. (c) Stil-Bruch Pixel/Tiny-Swords bleibt.
-(d) echter 1→100-Playtest steht weiter aus. (e) Parallel-Session editiert dieselben Dateien —
-Tree teils gemischt. (f) **Headless-Treiber kommt nicht mehr ins PLAYING** (Lauf-Starten-Klick
-greift nicht — Menü-Flow-Bruch, vmtl. Parallel-Session/Slot-Layout); blockiert die Screenshot-
-Verifikation, bis der Treiber/Menü-Flow gefixt ist. (g) Spawn-Tempo ist seit ADR 023 **wandzeit-
-stabil** (10 s/Welle, FPS-unabhängig) — der frühere Spawn-Floor als Spielzeit-Rückgrat entfällt,
-Endgame-Lauflänge neu zu beobachten.
+**Bekannte Risiken/offene Fragen:** (a) **15 PNGs fehlen noch** → alle Tier-Gegner sind aktuell
+Fallback-Kreise in Tier-Farbe (Konsolen-Warnung je fehlendem `_run.png`, harmlos). (b) **W101–150
+ungetestet-balanciert** — HP-Formel skaliert weiter, könnte HP-Wand statt DPS-Rennen werden;
+Hebel `ENEMY_HP_PER_WAVE_SQ`/Tier-3-Härte. (c) **Originale Warrior/Archer/Goblin/Orc/Necro spawnen
+nicht mehr direkt** (nur Basisklasse + Summon-Default), bleiben aber im Lexikon. (d) FPS 140 ist
+frame-basiert (~1,87× schneller als 75); Zeitraffer x20 = Sound-Kakofonie (akzeptiert). (e) echter
+1→150-Playtest steht aus. (f) Parallel-Session editiert dieselben Dateien — Tree teils gemischt.
 
 ## Last session
+
+2026-06-21 (Teil 11) — **Tier-Roster: 15 reskinnte Gegner + Welle 150 (ADR 024):**
+- **15 Gegner via Vererbung:** `_CustomSpriteMixin` (lädt `assets/custom/<name>_run.png`,
+  Fallback-Primitiv bei fehlendem PNG) + 5 Rollen-Basisklassen (`_CustomMelee/_Swarm/_Ranged/
+  _Tank/_Summoner`) + 15 konkrete Tier-Klassen in `game/enemy.py`. `Necromancer` bekam
+  `SUMMON_CLASS`-Hook (Default `Goblin`); Beschwörer rufen Tier-Schwarm.
+- **Spawn:** `TIER_ROSTER` (3×5) + `tier_for_wave` in `main.py`; `spawn_enemy_for_wave` behält
+  Rollen-Gewichte, wählt Klasse je Tier. `tanker`/`monk` bleiben Original.
+- **Welle 150:** `WIN_WAVE 100→150` (`balance.py`); Siegestext + F4 auf `WIN_WAVE` umgestellt.
+- **Lexikon:** 15 Katalog-Einträge (Wellen-Label) + **Mausrad-Scrolling** in `BestiaryMenu`
+  (`scroll()`, Offset in `_card_rect`, Kopf-/Fußband-Maske, Cull) + `MOUSEWHEEL`-Handler in `main.py`.
+- **sprite_loader:** generischer `load_custom_enemy(name, px)`.
+- **Verifikation:** `py_compile` (5 Dateien) ok; Headless-Instanziierung aller 15 Klassen →
+  korrekte vererbte Stats + Summon-Hooks; **voller Treiber-Flow crashfrei bis Sieg „SuperBoss in
+  Welle 150 bezwungen" (Screenshot)**; Lexikon oben + ganz unten gerendert, alle 24 erreichbar.
+  **Offen:** 15 PNGs fehlen (Fallback-Kreise); Prompt-Kit im Plan-File. Committet auf Nutzerwunsch.
 
 2026-06-21 (Teil 10) — **Spawn über festes 10-s-Wandzeit-Fenster (ADR 023):**
 - Auf Nutzerwunsch („eine Welle dauert 10 s, bis dahin alle Gegner gespawnt"): fixes
@@ -327,8 +342,17 @@ Endgame-Lauflänge neu zu beobachten.
 
 ## Next concrete step
 
-**Echter Playtest des 5-Läufe-Meta-Gates (ADR 018).** Kernfrage: stimmt „~5 Läufe bis Welle
-100" *im echten Spiel* — oder sind die ×10-zähen Normalgegner (v. a. Ork ×25) die wahre Wand
+**Die 15 Tier-Sprite-PNGs erzeugen (Leonardo.ai) und einsetzen.** Prompt-Kit (Stil-Block +
+Negative-Prompt + 15 Subjekt-Zeilen) liegt im Plan-File `~/.claude/plans/ich-will-mehr-png-s-
+virtual-balloon.md`. Pro Gegner: Einzel-Standbild (1:1, transparent, Seitenansicht rechts, Füße
+unten) → `assets/custom/<name>_static.png` → `python tools/animate_walk.py <static> <name>_run.png`
+(Presets je Archetyp: Tank `--bob 0.04 --squash 0.10`, Beschwörer `--bounces 1 --squash 0`,
+Schwarm `--bob 0.08`). Jede PNG ersetzt lautlos ihren Fallback-Kreis. Danach: **Balance von
+W101–150** beobachten (Tier 3 ungetestet — HP-Wand-Risiko; Hebel `ENEMY_HP_PER_WAVE_SQ`).
+
+(Davor unverändert offen:) **Echter Playtest des 5-Läufe-Meta-Gates (ADR 018).** Kernfrage:
+stimmt „~5 Läufe bis Welle 100" *im echten Spiel* — oder sind die ×10-zähen Normalgegner (v. a.
+Ork ×25) die wahre Wand
 (Turm überrannt = HP-Tod), die das Boss-Wand-Modell nicht kennt? Falls real >> 5 Läufe:
 **Gegenhebel** = neue-Gegner-HP senken (Ork ×25 ist extrem) ODER `tools/balance_model_runs.py`
 um eine Überlebens-/Clear-Rate erweitern (reguläre Gegner-DPS gegen Spieler-HP/Lifesteal).

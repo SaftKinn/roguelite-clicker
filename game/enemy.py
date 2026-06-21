@@ -624,8 +624,9 @@ class Necromancer(Warrior):
     RADIUS        = 11
     ATTACK_RANGE  = 240
     SUMMON_EVERY  = 240     # Ticks zwischen Beschwörungen (~4 s bei 60 FPS)
-    SUMMON_COUNT  = 2       # Goblins pro Beschwörung
+    SUMMON_COUNT  = 2       # Beschwörungen pro Welle
     SUMMON_MAX    = 6       # lebenslanges Limit pro Nekromant (gegen Runaway-Spawn)
+    SUMMON_CLASS  = Goblin  # welcher Schwarm-Gegner beschworen wird (Tier-Reskins überschreiben)
     COLOR_BODY    = (120,  70, 165)
     COLOR_OUTLINE = ( 70,  40, 100)
     COLOR_HP_BAR  = (185, 110, 225)
@@ -683,7 +684,7 @@ class Necromancer(Warrior):
             for _ in range(self.SUMMON_COUNT):
                 if self._summoned >= self.SUMMON_MAX:
                     break
-                g = Goblin(self._base_speed, self._base_hp)
+                g = self.SUMMON_CLASS(self._base_speed, self._base_hp)
                 # Direkt neben dem Nekromanten erscheinen (statt am Bildrand).
                 g.pos = pygame.math.Vector2(self.pos.x + random.randint(-25, 25),
                                             self.pos.y + random.randint(-25, 25))
@@ -713,6 +714,115 @@ class Necromancer(Warrior):
             pygame.draw.circle(screen, self.COLOR_OUTLINE, pos, self.radius + 2)
             pygame.draw.circle(screen, self.COLOR_BODY,    pos, self.radius)
         self._draw_hp_bar(screen, pos)
+
+
+# ---------------------------------------------------------------------------
+# Tier-Gegner (ADR 024): 3 Wellen-Abschnitte × 5 Archetypen = 15 reskinnte Gegner.
+# Sie ERBEN die Mechanik der fünf Rollen-Klassen (Warrior/Goblin/Archer/OrcBerserker/
+# Necromancer) und tauschen nur die Optik: Lauf-Sprite aus assets/custom/<name>_run.png
+# (per tools/animate_walk.py aus EINEM Standbild gebaut). Fehlt das PNG, greift
+# Golden Rule 5 → gezeichnetes Primitiv in der Tier-Farbe. Spawn-Auswahl: main.py.
+# ---------------------------------------------------------------------------
+
+class _CustomSpriteMixin:
+    """Lädt die Lauf-Animation eines Reskins aus assets/custom/<SPRITE_NAME>_run.png.
+    Keine eigene Angriffs-Animation (Attack-/Schuss-Frames bleiben leer → die geerbte
+    Mechanik feuert weiter, nur ohne Spezial-Animation, exakt wie beim Goblin)."""
+    SPRITE_NAME = ""        # von der konkreten Klasse gesetzt
+    SPRITE_PX   = 48
+    _frames_r = _frames_l = None
+    _atk1_frames_r = _atk1_frames_l = None
+    _atk2_frames_r = _atk2_frames_l = None
+
+    @classmethod
+    def _load_sprites(cls) -> None:
+        if cls._frames_r is not None:
+            return
+        try:
+            from . import sprite_loader
+            cls._frames_r, cls._frames_l = sprite_loader.load_custom_enemy(cls.SPRITE_NAME, cls.SPRITE_PX)
+        except Exception as exc:
+            print(f"[{cls.__name__}] Sprites: {exc}")
+            cls._frames_r = cls._frames_l = []
+        cls._atk1_frames_r = cls._atk1_frames_l = []
+        cls._atk2_frames_r = cls._atk2_frames_l = []
+
+
+# Rollen-Basisklassen: Mixin (Sprites) + Mechanik-Klasse. target_px je Rolle.
+class _CustomMelee(_CustomSpriteMixin, Warrior):      SPRITE_PX = 50   # Nahkampf
+class _CustomSwarm(_CustomSpriteMixin, Goblin):       SPRITE_PX = 40   # Schwarm (schnell, wenig HP)
+class _CustomRanged(_CustomSpriteMixin, Archer):      SPRITE_PX = 48   # Fernkampf (schießt)
+class _CustomTank(_CustomSpriteMixin, OrcBerserker):  SPRITE_PX = 60   # Tank/Brecher (sehr zäh)
+class _CustomSummoner(_CustomSpriteMixin, Necromancer): SPRITE_PX = 48 # Beschwörer
+
+
+# --- Tier 1 — Untote / Knochen-Legion (Welle 1–50) ------------------------
+class SkeletonWarrior(_CustomMelee):
+    SPRITE_NAME = "skeleton_warrior"
+    COLOR_BODY, COLOR_OUTLINE = (215, 215, 200), (120, 120, 105)
+
+class BoneSwarmling(_CustomSwarm):
+    SPRITE_NAME = "bone_swarmling"
+    COLOR_BODY, COLOR_OUTLINE = (180, 200, 150), (95, 120, 80)
+
+class SkeletonArcher(_CustomRanged):
+    SPRITE_NAME = "skeleton_archer"
+    COLOR_BODY, COLOR_OUTLINE = (200, 205, 185), (110, 115, 95)
+
+class BoneColossus(_CustomTank):
+    SPRITE_NAME = "bone_colossus"
+    COLOR_BODY, COLOR_OUTLINE = (225, 220, 205), (140, 130, 110)
+
+class Lich(_CustomSummoner):
+    SPRITE_NAME  = "lich"
+    SUMMON_CLASS = BoneSwarmling
+    COLOR_BODY, COLOR_OUTLINE = (130, 190, 150), (60, 110, 80)
+
+
+# --- Tier 2 — Dämonen / Höllenbrut (Welle 51–100) -------------------------
+class ImpWarrior(_CustomMelee):
+    SPRITE_NAME = "imp_warrior"
+    COLOR_BODY, COLOR_OUTLINE = (210, 70, 50), (130, 30, 25)
+
+class Hellhound(_CustomSwarm):
+    SPRITE_NAME = "hellhound"
+    COLOR_BODY, COLOR_OUTLINE = (235, 120, 40), (150, 60, 20)
+
+class DemonCaster(_CustomRanged):
+    SPRITE_NAME = "demon_caster"
+    COLOR_BODY, COLOR_OUTLINE = (230, 95, 60), (140, 45, 30)
+
+class PitBrute(_CustomTank):
+    SPRITE_NAME = "pit_brute"
+    COLOR_BODY, COLOR_OUTLINE = (170, 60, 55), (100, 30, 30)
+
+class DemonSummoner(_CustomSummoner):
+    SPRITE_NAME  = "demon_summoner"
+    SUMMON_CLASS = Hellhound
+    COLOR_BODY, COLOR_OUTLINE = (200, 60, 90), (120, 30, 55)
+
+
+# --- Tier 3 — Drachen-Brut / Schuppen (Welle 101–150) ---------------------
+class DrakeWarrior(_CustomMelee):
+    SPRITE_NAME = "drake_warrior"
+    COLOR_BODY, COLOR_OUTLINE = (70, 160, 110), (35, 95, 65)
+
+class Wyrmling(_CustomSwarm):
+    SPRITE_NAME = "wyrmling"
+    COLOR_BODY, COLOR_OUTLINE = (110, 200, 140), (60, 120, 80)
+
+class DrakeArcher(_CustomRanged):
+    SPRITE_NAME = "drake_archer"
+    COLOR_BODY, COLOR_OUTLINE = (90, 175, 150), (45, 105, 90)
+
+class ScaleTitan(_CustomTank):
+    SPRITE_NAME = "scale_titan"
+    COLOR_BODY, COLOR_OUTLINE = (60, 130, 120), (30, 80, 70)
+
+class DragonPriest(_CustomSummoner):
+    SPRITE_NAME  = "dragon_priest"
+    SUMMON_CLASS = Wyrmling
+    COLOR_BODY, COLOR_OUTLINE = (190, 165, 70), (115, 95, 35)
 
 
 # ---------------------------------------------------------------------------
