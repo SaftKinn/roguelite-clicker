@@ -1,0 +1,42 @@
+{
+  "_comment": "ComfyUI API-Format Workflow fuer tools/sd_gen.py (ADR 037). Standard txt2img. Die Platzhalter-Tokens (%PROMPT% usw.) fuellt sd_comfy.set_inputs() vor jedem Lauf. In ComfyUI ueber 'Save (API Format)' exportiert man genau diese Struktur; hier von Hand gepflegt, damit der Generator ohne GUI laeuft. Wenn dein ComfyUI andere Default-Sampler/VAE will, nur die inputs hier anpassen.",
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "%CKPT%" }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": { "width": "%WIDTH%", "height": "%HEIGHT%", "batch_size": "%BATCH%" }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "%PROMPT%", "clip": ["4", 1] }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "%NEGATIVE%", "clip": ["4", 1] }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": "%SEED%",
+      "steps": "%STEPS%",
+      "cfg": "%CFG%",
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0,
+      "model": ["4", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["3", 0], "vae": ["4", 2] }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "sd_gen", "images": ["8", 0] }
+  }
+}

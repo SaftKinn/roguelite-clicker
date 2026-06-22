@@ -29,3 +29,7 @@ assets/custom/*_cast.png
 # 3D-Pipeline-Arbeitsdaten (Meshy-GLBs + Blender-Render-Frames) — Quellen, groß,
 # nicht versionieren. Nur der fertige <name>_run.png-Strip kommt ins Repo.
 assets/custom/_meshy*/
+
+# SD-Generator-Arbeitsdaten (Roh-Kandidaten + Kontaktblätter aus tools/sd_gen.py, ADR 037).
+# Nur das gewählte <name>_static.png (oben schon ignoriert) zählt; der Rest ist Wegwerf.
+assets/custom/_sd_raw/

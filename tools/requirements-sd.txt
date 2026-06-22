@@ -1,0 +1,15 @@
+# Abhängigkeiten NUR für den lokalen SD-Standbild-Generator (ADR 037).
+# BEWUSST getrennt von der Spiel-Pflicht-Dep (pygame): `python main.py` braucht nichts
+# hiervon. torch/CUDA leben in der separaten ComfyUI-Installation, NICHT hier.
+#
+#   pip install -r tools/requirements-sd.txt
+#
+# Pillow ist meist schon da (kommt über die Asset-Tools); hier zur Sicherheit gelistet.
+
+requests>=2.28          # HTTP an die ComfyUI-API (Pflicht für echte Läufe)
+websocket-client>=1.5   # schnelleres Warten auf Fertigstellung (optional; sonst History-Polling)
+Pillow>=9.0             # Bildverarbeitung / Freistellen / Kontaktblatt
+
+# Optional — nur wenn --matte rembg genutzt wird (inhaltsbasiertes Freistellen):
+# rembg>=2.0
+# onnxruntime>=1.15

@@ -1,0 +1,62 @@
+{
+  "_comment": "ComfyUI API-Format Workflow fuer tools/sd_gen.py (ADR 037) MIT IP-Adapter-Stilreferenz. Wie still_txt2img.json, aber der KSampler bekommt sein Modell aus einer IP-Adapter-Kette: die per --ref hochgeladene Referenz (LoadImage %REF_IMAGE%) drueckt ihren Stil in jede Generierung -> einheitlicher Familien-Look ueber alle Gegner. BRAUCHT die ComfyUI-Erweiterung 'ComfyUI_IPAdapter_plus' (cubiq) + IP-Adapter- und CLIP-Vision-Modelle (siehe tools/README-sd.md). Stimmt eine Node nicht mit deiner Plugin-Version ueberein, nur die betroffenen inputs hier anpassen. Tokens (%PROMPT% usw.) fuellt sd_comfy.set_inputs().",
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "%CKPT%" }
+  },
+  "10": {
+    "class_type": "IPAdapterUnifiedLoader",
+    "inputs": { "model": ["4", 0], "preset": "STANDARD (medium strength)" }
+  },
+  "12": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "%REF_IMAGE%" }
+  },
+  "11": {
+    "class_type": "IPAdapter",
+    "inputs": {
+      "model": ["10", 0],
+      "ipadapter": ["10", 1],
+      "image": ["12", 0],
+      "weight": "%IPWEIGHT%",
+      "start_at": 0.0,
+      "end_at": 1.0,
+      "weight_type": "standard"
+    }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": { "width": "%WIDTH%", "height": "%HEIGHT%", "batch_size": "%BATCH%" }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "%PROMPT%", "clip": ["4", 1] }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "%NEGATIVE%", "clip": ["4", 1] }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": "%SEED%",
+      "steps": "%STEPS%",
+      "cfg": "%CFG%",
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0,
+      "model": ["11", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["3", 0], "vae": ["4", 2] }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "sd_gen", "images": ["8", 0] }
+  }
+}
