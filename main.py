@@ -943,6 +943,9 @@ def main():
                 new_summons = []
                 for e in gs["enemies"]:
                     e.update(pc)
+                    if getattr(e, "_stepped", False):   # Lauf-Staub an den Füßen (ADR 035)
+                        fx += fxmod.spawn_dust(e.pos.x, e.pos.y + e.radius)
+                        e._stepped = False
                     if isinstance(e, Archer):
                         gs["enemy_projectiles"] += e.pop_shots()
                     elif isinstance(e, Monk):

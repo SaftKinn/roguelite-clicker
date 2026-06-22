@@ -108,6 +108,7 @@ RADIUS = 14   # Modul-Konstante für Rückwärtskompatibilität
 _ANIM_PERIOD = 6   # Ticks zwischen Animations-Frames (~10 FPS bei 60 FPS)
 _PLAYER_RADIUS = 18   # spiegelt player.RADIUS — Nahkämpfer stoppen davor statt hineinzulaufen
 _HIT_FLASH_TICKS = 5   # Treffer-Flash (Juice, ADR 035): Sprite blitzt so viele Ticks weiß auf
+_DUST_EVERY      = 16  # Lauf-Staub (Juice, ADR 035): nur jeden N-ten Bewegungs-Tick ein Püffchen
 
 
 class Warrior:
@@ -146,6 +147,8 @@ class Warrior:
         self._atk_alt      = False
         self._attack_cd    = 0   # Cooldown bis zum nächsten Nahkampf-Treffer
         self._hit_flash    = 0   # Rest-Ticks des weißen Treffer-Flashs (Juice, ADR 035)
+        self._step_tick    = 0   # zählt Bewegungs-Ticks für sparsamen Lauf-Staub
+        self._stepped      = False  # Flag: main liest es nach update() und spawnt Staub
 
     @staticmethod
     def _random_edge_pos() -> tuple:
@@ -182,6 +185,10 @@ class Warrior:
             if abs(vel.x) > 0.05:
                 self.facing_left = vel.x < 0
             self.pos += vel
+            self._step_tick += 1                       # läuft gerade → sparsam Staub auslösen
+            if self._step_tick >= _DUST_EVERY:
+                self._step_tick = 0
+                self._stepped   = True
         elif dist > 0:
             self.facing_left = direction.x < 0   # in Reichweite: weiter zum Spieler ausrichten
         if dist > 0 and not self._is_attacking and self._atk1_frames_r:

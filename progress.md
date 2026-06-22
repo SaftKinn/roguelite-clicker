@@ -25,11 +25,24 @@ SHAKE_*`, Boss-Tod, Offset im `blit_world_zoomed`, an allen 3 FX-Stellen abkling
 korrekt fadend, Treffer-Flash mit erhaltener Silhouette, Turm Idle/Recoil/Overdrive
 unterscheidbar); voller Treiber-Flow (Menü→Levelup→W150→Sieg) **mehrfach crashfrei**;
 Overdrive-Turm-Glühen im Live-Combat-Screenshot bestätigt. Betroffen: `game/fx.py`,
-`game/enemy.py`, `game/player.py`, `game/balance.py`, `main.py`. **Noch nicht committet.**
-**Offen:** echte KI-Frames für Helden-Motive (Bosse/Turm) als nächste Etappe (gleiches
-Strip-Format `_load_custom_strip`, kein Code nötig); optional Lauf-Staub/Gegner-Muzzle;
-Hintergrund-Animation zuletzt. FX-Tuning (Partikelzahl/Shake-Amplitude) ungeprüft im
-echten Lauf-Feel.
+`game/enemy.py`, `game/player.py`, `game/balance.py`, `main.py`. **FX-Layer committet `5e1f8d0`**
+(Hook bündelte ihn mit der bereits im Tree liegenden Audio-/Shop-Icon-Arbeit).
+
+**Folge-Arbeit dieselbe Session:**
+- **Lauf-Staub** ergänzt (Etappe 6): `Warrior._stepped`/`_step_tick` (gesetzt im Bewegungszweig,
+  `_DUST_EVERY=16`), `main.py` liest das Flag nach `e.update(pc)` → `fxmod.spawn_dust` an den
+  Füßen. Gegner-Muzzle-Fallback bewusst weggelassen (Sprite-Muzzle deckt alle 6 Fernkämpfer ab).
+- **KI-Frame-Pipeline gebaut** (statt nur geplant): **`tools/frames_from_clip.py`** wandelt einen
+  echten KI-Bewegungsclip (GIF/animiertes WEBP/APNG, Bilderordner, `--grid`-Standbild oder Video
+  via optionalem `imageio`) in das Strip-Format von `_load_custom_strip`: je Frame Magenta-Keying
+  (Ecken-Flood-Fill wie `key_black_bg.py`), zuschneiden, **gemeinsame Skalierung** aus der größten
+  Content-Höhe (kein Größen-Springen) + Fußpunkt-Verankerung → `cell·N × cell`-Strip. `--frames N`
+  tastet ab. Workflow-Doc **`docs/ki-frame-pipeline.md`**. **Verifiziert:** synthetisches Magenta-GIF
+  → Strip 1024×128 (8 Frames), Keying transparent, **echter Loader liest 8 Frames + Flip**.
+**Offen:** der Nutzer erzeugt die echten KI-Clips (Leonardo Motion o. ä.) für Helden-Motive
+(Turm, 6 Bosse, Signatur-Gegner) und füttert sie durch das Tool — **kein Code mehr nötig**.
+Hintergrund-Animation zuletzt. FX-Tuning (Partikelzahl/Shake-Amplitude) ungeprüft im echten
+Lauf-Feel.
 
 ---
 
