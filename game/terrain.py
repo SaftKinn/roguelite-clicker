@@ -2,6 +2,7 @@ import os
 import random
 import pygame
 from .constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from . import sprite_loader
 
 _BASE      = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                           "assets", "Tiny Swords (Free Pack)", "Terrain")
@@ -49,46 +50,53 @@ def _load_deco_pool() -> list[pygame.Surface]:
     return pool
 
 
+def _scatter_decos() -> list[tuple]:
+    """Verteilt Büsche/Felsen zufällig über den Tiny-Swords-Grasboden, hält den
+    Turmbereich (Mitte) frei und verhindert Überlappen. Liste von (surf, x, y)."""
+    pool   = _load_deco_pool()
+    if not pool:
+        return []
+    cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+    excl_r = 90           # Freiraum um den Turm
+    n      = random.randint(14, 22)
+    decos: list[tuple] = []
+    attempts = 0
+    while len(decos) < n and attempts < 800:
+        attempts += 1
+        surf = random.choice(pool)
+        pad  = surf.get_width() // 2 + 4   # Mindestabstand zum Rand
+        x    = random.randint(pad, SCREEN_WIDTH  - pad)
+        y    = random.randint(pad, SCREEN_HEIGHT - pad)
+        if ((x - cx) ** 2 + (y - cy) ** 2) < excl_r ** 2:
+            continue                       # Turmbereich kreisförmig freihalten
+        too_close = any(((x - dx) ** 2 + (y - dy) ** 2) < 40 ** 2
+                        for (_, dx, dy) in decos)
+        if too_close:
+            continue
+        decos.append((surf, x - surf.get_width() // 2, y - surf.get_height() // 2))
+    return decos
+
+
 class Terrain:
-    def __init__(self):
-        color_idx = random.randint(1, 5)
-        tile      = _load_ground_tile(color_idx)
+    def __init__(self, tier: int = 0):
+        self.tier = tier                    # welches Biom dieser gebackene BG zeigt
+        self._bg  = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-        # Hintergrund einmalig "backen"
-        self._bg = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-        cols = SCREEN_WIDTH  // _TILE_SIZE + 1
-        rows = SCREEN_HEIGHT // _TILE_SIZE + 1
-        for row in range(rows):
-            for col in range(cols):
-                self._bg.blit(tile, (col * _TILE_SIZE, row * _TILE_SIZE))
-
-        # Dekorationen zufällig verteilen
-        pool      = _load_deco_pool()
-        cx, cy    = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
-        excl_r    = 90           # Freiraum um den Turm
-        n         = random.randint(14, 22)
-        self._decos: list[tuple] = []
-        attempts  = 0
-
-        while len(self._decos) < n and attempts < 800:
-            attempts += 1
-            surf = random.choice(pool)
-            # Mindestabstand zum Rand (halbe Sprite-Breite + 4px)
-            pad = surf.get_width() // 2 + 4
-            x   = random.randint(pad, SCREEN_WIDTH  - pad)
-            y   = random.randint(pad, SCREEN_HEIGHT - pad)
-            # Turmbereich freihalten (kreisförmig)
-            if ((x - cx) ** 2 + (y - cy) ** 2) < excl_r ** 2:
-                continue
-            # Mindestabstand zwischen Dekorationen (verhindert Stapeln)
-            too_close = any(
-                ((x - dx) ** 2 + (y - dy) ** 2) < 40 ** 2
-                for (_, dx, dy) in self._decos
-            )
-            if too_close:
-                continue
-            self._decos.append((surf, x - surf.get_width() // 2,
-                                       y - surf.get_height() // 2))
+        bg_tex = sprite_loader.load_tier_background(tier, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        if bg_tex is not None:
+            # Tier-Voll-Textur (Friedhof/Lava/Eis): bildschirmfüllend gebacken. Sie bringt
+            # eigene Details (Knochen, Lava, Kristalle) mit → keine Tiny-Swords-Decos drüber.
+            self._bg.blit(bg_tex, (0, 0))
+            self._decos: list[tuple] = []
+        else:
+            # Fallback (Golden Rule 5): Tiny-Swords-Gras gekachelt + Büsche/Felsen gestreut.
+            tile = _load_ground_tile(random.randint(1, 5))
+            cols = SCREEN_WIDTH  // _TILE_SIZE + 1
+            rows = SCREEN_HEIGHT // _TILE_SIZE + 1
+            for row in range(rows):
+                for col in range(cols):
+                    self._bg.blit(tile, (col * _TILE_SIZE, row * _TILE_SIZE))
+            self._decos = _scatter_decos()
 
     def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self._bg, (0, 0))

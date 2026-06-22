@@ -7,6 +7,34 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
+**Boden-Schärfe + Lancer/Monk-Reskins (2026-06-22) — ADR 030/031.**
+- **Boden scharf (ADR 031):** Der 1,4×-Kamera-Zoom hatte die Boden-Textur hochskaliert → leicht
+  unscharf. Jetzt wird der Boden **nativ direkt auf `screen`** gezeichnet, nur die Gameplay-Ebene
+  (`world_surf`, jetzt **SRCALPHA**) liegt gezoomt drüber (`blit_world_zoomed` blittet alpha-erhaltend
+  statt in den Screen zu schreiben). Texturen auf exakt **1280×720** re-importiert, `load_tier_background`
+  gibt 1:1 zurück (kein Runtime-Resample). Verifiziert: `02_playing.png` sichtbar schärfer, Flow crashfrei.
+- **Lancer/Monk-Reskins (ADR 030):** tanker/monk sind jetzt **pro Tier reskinbar** (im `TIER_ROSTER`,
+  Spawn-Sonderfall entfernt). `_LancerReskin`/`_MonkReskin` tauschen **nur die Lauf-Frames**, behalten
+  die Spezial-Animationen, und fallen ohne PNG auf das **Original** zurück (keine Regression). **6 PNGs
+  fehlen:** `skeleton_lancer`, `skeleton_monk`, `demon_lancer`, `demon_monk`, `drake_lancer`, `drake_monk`
+  (je `_run.png`, extern via Leonardo, Magenta-BG). Verifiziert: Spawn-Mapping je Tier korrekt, Caches
+  getrennt, 300 Spawns crashfrei.
+
+---
+
+**Tier-Boden-Texturen drin (2026-06-22) — ADR 029.** Jedes 50-Wellen-Tier hat jetzt eigenen
+Boden: Tier 1 Friedhofspflaster, Tier 2 Lava-Basalt, Tier 3 Eis-Schiefer (Leonardo, Top-Down,
+Tiny-Swords-Stil). Voll-Textur **bildschirmfüllend gebacken** (COVER+Crop, keine Naht) statt
+Kachel-Raster — die Bilder sind zusammenhängende Szenen, kein gleichmäßiges Tileset.
+`sprite_loader.load_tier_background(tier,size)` lädt `assets/custom/tier{1,2,3}_ground.png`;
+`Terrain(tier=…)` skippt im Tier-Modus die Tiny-Swords-Decos (Textur bringt Knochen/Lava/Kristalle
+selbst mit), Fallback auf Gras+Decos bleibt. Biom-Wechsel im `WAVE_CLEAR` gegen den geladenen
+`terrain.tier` geprüft (robust auch bei Dev-Sprüngen). **Verifiziert** (Renders je Tier, In-Game
+`02_playing.png`, voller Treiber-Flow crashfrei). Offen: 3× 1280²-PNG im Repo; Tier-3-Schneerand
+sichtbar (als Arena-Rand akzeptiert).
+
+---
+
 **Playtest läuft (2026-06-22) — zwei Fixes eingespielt, Balance der neuen XP-Kurve offen.**
 - **Necromancer/Lich-Soft-Lock behoben (D40):** Beschwörer kitete auf `ATTACK_RANGE = 240`,
   knapp JENSEITS der Turm-Reichweite (~236 px) → unerreichbar, sobald letzter Gegner + `SUMMON_MAX`
@@ -23,7 +51,11 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 ---
 
 **Fernkämpfer-Geschosse: eigenes Sprite je Schütze + Mündungs-Flash — ADR 027.**
-Code-Wiring steht, **12 PNGs fehlen noch** (extern via Leonardo.ai). Bisher feuerten
+Code-Wiring steht UND **alle 12 PNGs importiert** (Leonardo.ai, freigestellt via
+`key_black_bg`, die 6 Pfeile via `tools/rotate_flat.py` nach rechts ausgerichtet — neues
+Tool, `--auto` PCA-Geradezug + `--flip`). In `assets/custom/`. Verifiziert: alle 6
+Geschoss-Sprites + 6 Cast-Flashes laden (kein Goldpfeil), Geschosse zeigen nach rechts,
+voller Treiber-Flow crashfrei. Bisher feuerten
 alle Fernkämpfer denselben Goldpfeil; jetzt reicht jeder Schütze sein `SPRITE_NAME` ans
 `EnemyProjectile` (`sprite=getattr(self,"SPRITE_NAME",None)`), das daraus
 `assets/custom/<name>_shot.png` (Geschoss, rotiert zur Flugrichtung) + `<name>_cast.png`
@@ -66,6 +98,15 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-22 (Teil 16) — **Player-Turm-Sprite getauscht + Fernkämpfer-Geschosse importiert (ADR 027):**
+- **Neuer Turm:** kristallgekrönte Stein-Bastion (Leonardo, `key_black_bg` freigestellt) →
+  `assets/custom/player_tower.png`; `player._TURM_PATH` darauf repointet (Pack-`Turm.png`
+  unangetastet). `_TOWER_SIZE 110 → 135` (rein visuell, Trefferzone = `PLAYER_RADIUS`).
+- **Alle 12 Geschoss-/Cast-PNGs eingesetzt** (6 Pfeile via neuem `tools/rotate_flat.py`
+  nach rechts ausgerichtet — `--auto` PCA + `--flip`). Nach Nutzer-Bild-Tausch komplett neu
+  freigestellt/ausgerichtet/verifiziert: alle 6 shot + 6 cast laden, Geschosse zeigen rechts,
+  voller Treiber-Flow crashfrei bis VICTORY.
 
 2026-06-22 (Teil 15) — **Playtest-Fixes: Necromancer-Soft-Lock + XP-Kurve (ADR 028):**
 - **Necromancer/Lich greift wieder an (D40):** Wurzel war `Necromancer.ATTACK_RANGE = 240` >

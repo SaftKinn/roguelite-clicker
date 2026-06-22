@@ -261,6 +261,39 @@ def load_enemy_muzzle(name: str, px: int = 40) -> pygame.Surface:
     return _load_single(f"{name}_cast.png", px)
 
 
+# --- Tier-Boden-Texturen (Voll-Hintergrund je Biom, assets/custom/) ----------------
+
+_TIER_BG_NAMES = ["tier1_ground", "tier2_ground", "tier3_ground"]   # 0=Untote 1=Dämonen 2=Drachen
+
+
+def load_tier_background(tier: int, size: tuple[int, int]) -> pygame.Surface | None:
+    """Voll-Bodentextur des Tier-Bioms, bildschirmfüllend per COVER skaliert.
+
+    Quelle: assets/custom/tier{1..3}_ground.png — eine Top-Down-Textur (Leonardo,
+    Tiny-Swords-Stil). Wird seitenverhältnis-erhaltend so skaliert, dass sie `size`
+    voll abdeckt, dann mittig zugeschnitten (cover + center-crop): keine Verzerrung,
+    keine Kachelnaht, der dunkle Rahmen-Rand der Vorlage fällt weg.
+
+    Gibt None zurück, wenn das Asset fehlt oder bricht — der Aufrufer (Terrain) fällt
+    dann auf den Tiny-Swords-Gras-Boden zurück (Golden Rule 5, Spiel crasht nie)."""
+    if not (0 <= tier < len(_TIER_BG_NAMES)):
+        return None
+    path = os.path.join(_CUSTOM_BASE, f"{_TIER_BG_NAMES[tier]}.png")
+    try:
+        surf = pygame.image.load(path).convert()
+    except Exception:
+        return None
+    if surf.get_size() == size:
+        return surf                                # bereits exakt Zielgröße → 1:1, kein Resample
+    tw, th = size
+    sw, sh = surf.get_size()
+    scale  = max(tw / sw, th / sh)                 # COVER: füllt beide Achsen, kein Verzerren
+    scaled = pygame.transform.smoothscale(surf, (round(sw * scale), round(sh * scale)))
+    x = (scaled.get_width()  - tw) // 2
+    y = (scaled.get_height() - th) // 2
+    return scaled.subsurface((x, y, tw, th)).copy()   # mittig auf Zielgröße zuschneiden
+
+
 def load_cannonball(size: int = 20):
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "assets", "Tiny Swords (Free Pack)", "Cannonball.png")

@@ -895,6 +895,92 @@ class DragonPriest(_CustomSummoner):
     COLOR_BODY, COLOR_OUTLINE = (190, 165, 70), (115, 95, 35)
 
 
+# --- Tanker (Lancer) & Heiler (Monk) als Tier-Reskins ----------------------
+# Anders als die 5 Rollen oben haben Lancer/Monk reiche Spezial-Animationen
+# (Lancer: Richtungsangriffe, Monk: Heilung). Der Reskin tauscht NUR die Lauf-
+# Frames gegen assets/custom/<SPRITE_NAME>_run.png; fehlt das PNG, bleibt das
+# Tiny-Swords-Original (kein Primitiv-Kreis, also KEINE Regression). Spezial-
+# Animationen bleiben immer das Original. Jede Leaf-Klasse deklariert ihre Sprite-
+# Caches neu (= None), damit sich die Tier-Skins nicht teilen.
+class _LancerReskin(Lancer):
+    SPRITE_NAME = ""
+    SPRITE_PX   = 90
+
+    @classmethod
+    def _load_sprites(cls) -> None:
+        if cls._frames_r is not None:
+            return
+        super()._load_sprites()                       # Original-Walk + Lancer-Angriffe (Fallback)
+        from . import sprite_loader
+        try:
+            fr, fl = sprite_loader.load_custom_enemy(cls.SPRITE_NAME, cls.SPRITE_PX)
+            if fr:                                     # nur ersetzen, wenn das PNG wirklich da ist
+                cls._frames_r, cls._frames_l = fr, fl
+        except Exception:
+            pass
+
+
+class _MonkReskin(Monk):
+    SPRITE_NAME = ""
+    SPRITE_PX   = 44
+
+    @classmethod
+    def _load_sprites(cls) -> None:
+        if cls._frames_r is not None:
+            return
+        super()._load_sprites()                       # Original-Walk + Heil-Animation (Fallback)
+        from . import sprite_loader
+        try:
+            fr, fl = sprite_loader.load_custom_enemy(cls.SPRITE_NAME, cls.SPRITE_PX)
+            if fr:
+                cls._frames_r, cls._frames_l = fr, fl
+        except Exception:
+            pass
+
+
+# Tier 1 — Untote
+class SkeletonLancer(_LancerReskin):
+    SPRITE_NAME = "skeleton_lancer"
+    _frames_r = _frames_l = None
+    _lancer_atk = None
+    COLOR_BODY, COLOR_OUTLINE = (210, 210, 195), (120, 120, 105)
+
+class SkeletonMonk(_MonkReskin):
+    SPRITE_NAME = "skeleton_monk"
+    _frames_r = _frames_l = None
+    _heal_frames_r = _heal_frames_l = None
+    _heal_fx_frames = None
+    COLOR_BODY, COLOR_OUTLINE = (170, 200, 175), (90, 120, 95)
+
+# Tier 2 — Dämonen
+class DemonLancer(_LancerReskin):
+    SPRITE_NAME = "demon_lancer"
+    _frames_r = _frames_l = None
+    _lancer_atk = None
+    COLOR_BODY, COLOR_OUTLINE = (185, 60, 50), (110, 30, 25)
+
+class DemonMonk(_MonkReskin):
+    SPRITE_NAME = "demon_monk"
+    _frames_r = _frames_l = None
+    _heal_frames_r = _heal_frames_l = None
+    _heal_fx_frames = None
+    COLOR_BODY, COLOR_OUTLINE = (215, 110, 70), (135, 55, 35)
+
+# Tier 3 — Drachen-Brut
+class DrakeLancer(_LancerReskin):
+    SPRITE_NAME = "drake_lancer"
+    _frames_r = _frames_l = None
+    _lancer_atk = None
+    COLOR_BODY, COLOR_OUTLINE = (70, 150, 115), (35, 90, 70)
+
+class DrakeMonk(_MonkReskin):
+    SPRITE_NAME = "drake_monk"
+    _frames_r = _frames_l = None
+    _heal_frames_r = _heal_frames_l = None
+    _heal_fx_frames = None
+    COLOR_BODY, COLOR_OUTLINE = (90, 180, 150), (45, 110, 90)
+
+
 # ---------------------------------------------------------------------------
 
 class Boss(Warrior):

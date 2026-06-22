@@ -12,8 +12,8 @@ RADIUS   = 18
 MAX_HP   = 120   # Basis-HP des Turms (knackiger/tödlicher, ADR 008; HP kommt nun v. a. über Level-up-Karten)
 
 _TURM_PATH  = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                            "assets", "Tiny Swords (Free Pack)", "Turm.png")
-_TOWER_SIZE = round(110 * balance.SPRITE_SCALE)   # Turm-Sprite global mitskaliert (SPRITE_SCALE)
+                            "assets", "custom", "player_tower.png")
+_TOWER_SIZE = round(135 * balance.SPRITE_SCALE)   # Turm-Sprite global mitskaliert (SPRITE_SCALE)
 
 _SENTINEL   = object()
 _tower_surf = None

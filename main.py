@@ -11,6 +11,8 @@ from game.enemy        import (Warrior, Archer, Lancer, Monk, Goblin, OrcBerserk
                               SkeletonWarrior, BoneSwarmling, SkeletonArcher, BoneColossus, Lich,
                               ImpWarrior, Hellhound, DemonCaster, PitBrute, DemonSummoner,
                               DrakeWarrior, Wyrmling, DrakeArcher, ScaleTitan, DragonPriest,
+                              SkeletonLancer, SkeletonMonk, DemonLancer, DemonMonk,
+                              DrakeLancer, DrakeMonk,
                               RADIUS as ENEMY_RADIUS)
 from game.projectile   import Projectile
 from game.upgrade_menu import UpgradeMenu
@@ -54,15 +56,19 @@ PLAYER_ATTACK_RANGE = (SCREEN_HEIGHT / 2) / CAMERA_ZOOM * ATTACK_RANGE_FRAC
 # ---------------------------------------------------------------------------
 
 
-# Tier-Roster (ADR 024): pro 50-Wellen-Abschnitt eine reskinnte Variante je Rolle.
-# tanker (Lancer) und monk (Monk) behalten ihr Tiny-Swords-Original über alle Tiers.
+# Tier-Roster (ADR 024 + 030): pro 50-Wellen-Abschnitt eine reskinnte Variante je Rolle —
+# inkl. tanker (Lancer) und monk (Monk), die jetzt ebenfalls pro Tier reskinbar sind
+# (Fallback auf ihr Tiny-Swords-Original, solange kein <name>_run.png existiert).
 TIER_ROSTER = [
     {"basic": SkeletonWarrior, "rusher": SkeletonArcher, "goblin": BoneSwarmling,
-     "orc": BoneColossus, "necro": Lich},                          # Welle 1–50   (Untote)
+     "orc": BoneColossus, "necro": Lich,
+     "tanker": SkeletonLancer, "monk": SkeletonMonk},              # Welle 1–50   (Untote)
     {"basic": ImpWarrior, "rusher": DemonCaster, "goblin": Hellhound,
-     "orc": PitBrute, "necro": DemonSummoner},                     # Welle 51–100  (Dämonen)
+     "orc": PitBrute, "necro": DemonSummoner,
+     "tanker": DemonLancer, "monk": DemonMonk},                    # Welle 51–100  (Dämonen)
     {"basic": DrakeWarrior, "rusher": DrakeArcher, "goblin": Wyrmling,
-     "orc": ScaleTitan, "necro": DragonPriest},                    # Welle 101–150 (Drachen-Brut)
+     "orc": ScaleTitan, "necro": DragonPriest,
+     "tanker": DrakeLancer, "monk": DrakeMonk},                    # Welle 101–150 (Drachen-Brut)
 ]
 
 
@@ -95,11 +101,8 @@ def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
         kinds          = ["basic", "rusher", "tanker", "monk", "goblin", "orc", "necro"]
         weights        = [24, 18, 12, 9, 16, 10, 11]
     kind = random.choices(kinds, weights=weights)[0]
-    # tanker (Lancer) und monk (Monk) bleiben über alle Tiers ihr Tiny-Swords-Original;
-    # die übrigen Rollen (basic/rusher/goblin/orc/necro) liefert das Tier-Roster reskinnt.
-    if   kind == "tanker": enemy = Lancer(base_speed, base_hp)
-    elif kind == "monk":   enemy = Monk(base_speed, base_hp)
-    else:                  enemy = TIER_ROSTER[tier_for_wave(wave)][kind](base_speed, base_hp)
+    # Alle Rollen (inkl. tanker/monk) liefert jetzt das Tier-Roster reskinnt (ADR 030).
+    enemy = TIER_ROSTER[tier_for_wave(wave)][kind](base_speed, base_hp)
     # Wellen-Härte: alle 10 Wellen +40 % auf Schaden (HP steckt schon in base_hp via
     # enemy_hp_for_wave). Kompoundierend mit der Wellenhöhe.
     enemy.dmg_mult = wave_tier_mult(wave)
@@ -460,11 +463,13 @@ def draw_boss_bar(screen: pygame.Surface, font: pygame.font.Font,
 # ---------------------------------------------------------------------------
 
 def blit_world_zoomed(screen: pygame.Surface, world: pygame.Surface, zoom: float) -> None:
-    """Skaliert den zentralen 1/zoom-Ausschnitt der Welt formatfüllend auf den Screen.
+    """Skaliert den zentralen 1/zoom-Ausschnitt der GAMEPLAY-Ebene formatfüllend auf den
+    Screen und blittet sie alpha-erhaltend über den bereits gezeichneten (scharfen) Boden.
 
     Da um die Bildmitte (= Turm) skaliert wird, bleiben Schussrichtungen (Winkel vom
-    Turm zur Maus) erhalten — Zielen funktioniert unverändert. HUD/Menüs werden danach
-    unskaliert obendrauf gezeichnet.
+    Turm zur Maus) erhalten — Zielen funktioniert unverändert. `world` ist transparent
+    (SRCALPHA), daher per `blit` komponiert statt direkt in den Screen geschrieben — so
+    bleibt der darunterliegende Boden sichtbar. HUD/Menüs kommen danach unskaliert drauf.
     """
     if zoom == 1.0:
         screen.blit(world, (0, 0))
@@ -473,7 +478,7 @@ def blit_world_zoomed(screen: pygame.Surface, world: pygame.Surface, zoom: float
     cw, ch = int(w / zoom), int(h / zoom)
     x, y   = (w - cw) // 2, (h - ch) // 2
     crop   = world.subsurface((x, y, cw, ch))
-    pygame.transform.smoothscale(crop, (w, h), screen)
+    screen.blit(pygame.transform.smoothscale(crop, (w, h)), (0, 0))
 
 
 # ---------------------------------------------------------------------------
@@ -485,7 +490,10 @@ def main():
     screen   = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SCALED)
     pygame.display.set_caption(TITLE)
     clock    = pygame.time.Clock()
-    world_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))   # Welt wird hier gezeichnet, dann gezoomt geblittet
+    # Gameplay-Ebene (Gegner/Geschosse/Spieler) — TRANSPARENT, wird gezoomt über den scharf
+    # auf den Screen gezeichneten Boden geblittet. So unterliegt nur das Gameplay dem Kamera-
+    # Zoom (1.4×), der Boden bleibt in nativer Auflösung scharf.
+    world_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
 
     # Custom cursor
     import os as _os
@@ -570,7 +578,7 @@ def main():
         player      = Player()
         pc          = pygame.math.Vector2(player.x, player.y)
         gs          = fresh_game_state()
-        terrain     = Terrain()
+        terrain     = Terrain(tier=tier_for_wave(gs["wave"]))
         dmg_numbers = []
         apply_permanent_bonuses(player, gs["stats"], save)
         snd.start_run_music()
@@ -963,6 +971,11 @@ def main():
                     gs["wave"]           += 1
                     gs["spawn_remaining"] = enemies_for_wave(gs["wave"])
                     gs["spawn_timer"]     = 0
+                    # Biom-Wechsel bei Tier-Grenze (W50→51, W100→101): gegen den
+                    # tatsächlich geladenen Boden prüfen, nicht alte/neue Welle —
+                    # so greift es auch nach Dev-Sprüngen (F3/F4).
+                    if terrain and terrain.tier != tier_for_wave(gs["wave"]):
+                        terrain = Terrain(tier=tier_for_wave(gs["wave"]))
                     if gs["wave"] % 50 == 0:
                         gs["banner"] = {"text": "SUPER BOSS!", "color": (220, 20, 40), "timer": 180}
                         snd.play("boss_intro")
@@ -994,11 +1007,13 @@ def main():
         elif state == "BESTIARY":
             bestiary_menu.draw(screen, mouse_pos, set(save["seen_enemies"]))
         else:
-            # --- Welt in eigenes Surface zeichnen, dann gezoomt auf den Screen ---
+            # --- Boden SCHARF (nativ, ungezoomt) direkt auf den Screen; Gameplay-Ebene
+            #     danach transparent gezoomt drüber (blit_world_zoomed) ---
             if terrain:
-                terrain.draw(world_surf)
+                terrain.draw(screen)
             else:
-                world_surf.fill(BG_COLOR)
+                screen.fill(BG_COLOR)
+            world_surf.fill((0, 0, 0, 0))        # transparente Gameplay-Ebene leeren
             if gs:
                 for e  in gs["enemies"]:
                     e.draw(world_surf)

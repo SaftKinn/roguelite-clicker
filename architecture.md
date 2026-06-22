@@ -170,7 +170,13 @@ deklarieren**, sonst greift sie über die MRO auf die der Basisklasse zu.
 Gegnertypen:
 
 - `Warrior` (Nahkampf, Standard) — zugleich die Basisklasse aller Gegner
-- `Archer` (Fernkampf, erzeugt `EnemyProjectile`) — Spawn-Key „rusher"
+- `Archer` (Fernkampf, erzeugt `EnemyProjectile`) — Spawn-Key „rusher". `EnemyProjectile`
+  trägt ein **eigenes Geschoss-Sprite je Schütze** (ADR 027): der Schütze reicht sein
+  `SPRITE_NAME` durch, das Projektil lädt `assets/custom/<name>_shot.png` (zur Flugrichtung
+  rotiert) + blendet beim Abschuss kurz `<name>_cast.png` (Mündungs-Flash, an die Projektil-
+  Lebenszeit `MUZZLE_TICKS` gekoppelt) ein. Fehlt eine PNG → Fallback auf den Standard-Pfeil
+  → gezeichnete Kreise. PNGs via `tools/key_black_bg.py` freigestellt, Geschosse via
+  `tools/rotate_flat.py` nach rechts ausgerichtet.
 - `Lancer` (Tank, 5 Richtungs-Angriffsanimationen) — Spawn-Key „tanker"
 - `Monk` (Heiler, heilt Nachbarn + Heal-FX)
 - `Goblin` (Schwarm-Rusher, ADR 017) — sehr schnell (×1.6), HP ×2.5 (D32: neue Gegner ×10
