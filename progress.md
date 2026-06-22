@@ -7,6 +7,22 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
+**Overdrive — erste aktivierbare Spieler-Fähigkeit (2026-06-22) — ADR 034.** Gegen den rein
+passiven Auto-Combat (ADR 010, offene Genre-Frage „woher kommt aktive Spannung?"): **Leertaste**
+zündet einen 5-s-Burst mit **×2 Angriffstempo + ×1.5 Schaden**, danach 18 s Cooldown (ab
+Aktivierung → 13 s echte Abklingzeit). Umsetzung minimal-invasiv: zwei Timer in `gs`
+(`overdrive_active`/`overdrive_cd`, Ticks aus Sekunden × Live-FPS, **pro Sub-Tick** dekrementiert
+→ FPS- **und** Zeitraffer-stabil wie `fire_timer`); Auslöser im KEYDOWN-Block; Effekt als reiner
+Multiplikator an genau zwei Stellen (`attack_speed × od_atk` beim `fire_timer`-Reset +
+`spawn_projectiles(..., damage_mult=od_dmg)`, neuer Default-Param 1.0 → **keine** persistente
+`stats`-Mutation). HUD-Balken oben mittig (orange=aktiv / grau=lädt / grün=bereit), Werte in
+`balance.OVERDRIVE_*`, eigener prozeduraler Sound `"overdrive"`. CONTROLS-Screen + Treiber
+(Leertasten-Schritt `02b_overdrive.png`) nachgezogen. **Verifiziert:** voller Flow crashfrei,
+Balken-Wechsel grün→orange im Screenshot. **Offen:** Balance (5/18 s, ×2/×1.5) ungetestet — das
+Boss-DPS-Modell kennt Overdrive noch nicht. **Noch nicht committet.**
+
+---
+
 **UI-Redesign „Glass-Hybrid" + zentrales Theme-Modul (2026-06-22) — ADR 033.** Das ganze
 Front-End wurde von flach-gezeichnet auf einen modernen, kohärenten Look gehoben. Neu:
 **`game/theme.py`** als einzige Quelle des UI-Looks — Palette + gecachte „Glass"-Primitive
@@ -19,10 +35,13 @@ Schatten/Glow, **4 Gruppen-Icons** statt 2 geteilte, Fallback auf Tiny-Swords-Ic
 Slot-Auswahl, Optionen, Lexikon, sowie In-Game-Overlays (Pause/Game-Over/Sieg/„Welle
 geschafft" als zentrierte Glass-Card mit Glow-Titel). Gruppen-Farben bleiben in `balance.py`.
 **Verifiziert:** Headless-Renders aller Screens + voller Treiber-Flow (Slot→Menü→PLAYING→
-F7-Karten→Sieg) **crashfrei**. **Offen (extern):** 5 Leonardo-PNGs noch zu generieren —
-`assets/custom/menu_logo.png` + `icon_{red,blue,gold,white}.png` (Prompts+Settings im
-Plan-File `ich-m-chte-f-r-die-inherited-floyd`); optionale Display-TTF nach `assets/fonts/`.
-Bis dahin greifen Fallbacks (nichts crasht). **Noch nicht committet.**
+F7-Karten→Sieg) **crashfrei**. **5 Leonardo-PNGs jetzt eingebaut** (Wappen + 4 Gruppen-Icons,
+Master extern, via Pillow tight-cropped + Icons quadratisch zentriert → `assets/custom/
+menu_logo.png` + `icon_{red,blue,gold,white}.png`): Hauptmenü zeigt das Wappen über dem
+Schriftzug (Logo per Höhe+Breite-Box skaliert, Buttons tiefer), Karten zeigen je Gruppen-Icon.
+Live-Loop bestätigt. **Offen (optional):** Display-TTF nach `assets/fonts/` (sonst Arial).
+**Noch nicht committet** (Icons/Logo sind tracked — nicht von der `*_static/_shot/_cast`-
+gitignore-Regel erfasst, wie die Tier-Böden).
 
 ---
 
@@ -146,6 +165,20 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-22 (Teil 18) — **Overdrive: erste aktivierbare Fähigkeit (ADR 034):**
+- **Leertaste → 5-s-Burst** (×2 Angriffstempo, ×1.5 Schaden), 18 s Cooldown ab Aktivierung.
+  Erster Schritt gegen die offene Genre-Frage (aktiver Eingriff im sonst passiven Auto-Combat).
+- **`balance.py`:** Sektion `OVERDRIVE_*` (`DURATION_S=5`, `COOLDOWN_S=18`, `ATTACK_MULT=2.0`,
+  `DAMAGE_MULT=1.5`). **`sounds.py`:** prozeduraler `"overdrive"`-Sweep.
+- **`main.py`:** Timer `overdrive_active`/`overdrive_cd` in `fresh_game_state`; Auslöser im
+  KEYDOWN-Block (Leertaste, nur wenn `overdrive_cd<=0`); im PLAYING-Update pro Sub-Tick
+  dekrementiert + Multiplikatoren `od_atk`/`od_dmg` (1.0 außerhalb des Bursts); `spawn_projectiles`
+  bekam `damage_mult`-Param. HUD: `draw_overdrive_bar` (oben mittig, orange/grau/grün).
+  CONTROLS-Zeile ergänzt. Treiber: Leertasten-Schritt `02b_overdrive.png`.
+- **Verifikation:** `py_compile` ok; voller Treiber-Flow crashfrei (inkl. Overdrive zünden →
+  Balken grün→orange bestätigt, bis Sieg). **Noch nicht committet.** Offen: Balance-Tuning + das
+  Boss-DPS-Modell kennt Overdrive noch nicht.
 
 2026-06-22 (Teil 17) — **UI-Redesign „Glass-Hybrid" (ADR 033):**
 - **Neues `game/theme.py`** (Palette + gecachte Glass-Primitive: `backdrop`/`backdrop_region`,
@@ -606,7 +639,9 @@ Datentabellen-Eintrag mehr).
 - **Autoaim-Priorisierung (ADR 010):** zielt simpel auf den **nächsten** Gegner. Reicht
   das, oder braucht es „gefährlichster/zähester zuerst" (z. B. Elites priorisieren)?
 - **Genre-Identität:** Mit Passiv-Combat ist der „Clicker"-Anteil weg — woher kommt die
-  aktive Spannung? (Build-Tiefe, Gegnerdruck, evtl. aktivierbare Fähigkeit?) Offen.
+  aktive Spannung? **Teil-Antwort (ADR 034):** erste aktivierbare Fähigkeit **Overdrive**
+  (Leertaste, Burst). Folge-Fragen: reicht eine Fähigkeit, oder braucht es mehrere (Meteor/
+  Schockwelle waren die Alternativen)? Ist das Timing-Fenster spürbar? — offen bis Playtest.
 
 ## Decision log
 
@@ -656,6 +691,10 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   (Tool-Quellen) + `*_shot.png`/`*_cast.png` (Geschosse/Cast). 31 Dateien via `git rm --cached`
   untrackt (lokal bleiben sie). Getrackt bleiben `_run`/`tier*_ground`/`player_tower`/`drache_*`.
   Folge: frische Clones zeigen für Geschosse den Goldpfeil-Fallback (Golden Rule 5).
+- **D43** — **Overdrive: erste aktivierbare Spieler-Fähigkeit** → **ADR 034**. Leertaste zündet
+  5-s-Burst (×2 Angriffstempo, ×1.5 Schaden), 18 s Cooldown. Multiplikator-an-der-Quelle (kein
+  Mutieren von `gs["stats"]`), Timer Sub-Tick-getaktet (Zeitraffer-fest). Erster Schritt gegen die
+  Genre-Frage; Alternativen Meteor/Schockwelle verworfen (Nutzerwahl: offensiver Burst).
 - **D1** — Doku-Sprache: Deutsch (Code-Bezeichner bleiben Englisch).
 - **D2** — Projektziel: Lernen mit echter Veröffentlichungs-Absicht später.
 - **D3** — Zielplattform: Windows-Desktop `.exe` (z. B. itch.io). Browser/Mac/Linux

@@ -23,7 +23,9 @@ Karten (ADR 008); verdiente Münzen kaufen dauerhafte Verbesserungen.
 **Rückgrat ist die Roguelite-Run-Struktur** (Welle → Upgrade wählen → stärker
 werden → sterben/neu). Tower-Defense liefert die Gegnerwellen; das Kämpfen läuft
 seit ADR 010 **passiv** (Auto-Feuer + Autoaim) — der „Clicker"-Anteil ist nur noch
-historisch im Namen, nicht mehr in der Eingabe. Der Spielspaß soll aus
+historisch im Namen, nicht mehr in der Eingabe. Als erster Schritt zurück zu aktivem
+Eingreifen gibt es die aktivierbare Fähigkeit **Overdrive** (Leertaste, ADR 034):
+ein zeitlich begrenzter Burst (×2 Angriffstempo, ×1.5 Schaden) mit Cooldown. Der Spielspaß soll aus
 **Build-Vielfalt pro Run** (Upgrade-Kombos) und **dauerhafter Meta-Progression**
 entstehen.
 
@@ -142,7 +144,8 @@ No-Op.
 Der laufende Spielzustand lebt im Dict **`gs`** (erzeugt von
 `fresh_game_state()`): `wave`, `enemies`, `projectiles`, `enemy_projectiles`,
 `pending_shots`, `stats`, `coins`, `obtained`, `spawn_remaining`, `spawn_timer`,
-`wave_clear_timer`, `banner`, `fire_timer` (Auto-Feuer, ADR 009), sowie XP/Level
+`wave_clear_timer`, `banner`, `fire_timer` (Auto-Feuer, ADR 009),
+`overdrive_active`/`overdrive_cd` (Overdrive-Timer in Ticks, ADR 034), sowie XP/Level
 (`xp`, `level`, `xp_to_next`, `pending_levelups`; ADR 008) u. a. `gs is None` bedeutet
 „kein aktiver Lauf"
 (`run_active` im Hauptmenü). Beide Wege ins Menü — Pause→Menü **und**
@@ -235,6 +238,10 @@ Pro Frame im `PLAYING`-State (vereinfacht):
    ATTACK_RANGE_FRAC` → Kills liegen immer im sichtbaren Bild (zoom-abhängig). Doppelschuss-
    Nachzügler laufen über `pending_shots`: die **Stufe** `upgrades.doppelschuss` (0–2) erzeugt so
    viele gerade Extra-Schüsse aufs Ziel (ADR 022 — trifft auch Einzelziele/Bosse).
+   **Overdrive (ADR 034):** ist `overdrive_active > 0`, wird das Feuer-Intervall mit
+   `OVERDRIVE_ATTACK_MULT` und der Geschoss-Schaden (`spawn_projectiles(damage_mult=…)`) mit
+   `OVERDRIVE_DAMAGE_MULT` skaliert; beide Faktoren sind sonst 1.0. Die Timer
+   (`overdrive_active`/`overdrive_cd`) zählen pro Sub-Tick herunter → Zeitraffer-fest wie `fire_timer`.
 3. **Kollisionen:** `check_projectile_hits()` (Spieler-Geschoss → Gegner, mit
    Pierce-/Multishot-Logik; je Treffer **Lifesteal** `LIFESTEAL_PER_HIT` HP),
    `check_enemy_contact()` (Gegner → Turm). Nahkämpfer **stoppen vor dem Turm und

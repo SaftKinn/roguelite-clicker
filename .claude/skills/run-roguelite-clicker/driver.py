@@ -109,6 +109,11 @@ def flow_full(outdir):
     time.sleep(1.0)
     shot("02_playing.png", outdir)
 
+    print("[2b] Leertaste → Overdrive zünden (aktiver Burst, ADR 034)")
+    key(pygame.K_SPACE)
+    time.sleep(0.4)
+    shot("02b_overdrive.png", outdir)
+
     print("[3] F7 → Levelup → Karten-Auswahl (UPGRADE)")
     key(pygame.K_F7)         # Dev-Levelup liegt jetzt auf F7 (F1–F6 = Boss-Wellen-Sprünge)
     time.sleep(0.8)          # Karten-Fade abwarten (klickbar ab fade≥120)

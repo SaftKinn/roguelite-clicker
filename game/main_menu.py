@@ -1,7 +1,9 @@
+import os
 import pygame
 from . import save_data as sd
 from . import ui_loader
 from . import balance
+from . import theme
 from .constants import SCREEN_WIDTH, SCREEN_HEIGHT, BG_COLOR
 
 BTN_W   = 270
@@ -83,24 +85,25 @@ class Button:
 
     def draw(self, screen: pygame.Surface, font: pygame.font.Font,
              mouse_pos: tuple, disabled: bool = False) -> None:
+        r = self.rect
         if disabled:
-            pygame.draw.rect(screen, (25, 25, 35), self.rect, border_radius=8)
-            pygame.draw.rect(screen, (45, 45, 55), self.rect, width=1, border_radius=8)
-            surf = font.render(self.label, True, (70, 70, 80))
-            screen.blit(surf, (self.rect.centerx - surf.get_width()  // 2,
-                                self.rect.centery - surf.get_height() // 2))
+            theme.panel(screen, r, radius=10, top=(24, 25, 34), bottom=(18, 19, 27),
+                        stroke=True, shadow=False)
+            theme.text_center(screen, font, self.label, r.center,
+                              color=theme.TEXT_FAINT, shadow=False)
             return
 
-        hovered    = self.is_hovered(mouse_pos)
-        bg         = COLOR_BTN_HOVER if hovered else COLOR_BTN_BG
-        border     = self.accent     if hovered else COLOR_BTN_BORDER
-        text_color = (255, 255, 255) if hovered else (180, 180, 200)
-
-        pygame.draw.rect(screen, bg,     self.rect, border_radius=8)
-        pygame.draw.rect(screen, border, self.rect, width=2 if hovered else 1, border_radius=8)
-        surf = font.render(self.label, True, text_color)
-        screen.blit(surf, (self.rect.centerx - surf.get_width()  // 2,
-                            self.rect.centery - surf.get_height() // 2))
+        hovered = self.is_hovered(mouse_pos)
+        if hovered:
+            theme.accent_glow(screen, r, self.accent, radius=10, spread=14, alpha=95)
+        theme.panel(screen, r, radius=10, accent=self.accent if hovered else None,
+                    hovered=hovered)
+        if hovered:
+            # dünner Akzentstreifen links als „aktiv"-Marker
+            bar = pygame.Rect(r.x + 6, r.y + 8, 4, r.height - 16)
+            pygame.draw.rect(screen, self.accent, bar, border_radius=2)
+        theme.text_center(screen, font, self.label, r.center,
+                          color=theme.TEXT if hovered else theme.TEXT_DIM)
 
 
 # ---------------------------------------------------------------------------
@@ -118,10 +121,10 @@ class SlotSelectMenu:
 
     def _load_fonts(self) -> None:
         if not self._fonts_ready:
-            self.font_title = pygame.font.SysFont("Arial", 44, bold=True)
-            self.font_sub   = pygame.font.SysFont("Arial", 16)
-            self.font_name  = pygame.font.SysFont("Arial", 24, bold=True)
-            self.font_info  = pygame.font.SysFont("Arial", 16)
+            self.font_title = theme.font(46, bold=True, display=True)
+            self.font_sub   = theme.font(16)
+            self.font_name  = theme.font(24, bold=True)
+            self.font_info  = theme.font(16)
             self._fonts_ready = True
 
     def _card_rect(self, i: int) -> pygame.Rect:
@@ -148,41 +151,41 @@ class SlotSelectMenu:
 
     def draw(self, screen: pygame.Surface, mouse_pos: tuple, summaries: list) -> None:
         self._load_fonts()
-        screen.fill(BG_COLOR)
+        theme.backdrop(screen)
         cx = SCREEN_WIDTH // 2
-        title = self.font_title.render("Speicherstand wählen", True, (255, 220, 60))
-        screen.blit(title, (cx - title.get_width() // 2, SCREEN_HEIGHT // 5))
+        theme.text_center(screen, self.font_title, "Speicherstand wählen",
+                          (cx, SCREEN_HEIGHT // 5 + 24), color=theme.GOLD)
 
+        accent = balance.GROUP_COLORS[balance.GROUP_BLUE]
         for i, slot in enumerate(sd.SLOTS):
             card    = self._card_rect(i)
             summary = summaries[i]
             hovered = card.collidepoint(mouse_pos)
-            pygame.draw.rect(screen, (40, 40, 58) if hovered else (30, 30, 44),
-                             card, border_radius=12)
-            pygame.draw.rect(screen, (90, 130, 200) if hovered else (60, 60, 85),
-                             card, width=2, border_radius=12)
-            name = self.font_name.render(f"Speicherstand {slot}", True, (235, 235, 250))
-            screen.blit(name, (card.x + 22, card.y + 16))
+            if hovered:
+                theme.accent_glow(screen, card, accent, radius=theme.PANEL_RADIUS, spread=12, alpha=80)
+            theme.panel(screen, card, radius=theme.PANEL_RADIUS,
+                        accent=accent if hovered else None, hovered=hovered)
+            theme.text(screen, self.font_name, f"Speicherstand {slot}",
+                       (card.x + 22, card.y + 16), color=theme.TEXT)
             if summary is None:
-                info = self.font_info.render("Leer — neuer Lauf", True, (120, 160, 120))
-                screen.blit(info, (card.x + 22, card.y + 52))
+                theme.text(screen, self.font_info, "Leer — neuer Lauf",
+                           (card.x + 22, card.y + 52), color=(120, 180, 130), shadow=False)
             else:
-                info = self.font_info.render(
-                    f"Rekord: Welle {summary['best_wave']}   ·   Münzen: {summary['total_coins']}",
-                    True, (180, 180, 205))
-                screen.blit(info, (card.x + 22, card.y + 52))
+                theme.text(screen, self.font_info,
+                           f"Rekord: Welle {summary['best_wave']}   ·   Münzen: {summary['total_coins']}",
+                           (card.x + 22, card.y + 52), color=theme.TEXT_DIM, shadow=False)
                 # Löschen-Button
                 dr = self._del_rect(card)
                 dhov = dr.collidepoint(mouse_pos)
-                pygame.draw.rect(screen, (90, 40, 40) if dhov else (60, 30, 30), dr, border_radius=8)
-                pygame.draw.rect(screen, (200, 80, 80), dr, width=1, border_radius=8)
-                dl = self.font_info.render("Löschen", True, (230, 170, 170))
-                screen.blit(dl, (dr.centerx - dl.get_width() // 2,
-                                 dr.centery - dl.get_height() // 2))
+                red = (200, 80, 80)
+                theme.panel(screen, dr, radius=8, accent=red if dhov else None,
+                            hovered=dhov, top=(58, 30, 34), bottom=(40, 22, 26),
+                            shadow=False)
+                theme.text_center(screen, self.font_info, "Löschen", dr.center,
+                                  color=(235, 180, 180))
 
-        hint = self.font_sub.render("Klicke einen Speicherstand, um zu starten.",
-                                    True, (110, 110, 135))
-        screen.blit(hint, (cx - hint.get_width() // 2, SCREEN_HEIGHT - 60))
+        theme.text_center(screen, self.font_sub, "Klicke einen Speicherstand, um zu starten.",
+                          (cx, SCREEN_HEIGHT - 52), color=theme.TEXT_FAINT, shadow=False)
 
 
 # ---------------------------------------------------------------------------
@@ -200,13 +203,22 @@ _MENU_DEFS = [
 
 _GEAR_SIZE = 48   # Zahnrad-Button oben links
 
+# Optionales Leonardo-Logo (assets/custom/menu_logo.png). Fehlt es, greift der
+# gezeichnete Gold-Titel als Fallback (Golden Rule 5: nie ohne Asset crashen).
+_LOGO_PATH    = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "assets", "custom", "menu_logo.png")
+_LOGO_MAX_W   = 420   # Logo-Wappen: proportional in diese Box (Breite × Höhe) skaliert
+_LOGO_MAX_H   = 150
+_LOGO_TOP     = 40    # y-Oberkante des Wappens
+
 
 class MainMenu:
     def __init__(self):
         self._fonts_ready = False
         total_h = len(_MENU_DEFS) * BTN_H + (len(_MENU_DEFS) - 1) * BTN_GAP
         sx = SCREEN_WIDTH  // 2 - BTN_W // 2
-        sy = SCREEN_HEIGHT // 2 - total_h // 2 + 30
+        sy = SCREEN_HEIGHT // 2 - total_h // 2 + 104   # tiefer → Platz für Wappen + Schriftzug oben
         self.buttons    = [
             Button(pygame.Rect(sx, sy + i * (BTN_H + BTN_GAP), BTN_W, BTN_H),
                    d["label"], d["color"])
@@ -216,15 +228,29 @@ class MainMenu:
         self._gear_rect  = pygame.Rect(SCREEN_WIDTH - _GEAR_SIZE - 12, 12,
                                        _GEAR_SIZE, _GEAR_SIZE)
         self._gear_surf  = None
+        self._logo_surf  = None   # None bis Lade-Versuch; False = nicht vorhanden
 
     def _load_fonts(self) -> None:
         if not self._fonts_ready:
-            self.font_title = pygame.font.SysFont("Arial", 50, bold=True)
-            self.font_sub   = pygame.font.SysFont("Arial", 16)
-            self.font_btn   = pygame.font.SysFont("Arial", 20, bold=True)
+            self.font_title = theme.font(56, bold=True, display=True)
+            self.font_sub   = theme.font(16)
+            self.font_btn   = theme.font(20, bold=True)
             raw = ui_loader._img("Icons/Icon_12.png")
             self._gear_surf = pygame.transform.smoothscale(raw, (_GEAR_SIZE, _GEAR_SIZE))
+            self._load_logo()
             self._fonts_ready = True
+
+    def _load_logo(self) -> None:
+        """Logo-PNG lazy laden; proportional in die Box (_LOGO_MAX_W × _LOGO_MAX_H). False = fehlt."""
+        try:
+            raw = pygame.image.load(_LOGO_PATH).convert_alpha()
+            w, h = raw.get_width(), raw.get_height()
+            scale = min(_LOGO_MAX_W / w, _LOGO_MAX_H / h, 1.0)
+            if scale < 1.0:
+                raw = pygame.transform.smoothscale(raw, (int(w * scale), int(h * scale)))
+            self._logo_surf = raw
+        except Exception:
+            self._logo_surf = False
 
     def handle_click(self, pos: tuple, run_active: bool = False) -> str | None:
         if self._gear_rect.collidepoint(pos):
@@ -239,21 +265,41 @@ class MainMenu:
     def draw(self, screen: pygame.Surface, mouse_pos: tuple,
              save: dict, run_active: bool = False, best_wave: int = 0) -> None:
         self._load_fonts()
-        screen.fill(BG_COLOR)
+        theme.backdrop(screen)
 
         cx = SCREEN_WIDTH // 2
-        title = self.font_title.render("ROGUELITE CLICKER", True, (255, 220, 60))
-        sub   = self.font_sub.render("Tower Defense  ·  Wave Survival", True, (100, 100, 130))
-        screen.blit(title, (cx - title.get_width() // 2, SCREEN_HEIGHT // 4 - 20))
-        screen.blit(sub,   (cx - sub.get_width()   // 2, SCREEN_HEIGHT // 4 + 44))
+        # Wappen-PNG (falls vorhanden) oben, darunter der Gold-Schriftzug; ohne PNG nur Schriftzug.
+        if self._logo_surf:
+            lw, lh = self._logo_surf.get_size()
+            screen.blit(self._logo_surf, (cx - lw // 2, _LOGO_TOP))
+            ty = _LOGO_TOP + lh + 2
+        else:
+            ty = SCREEN_HEIGHT // 4 - 24
+        glow = self.font_title.render("ROGUELITE CLICKER", True, theme.GOLD_DIM)
+        screen.blit(glow, (cx - glow.get_width() // 2 + 2, ty + 2))
+        theme.text_center(screen, self.font_title, "ROGUELITE CLICKER",
+                          (cx, ty + glow.get_height() // 2), color=theme.GOLD)
+        sub_y = ty + glow.get_height() + 6
+        theme.text_center(screen, self.font_sub, "Tower Defense  ·  Wave Survival",
+                          (cx, sub_y + 8), color=theme.TEXT_DIM, shadow=False)
 
+        # Münzen-Pill oben links (Icon + Zahl)
+        coin_txt = str(save['total_coins'])
+        cw = self.font_sub.size(coin_txt)[0]
+        pill_rect = pygame.Rect(12, 12, 34 + cw + 18, 34)
+        theme.pill(screen, pill_rect, accent=balance.GROUP_COLORS[balance.GROUP_GOLD])
+        ui_loader.draw_coin_icon(screen, pill_rect.x + 20, pill_rect.centery, 22)
+        theme.text(screen, self.font_sub, coin_txt,
+                   (pill_rect.x + 36, pill_rect.centery - self.font_sub.get_height() // 2),
+                   color=theme.GOLD)
+
+        # Rekord-Pill (obere Leiste, zentriert — kollidiert nie mit den Buttons)
         if best_wave > 0:
-            rec = self.font_sub.render(f"★  Rekord: Welle {best_wave}", True, (180, 150, 40))
-            screen.blit(rec, (cx - rec.get_width() // 2, SCREEN_HEIGHT // 4 + 66))
-
-        # Münzen-Anzeige oben links
-        coins_surf = self.font_sub.render(f"Münzen: {save['total_coins']}", True, (220, 180, 40))
-        screen.blit(coins_surf, (14, 12 + (_GEAR_SIZE - coins_surf.get_height()) // 2))
+            rt = f"Rekord: Welle {best_wave}"
+            rw = self.font_sub.size(rt)[0]
+            rec_rect = pygame.Rect(cx - (rw + 32) // 2, 12, rw + 32, 34)
+            theme.pill(screen, rec_rect)
+            theme.text_center(screen, self.font_sub, rt, rec_rect.center, color=theme.GOLD)
 
         for btn, bid in zip(self.buttons, self.button_ids):
             disabled = (bid == "improvements" and run_active)
@@ -263,7 +309,7 @@ class MainMenu:
         if self._gear_surf:
             hovered = self._gear_rect.collidepoint(mouse_pos)
             if hovered:
-                pygame.draw.rect(screen, (60, 60, 80), self._gear_rect, border_radius=8)
+                theme.pill(screen, self._gear_rect.inflate(6, 6))
             screen.blit(self._gear_surf, self._gear_rect.topleft)
 
 
@@ -326,9 +372,9 @@ class OptionsMenu:
 
     def _load_fonts(self) -> None:
         if not self._fonts_ready:
-            self.font_title  = pygame.font.SysFont("Arial", 36, bold=True)
-            self.font        = pygame.font.SysFont("Arial", 20, bold=True)
-            self.font_sm     = pygame.font.SysFont("Arial", 14)
+            self.font_title  = theme.font(38, bold=True, display=True)
+            self.font        = theme.font(20, bold=True)
+            self.font_sm     = theme.font(14)
             raw = ui_loader._img("Icons/Icon_11.png")
             self._note_surf  = pygame.transform.smoothscale(
                 raw, (self._VOL_ICON_SIZE, self._VOL_ICON_SIZE))
@@ -425,11 +471,11 @@ class OptionsMenu:
 
     def draw(self, screen: pygame.Surface, mouse_pos: tuple) -> None:
         self._load_fonts()
-        screen.fill(BG_COLOR)
+        theme.backdrop(screen)
         cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
 
-        title = self.font_title.render("Optionen", True, (255, 220, 60))
-        screen.blit(title, (cx - title.get_width() // 2, SCREEN_HEIGHT // 4))
+        theme.text_center(screen, self.font_title, "Optionen",
+                          (cx, SCREEN_HEIGHT // 4 + 18), color=theme.GOLD)
 
         for i, row in enumerate(self._ROWS):
             ry  = cy + self._ROW_START + i * self._ROW_STEP
@@ -563,9 +609,9 @@ class BestiaryMenu:
 
     def _load_fonts(self) -> None:
         if not self._fonts_ready:
-            self.font_title = pygame.font.SysFont("Arial", 36, bold=True)
-            self.font_name  = pygame.font.SysFont("Arial", 20, bold=True)
-            self.font_sm    = pygame.font.SysFont("Arial", 13)
+            self.font_title = theme.font(38, bold=True, display=True)
+            self.font_name  = theme.font(20, bold=True)
+            self.font_sm    = theme.font(13)
             self._fonts_ready = True
 
     def _thumb_for(self, key: str):
@@ -607,7 +653,7 @@ class BestiaryMenu:
 
     def draw(self, screen: pygame.Surface, mouse_pos: tuple, seen: set) -> None:
         self._load_fonts()
-        screen.fill(BG_COLOR)
+        theme.backdrop(screen)
         cx = SCREEN_WIDTH // 2
         # Scroll-Grenzen aus der Inhaltshöhe (24 Einträge ⇒ 8 Reihen, passt nicht mehr).
         rows      = -(-len(self._CATALOG) // self._COLS)
@@ -621,12 +667,11 @@ class BestiaryMenu:
             if r.bottom < self._HEADER_H or r.top > foot_y:
                 continue   # außerhalb des Sichtfensters → überspringen
             is_seen = entry["key"] in seen
-            pygame.draw.rect(screen, (30, 30, 44), r, border_radius=10)
-            pygame.draw.rect(screen, (70, 70, 95) if is_seen else (45, 45, 60),
-                             r, width=2, border_radius=10)
+            theme.panel(screen, r, radius=10,
+                        top=theme.PANEL_SOFT, bottom=theme.PANEL_SOFT_LO, shadow=False)
             # Thumbnail-/Silhouetten-Feld links
             tb = pygame.Rect(r.x + 10, r.y + 10, self._THUMB + 12, r.height - 20)
-            pygame.draw.rect(screen, (18, 18, 28), tb, border_radius=8)
+            pygame.draw.rect(screen, (16, 17, 26), tb, border_radius=8)
             if is_seen:
                 thumb = self._thumb_for(entry["key"])
                 if thumb:
@@ -648,20 +693,20 @@ class BestiaryMenu:
                 lock = self.font_name.render("???", True, (110, 110, 130))
                 screen.blit(lock, (tb.right + 14, r.centery - lock.get_height() // 2))
 
-        # Kopf- und Fußband maskieren Karten, die über/unter das Sichtfenster ragen.
-        pygame.draw.rect(screen, BG_COLOR, (0, 0, SCREEN_WIDTH, self._HEADER_H))
+        # Kopf- und Fußband maskieren Karten, die über/unter das Sichtfenster ragen
+        # (Backdrop-Ausschnitt neu blitten → nahtlos zum Verlauf).
+        theme.backdrop_region(screen, pygame.Rect(0, 0, SCREEN_WIDTH, self._HEADER_H))
         foot_y = SCREEN_HEIGHT - BTN_H - 32
-        pygame.draw.rect(screen, BG_COLOR, (0, foot_y, SCREEN_WIDTH, SCREEN_HEIGHT - foot_y))
+        theme.backdrop_region(screen, pygame.Rect(0, foot_y, SCREEN_WIDTH,
+                                                  SCREEN_HEIGHT - foot_y))
 
-        title = self.font_title.render("Lexikon", True, (255, 220, 60))
-        screen.blit(title, (cx - title.get_width() // 2, 38))
+        theme.text_center(screen, self.font_title, "Lexikon", (cx, 56), color=theme.GOLD)
         n_seen = sum(1 for e in self._CATALOG if e["key"] in seen)
-        prog = self.font_sm.render(f"{n_seen} / {len(self._CATALOG)} entdeckt",
-                                   True, (140, 140, 165))
-        screen.blit(prog, (cx - prog.get_width() // 2, 84))
+        theme.text_center(screen, self.font_sm, f"{n_seen} / {len(self._CATALOG)} entdeckt",
+                          (cx, 90), color=theme.TEXT_DIM, shadow=False)
         if self._max_scroll > 0:
-            hint = self.font_sm.render("Mausrad zum Blättern", True, (120, 120, 150))
-            screen.blit(hint, (cx - hint.get_width() // 2, foot_y + 6))
+            theme.text_center(screen, self.font_sm, "Mausrad zum Blättern",
+                              (cx, foot_y + 12), color=theme.TEXT_FAINT, shadow=False)
 
         self.back_btn.draw(screen, self.font_name, mouse_pos)
 
@@ -690,9 +735,9 @@ class ImprovementsMenu:
 
     def _load_fonts(self) -> None:
         if not self._fonts_ready:
-            self.font_title = pygame.font.SysFont("Arial", 36, bold=True)
-            self.font       = pygame.font.SysFont("Arial", 17, bold=True)
-            self.font_sm    = pygame.font.SysFont("Arial", 13)
+            self.font_title = theme.font(38, bold=True, display=True)
+            self.font       = theme.font(17, bold=True)
+            self.font_sm    = theme.font(13)
             self._fonts_ready = True
 
     def _iter_shop_slots(self):
@@ -752,46 +797,60 @@ class ImprovementsMenu:
                    color, name_txt, desc_txt, cost_txt, state: str) -> None:
         bought_like = state in ("bought", "maxed")
         hovered = rect.collidepoint(mouse_pos) and not bought_like
+        active  = bought_like or hovered
 
-        bg = (38, 38, 55) if hovered and state == "buyable" else (28, 28, 42)
-        pygame.draw.rect(screen, bg, rect, border_radius=8)
-        active = bought_like or hovered
-        pygame.draw.rect(screen, color if active else (55, 55, 75), rect,
-                         width=2 if active else 1, border_radius=8)
-        # Kopfband in Gruppenfarbe
-        pygame.draw.rect(screen, color, (rect.x, rect.y, rect.width, 5),
-                         border_top_left_radius=8, border_top_right_radius=8)
+        if hovered:
+            theme.accent_glow(screen, rect, color, radius=10, spread=12, alpha=85)
+        theme.panel(screen, rect, radius=10, accent=color if active else None,
+                    hovered=hovered, top=theme.PANEL_SOFT, bottom=theme.PANEL_SOFT_LO)
+        # Kopfband in Gruppenfarbe (oben)
+        pygame.draw.rect(screen, color, (rect.x, rect.y, rect.width, 6),
+                         border_top_left_radius=10, border_top_right_radius=10)
 
         rx, ry = rect.x, rect.y
-        name_c = color if bought_like else (255, 255, 255)
-        screen.blit(self.font.render(name_txt, True, name_c),             (rx + 12, ry + 12))
-        screen.blit(self.font_sm.render(desc_txt, True, (150, 150, 170)), (rx + 12, ry + 38))
+        name_c = color if bought_like else theme.TEXT
+        theme.text(screen, self.font, name_txt, (rx + 14, ry + 14), color=name_c)
+        theme.text(screen, self.font_sm, desc_txt, (rx + 14, ry + 40),
+                   color=theme.TEXT_DIM, shadow=False)
 
-        sy = ry + rect.height - 22
+        sy = ry + rect.height - 24
         if bought_like:
-            screen.blit(self.font_sm.render("Gekauft" if state == "bought" else "Max ausgebaut", True, color), (rx + 12, sy))
+            theme.text(screen, self.font_sm,
+                       "Gekauft" if state == "bought" else "Max ausgebaut",
+                       (rx + 14, sy), color=color, shadow=False)
         elif state == "locked":
-            screen.blit(self.font_sm.render(f"{cost_txt}  (zu teuer)", True, (185, 90, 90)), (rx + 12, sy))
+            theme.text(screen, self.font_sm, f"{cost_txt}  (zu teuer)",
+                       (rx + 14, sy), color=(190, 96, 96), shadow=False)
         else:  # buyable
-            txt = "← Klicken zum Kaufen" if hovered else cost_txt
-            screen.blit(self.font_sm.render(txt, True, color if hovered else (200, 170, 60)), (rx + 12, sy))
+            txt = "→ Klicken zum Kaufen" if hovered else cost_txt
+            theme.text(screen, self.font_sm, txt, (rx + 14, sy),
+                       color=color if hovered else theme.GOLD_DIM, shadow=False)
 
     def draw(self, screen: pygame.Surface, mouse_pos: tuple, save: dict) -> None:
         self._load_fonts()
-        screen.fill(BG_COLOR)
+        theme.backdrop(screen)
         cx       = SCREEN_WIDTH // 2
         upgrades = save.get("upgrades", {})
 
-        title = self.font_title.render("Verbesserungen", True, (255, 220, 60))
-        screen.blit(title, (cx - title.get_width() // 2, 50))
-        coins_surf = self.font.render(f"Münzen:  {save['total_coins']}", True, (220, 180, 40))
-        screen.blit(coins_surf, (cx - coins_surf.get_width() // 2, 98))
+        theme.text_center(screen, self.font_title, "Verbesserungen", (cx, 60),
+                          color=theme.GOLD)
+        # Münzen-Pill oben links (konsistent zum Hauptmenü)
+        coin_txt = str(save['total_coins'])
+        cw = self.font.size(coin_txt)[0]
+        pr = pygame.Rect(14, 14, 34 + cw + 18, 34)
+        theme.pill(screen, pr, accent=balance.GROUP_COLORS[balance.GROUP_GOLD])
+        ui_loader.draw_coin_icon(screen, pr.x + 20, pr.centery, 22)
+        theme.text(screen, self.font, coin_txt,
+                   (pr.x + 36, pr.centery - self.font.get_height() // 2), color=theme.GOLD)
 
-        # Spalten-Überschriften je Farbgruppe (Schaden/Verteidigung/Geld/XP)
+        # Spalten-Überschriften je Farbgruppe als Chip (Schaden/Verteidigung/Geld/XP)
         for ci, g in enumerate(_GROUP_ORDER):
-            x   = self._grid_x + ci * (SHOP_COL_W + SHOP_COL_GAP)
-            hdr = self.font.render(balance.GROUP_TITLES[g], True, balance.GROUP_COLORS[g])
-            screen.blit(hdr, (x + SHOP_COL_W // 2 - hdr.get_width() // 2, SHOP_GRID_TOP - 30))
+            x     = self._grid_x + ci * (SHOP_COL_W + SHOP_COL_GAP)
+            color = balance.GROUP_COLORS[g]
+            chip  = pygame.Rect(x + 20, SHOP_GRID_TOP - 36, SHOP_COL_W - 40, 28)
+            theme.pill(screen, chip, accent=color)
+            theme.text_center(screen, self.font, balance.GROUP_TITLES[g],
+                              chip.center, color=color)
 
         for rect, kind, e in self._iter_shop_slots():
             color       = balance.GROUP_COLORS[e["group"]]

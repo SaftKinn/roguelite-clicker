@@ -97,6 +97,11 @@ class SoundManager:
                                _sine(784, 0.12, 0.80),
                                _sweep(350,  60, 0.50, 1.00),
                            )),
+            # Overdrive-Aktivierung (Leertaste, ADR 034): aufsteigender Power-up-Sweep + heller Halteton
+            "overdrive":   _make(_concat(
+                               _sweep(220, 880, 0.22, 0.85),
+                               _sine(880, 0.12, 0.70),
+                           )),
         }
 
         self._apply_sfx()

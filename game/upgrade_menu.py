@@ -1,7 +1,9 @@
+import os
 import random
 import pygame
 from . import ui_loader
 from . import balance
+from . import theme
 from .constants import FPS
 
 # Karten-Farbgruppen (ADR 025): ROT=Schaden, BLAU=Verteidigung, GOLD=Geld, WEISS=XP.
@@ -56,6 +58,14 @@ _TEXT_MAX_W = int(CARD_W * 0.86) - 16
 
 _BODY_COLOR = (26, 28, 40)      # dunkler Kartengrund
 _BORDER_W   = 3
+_CARD_RADIUS = 14
+
+# 4 Gruppen-Icons (ADR: eines je Farbgruppe). Bevorzugt freigestellte Leonardo-PNGs in
+# assets/custom/icon_<group>.png; fehlt eines, greift ein Tiny-Swords-Icon als Fallback
+# (Golden Rule 5 — nie ohne Asset crashen).
+_CUSTOM_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "custom")
+_GROUP_ICON_FALLBACK = {_R: "Icon_05", _B: "Icon_06", _G: "Icon_05", _W: "Icon_06"}
 
 # Reroll-Button (WEISS, ADR 025)
 _REROLL_W, _REROLL_H = 230, 46
@@ -93,17 +103,23 @@ class UpgradeMenu:
     def _load(self) -> None:
         if self._ready:
             return
-        self.font_title = pygame.font.SysFont("Arial", 28, bold=True)
-        self.font_hint  = pygame.font.SysFont("Arial", 12)
-        self.font_btn   = pygame.font.SysFont("Arial", 18, bold=True)
-        # Icons (mit Fallback, falls ein Asset fehlt — Golden Rule 5)
+        self.font_title = theme.font(30, bold=True, display=True)
+        self.font_hint  = theme.font(12)
+        self.font_btn   = theme.font(18, bold=True)
+        # Ein Icon je Farbgruppe: erst Leonardo-PNG, sonst Tiny-Swords-Fallback (Golden Rule 5).
         self._icons = {}
-        for icon_id in ("Icon_05", "Icon_06"):
+        for group, fallback_id in _GROUP_ICON_FALLBACK.items():
+            surf = None
+            custom = os.path.join(_CUSTOM_DIR, f"icon_{group}.png")
             try:
-                raw = ui_loader._img(f"Icons/{icon_id}.png")
-                self._icons[icon_id] = pygame.transform.smoothscale(raw, (_ICON_SIZE, _ICON_SIZE))
+                if os.path.exists(custom):
+                    raw = pygame.image.load(custom).convert_alpha()
+                else:
+                    raw = ui_loader._img(f"Icons/{fallback_id}.png")
+                surf = pygame.transform.smoothscale(raw, (_ICON_SIZE, _ICON_SIZE))
             except Exception:
-                self._icons[icon_id] = None
+                surf = None
+            self._icons[group] = surf
         self._ready = True
 
     def roll(self, obtained: set, count: int = None) -> None:
@@ -165,34 +181,47 @@ class UpgradeMenu:
         card_progress = (self.fade_alpha - CARDS_THRESHOLD) / (OVERLAY_MAX - CARDS_THRESHOLD)
         card_alpha    = int(card_progress * 255)
 
-        title = self.font_title.render("Level Up!  Wähle eine Karte", True, (255, 220, 60))
+        # Titel mit weichem Gold-Glow (beides fadet mit card_alpha).
+        tx = self.screen_w // 2
+        ty = self.screen_h // 4
+        glow = self.font_title.render("Level Up!  Wähle eine Karte", True, theme.GOLD_DIM)
+        glow.set_alpha(card_alpha)
+        screen.blit(glow, (tx - glow.get_width() // 2 + 2, ty + 2))
+        title = self.font_title.render("Level Up!  Wähle eine Karte", True, theme.GOLD)
         title.set_alpha(card_alpha)
-        screen.blit(title, (self.screen_w // 2 - title.get_width() // 2,
-                             self.screen_h // 4))
+        screen.blit(title, (tx - title.get_width() // 2, ty))
 
+        full = self.fade_alpha >= OVERLAY_MAX   # Schatten/Glow erst zeigen, wenn Karten ganz da
         for upgrade, rect in zip(self.choices, self.rects):
-            hovered = rect.collidepoint(mouse_pos) and self.fade_alpha >= OVERLAY_MAX
+            hovered = rect.collidepoint(mouse_pos) and full
             accent  = balance.GROUP_COLORS[upgrade["group"]]
 
-            # Getöntes Rundrechteck: dunkler Körper + farbiges Kopfband + Akzent-Rahmen.
+            # Schatten/Glow ragen über den Kartenrand → direkt auf den Screen (nur bei voll sichtbar).
+            if full:
+                theme.drop_shadow(screen, rect, _CARD_RADIUS, spread=14, alpha=120)
+                if hovered:
+                    theme.accent_glow(screen, rect, accent, radius=_CARD_RADIUS, spread=16, alpha=120)
+
+            # Karteninhalt auf eine eigene Surface (für den Fade) — Glass-Body + Kopfband + Rahmen.
             card = pygame.Surface((CARD_W, CARD_H), pygame.SRCALPHA)
-            pygame.draw.rect(card, (*_BODY_COLOR, 240), (0, 0, CARD_W, CARD_H), border_radius=12)
-            pygame.draw.rect(card, (*accent, 255), (0, 0, CARD_W, _BAND_H),
-                             border_top_left_radius=12, border_top_right_radius=12)
-            pygame.draw.rect(card, (*accent, 255), (0, 0, CARD_W, CARD_H),
-                             width=_BORDER_W, border_radius=12)
+            card.blit(theme._panel_fill(CARD_W, CARD_H, _CARD_RADIUS,
+                                        theme.PANEL_HI, theme.PANEL_LO), (0, 0))
+            # Kopfband als Gruppen-Verlauf (oben gerundet)
+            band = theme._panel_fill(CARD_W, _BAND_H, _CARD_RADIUS,
+                                     theme._lerp(accent, (255, 255, 255), 0.20),
+                                     theme._lerp(accent, theme.INK, 0.30))
+            card.blit(band, (0, 0))
+            card.blit(theme._stroke_surf(CARD_W, CARD_H, _CARD_RADIUS, accent,
+                                         2 if hovered else 1), (0, 0))
 
-            if hovered:
-                pygame.draw.rect(card, (255, 255, 255, 40), (0, 0, CARD_W, CARD_H), border_radius=12)
-
-            # Icon (im Kopfband)
-            icon_surf = self._icons.get(upgrade["icon"])
+            # Icon (im Kopfband) — je Farbgruppe
+            icon_surf = self._icons.get(upgrade["group"])
             if icon_surf is not None:
                 card.blit(icon_surf, (CARD_W // 2 - _ICON_SIZE // 2, _ICON_Y))
 
             # Name + Beschreibung (Schrift schrumpft bei Bedarf)
-            name_s = self._fit_render(upgrade["name"], _NAME_SIZE, True,  (255, 255, 255))
-            desc_s = self._fit_render(upgrade["desc"], _DESC_SIZE, False, (215, 215, 230))
+            name_s = self._fit_render(upgrade["name"], _NAME_SIZE, True,  theme.TEXT)
+            desc_s = self._fit_render(upgrade["desc"], _DESC_SIZE, False, theme.TEXT_DIM)
             card.blit(name_s, (CARD_W // 2 - name_s.get_width() // 2, _NAME_Y))
             card.blit(desc_s, (CARD_W // 2 - desc_s.get_width() // 2, _DESC_Y))
 
@@ -206,15 +235,16 @@ class UpgradeMenu:
         # Reroll-Button (nur wenn Charges vorhanden), unter den Karten
         if rerolls > 0:
             br = self.reroll_button_rect()
-            bhov = br.collidepoint(mouse_pos) and self.fade_alpha >= OVERLAY_MAX
+            bhov = br.collidepoint(mouse_pos) and full
             accent = balance.GROUP_COLORS[balance.GROUP_WHITE]
+            if full and bhov:
+                theme.accent_glow(screen, br, accent, radius=10, spread=12, alpha=95)
             btn = pygame.Surface((br.width, br.height), pygame.SRCALPHA)
-            pygame.draw.rect(btn, (*_BODY_COLOR, 240), (0, 0, br.width, br.height), border_radius=10)
-            pygame.draw.rect(btn, (*accent, 255), (0, 0, br.width, br.height),
-                             width=_BORDER_W, border_radius=10)
-            if bhov:
-                pygame.draw.rect(btn, (255, 255, 255, 40), (0, 0, br.width, br.height), border_radius=10)
-            label = self.font_btn.render(f"Neu würfeln  ({rerolls})", True, (255, 255, 255))
+            btn.blit(theme._panel_fill(br.width, br.height, 10,
+                                       theme.PANEL_HI, theme.PANEL_LO), (0, 0))
+            btn.blit(theme._stroke_surf(br.width, br.height, 10, accent,
+                                        2 if bhov else 1), (0, 0))
+            label = self.font_btn.render(f"Neu würfeln  ({rerolls})", True, theme.TEXT)
             btn.blit(label, (br.width // 2 - label.get_width() // 2,
                              br.height // 2 - label.get_height() // 2))
             btn.set_alpha(card_alpha)

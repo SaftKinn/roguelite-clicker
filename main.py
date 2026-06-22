@@ -1,4 +1,18 @@
 import sys
+
+# Windows: Prozess DPI-aware machen, BEVOR ein Fenster entsteht — sonst skaliert Windows
+# das Fenster bei 125%/150%-Anzeige bilinear hoch → das ganze Bild wird unscharf.
+# Per-Monitor-v2 bevorzugt, Fallback auf die ältere System-DPI-API.
+if sys.platform == "win32":
+    import ctypes
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)   # PROCESS_PER_MONITOR_DPI_AWARE
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
 import random
 from game import sounds
 sounds.init_mixer()          # vor pygame.init()!
@@ -165,8 +179,8 @@ def _card_count(save: dict) -> int:
 
 
 def spawn_projectiles(origin: pygame.math.Vector2, mouse_pos: tuple,
-                      stats: dict) -> list:
-    damage = stats["damage"]
+                      stats: dict, damage_mult: float = 1.0) -> list:
+    damage = round(stats["damage"] * damage_mult)   # damage_mult > 1 nur während Overdrive (ADR 034)
     speed  = stats["bullet_speed"]
     radius = stats["bullet_size"]
     pierce = stats["pierce"]
@@ -300,6 +314,7 @@ def fresh_game_state(wave: int = 1) -> dict:
                 # XP/Level (ADR 008): Karten kommen jetzt aus Level-ups, nicht pro Welle
                 xp=0, level=1, xp_to_next=xp_to_next(1, wave), pending_levelups=0,
                 fire_timer=0,   # Cooldown bis zum nächsten Auto-Schuss (ADR 009)
+                overdrive_active=0, overdrive_cd=0,   # Overdrive-Timer in Ticks (Leertaste, ADR 034)
                 stats=dict(damage=BASE_DAMAGE, bullet_speed=10, bullet_size=5,
                            pierce=False, multishot=False,
                            attack_speed=BASE_ATTACK_SPEED,
@@ -363,6 +378,30 @@ def draw_hud(screen: pygame.Surface, font: pygame.font.Font,
     pygame.draw.rect(screen, (70, 95, 130), (bar_x, bar_y, bar_w, bar_h), width=1, border_radius=6)
     lbl = font.render(f"Lvl {level}   {xp}/{xp_to_next} XP", True, (190, 225, 255))
     screen.blit(lbl, (SCREEN_WIDTH // 2 - lbl.get_width() // 2, bar_y - lbl.get_height() - 2))
+
+
+def draw_overdrive_bar(screen: pygame.Surface, font: pygame.font.Font,
+                       active: int, cd: int, dur_ticks: int, cd_ticks: int) -> None:
+    """Overdrive-Status (Leertaste, ADR 034) als Balken oben mittig: orange/leer = aktiv (zählt
+    runter), grau/füllend = lädt, grün/voll = bereit. Reine HUD-Anzeige (Bildschirm-Koord.)."""
+    bar_w, bar_h = 260, 16
+    bar_x = (SCREEN_WIDTH - bar_w) // 2
+    bar_y = 12
+    if active > 0:                                   # aktiver Burst — leert sich
+        ratio = active / dur_ticks if dur_ticks else 0.0
+        col, label = (255, 140, 40), "OVERDRIVE!"
+    elif cd > 0:                                     # Abklingzeit — füllt sich auf
+        ratio = 1.0 - (cd / cd_ticks if cd_ticks else 0.0)
+        col, label = (95, 110, 145), "Overdrive lädt…"
+    else:                                            # bereit
+        ratio = 1.0
+        col, label = (90, 200, 120), "Overdrive bereit  ·  [Leertaste]"
+    pygame.draw.rect(screen, (18, 20, 34), (bar_x, bar_y, bar_w, bar_h), border_radius=6)
+    if ratio > 0:
+        pygame.draw.rect(screen, col, (bar_x, bar_y, int(bar_w * ratio), bar_h), border_radius=6)
+    pygame.draw.rect(screen, (70, 95, 130), (bar_x, bar_y, bar_w, bar_h), width=1, border_radius=6)
+    txt = font.render(label, True, (235, 235, 245))
+    screen.blit(txt, (SCREEN_WIDTH // 2 - txt.get_width() // 2, bar_y + bar_h + 3))
 
 
 def draw_stats_panel(screen: pygame.Surface, font: pygame.font.Font,
@@ -561,6 +600,7 @@ def main():
     # Steuerungs-Übersicht (CONTROLS-Screen, aus dem Pause-Menü erreichbar)
     CONTROLS_LINES = [
         ("Maus / Turm",  "Zielt & feuert vollautomatisch auf den nächsten Gegner (Autoaim)"),
+        ("Leertaste",    "Overdrive: 5 s lang doppeltes Angriffstempo + 1,5× Schaden (Cooldown 18 s)"),
         ("Speed-Button", "oben rechts: Zeitraffer x1 / x5 / x10 / x20 (ausklappbar)"),
         ("B",            "Geschwindigkeit sofort auf x1 zurück"),
         ("C",            "Eigene Stats ein-/ausblenden"),
@@ -649,6 +689,13 @@ def main():
                 if state == "PLAYING" and event.key == pygame.K_b:
                     speed_mult_idx = 0
                     speed_open     = False
+                # Leertaste: Overdrive zünden (offensiver Burst), nur wenn nicht im Cooldown (ADR 034).
+                # Timer aus Sekunden × Live-FPS → FPS-stabil; im Sub-Tick-Loop dekrementiert (Zeitraffer-fest).
+                if state == "PLAYING" and event.key == pygame.K_SPACE and gs and gs["overdrive_cd"] <= 0:
+                    fps = options_menu.fps_value
+                    gs["overdrive_active"] = round(balance.OVERDRIVE_DURATION_S * fps)
+                    gs["overdrive_cd"]     = round(balance.OVERDRIVE_COOLDOWN_S * fps)
+                    snd.play("overdrive")
 
                 # --- Dev-Tasten (nur im laufenden Spiel) ---
                 if state == "PLAYING" and gs:
@@ -829,6 +876,17 @@ def main():
                     gs["spawn_remaining"] -= 1
                     gs["spawn_timer"]      = 0
 
+                # Overdrive (Leertaste, ADR 034): Timer pro Sub-Tick herunterzählen → die
+                # Multiplikatoren gelten genau, solange overdrive_active > 0. Beide Faktoren
+                # 1.0 außerhalb des Bursts (kein Effekt).
+                if gs["overdrive_cd"] > 0:
+                    gs["overdrive_cd"] -= 1
+                if gs["overdrive_active"] > 0:
+                    gs["overdrive_active"] -= 1
+                od_on   = gs["overdrive_active"] > 0
+                od_dmg  = balance.OVERDRIVE_DAMAGE_MULT if od_on else 1.0
+                od_atk  = balance.OVERDRIVE_ATTACK_MULT if od_on else 1.0
+
                 # Auto-Feuer beim Halten der Maustaste, getaktet vom Angriffstempo (ADR 009)
                 if gs["fire_timer"] > 0:
                     gs["fire_timer"] -= 1
@@ -838,21 +896,22 @@ def main():
                 if gs["fire_timer"] <= 0:
                     aim = nearest_enemy_pos(pc, gs["enemies"], PLAYER_ATTACK_RANGE)
                     if aim:
-                        gs["projectiles"] += spawn_projectiles(pc, aim, gs["stats"])
+                        gs["projectiles"] += spawn_projectiles(pc, aim, gs["stats"], od_dmg)
                         snd.play("shoot")
                         # Doppelschuss-Stufe (0–2): je Stufe ein zusätzlicher, verzögerter Schuss
                         # gerade aufs Ziel (Stufe 1 = 2 Schuss, Stufe 2 = 3 Schuss "Dreifachschuss").
                         ds_level = save.get("upgrades", {}).get("doppelschuss", 0)
                         for k in range(ds_level):
                             gs["pending_shots"].append((DOPPELSCHUSS_DELAY * (k + 1), aim))
-                        gs["fire_timer"] = max(1, round(options_menu.fps_value / gs["stats"]["attack_speed"]))
+                        gs["fire_timer"] = max(1, round(options_menu.fps_value
+                                                        / (gs["stats"]["attack_speed"] * od_atk)))
 
                 # Doppelschuss: zweite Kugel nach 8 Frames
                 next_pending = []
                 for delay, mp in gs["pending_shots"]:
                     delay -= 1
                     if delay <= 0:
-                        gs["projectiles"] += spawn_projectiles(pc, mp, gs["stats"])
+                        gs["projectiles"] += spawn_projectiles(pc, mp, gs["stats"], od_dmg)
                         snd.play("shoot")
                     else:
                         next_pending.append((delay, mp))
@@ -1050,6 +1109,11 @@ def main():
                 draw_hud(screen, font, gs["wave"],
                          len(gs["enemies"]) + gs["spawn_remaining"],
                          gs["coins"], gs["level"], gs["xp"], gs["xp_to_next"])
+            if gs and state == "PLAYING":   # Overdrive-Statusbalken oben mittig (ADR 034)
+                draw_overdrive_bar(screen, font_dmg,
+                                   gs["overdrive_active"], gs["overdrive_cd"],
+                                   round(balance.OVERDRIVE_DURATION_S * options_menu.fps_value),
+                                   round(balance.OVERDRIVE_COOLDOWN_S * options_menu.fps_value))
             if gs and state in ("PLAYING", "WAVE_CLEAR"):
                 draw_boss_bar(screen, font, gs["enemies"])
             # HUD-Button oben rechts: Geschwindigkeit (Zeitraffer), ausklappbar; grüner Rahmen = aktiv

@@ -71,3 +71,5 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 030 — Tanker/Monk pro Tier reskinbar (nur Lauf-Frames, Spezial-Anims bleiben)](030-tanker-monk-tier-reskins.md)
 - [ADR 031 — Boden nativ auf `screen` statt gezoomt (Schärfe beim 1.4×-Zoom)](031-boden-scharf-nativ-statt-gezoomt.md)
 - [ADR 032 — Eigene Boss- & SuperBoss-Sprites pro Tier (frontale Pose)](032-eigene-boss-superboss-sprites.md)
+- [ADR 033 — UI-Redesign: zentrales Theme-Modul, „Glass"-Hybrid-Look](033-ui-redesign-theme-glass-hybrid.md)
+- [ADR 034 — Overdrive: aktivierbare Spieler-Fähigkeit (Leertaste, offensiver Burst)](034-overdrive-aktive-faehigkeit.md)

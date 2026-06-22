@@ -32,6 +32,19 @@ BASE_ATTACK_SPEED   = 1.5   # Schüsse pro Sekunde (Basis); Feuer-Intervall = FP
 LIFESTEAL_PER_HIT   = 1     # HP, die der Spieler je Treffer an einem Gegner heilt (ADR 009)
 
 # ---------------------------------------------------------------------------
+# Overdrive — aktivierbare Spieler-Fähigkeit (Leertaste, ADR 034)
+# ---------------------------------------------------------------------------
+# Gegen den rein passiven Auto-Combat (ADR 010): ein offensiver Burst, den der Spieler
+# selbst zündet → kurzzeitig massiv erhöhtes Angriffstempo + Schaden, danach Cooldown.
+# Bringt die aktive Echtzeit-Entscheidung zurück (Genre-Identität). Die Timer laufen in
+# Ticks, werden aber aus Sekunden × Live-FPS berechnet (FPS-stabil) und im Sub-Tick-Loop
+# dekrementiert → skalieren automatisch mit dem Zeitraffer wie fire_timer/HP-Regen.
+OVERDRIVE_DURATION_S  = 5.0   # Sekunden aktiver „Rage"
+OVERDRIVE_COOLDOWN_S  = 18.0  # Sekunden Sperre AB Aktivierung (inkl. der 5 s Dauer → 13 s echte Abklingzeit)
+OVERDRIVE_ATTACK_MULT = 2.0   # Angriffstempo ×… während Overdrive
+OVERDRIVE_DAMAGE_MULT = 1.5   # Schaden ×… während Overdrive
+
+# ---------------------------------------------------------------------------
 # Render-Feel (ADR 007): Kamera-Zoom + globale Sprite-Größe
 # ---------------------------------------------------------------------------
 
