@@ -7,6 +7,34 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
+**3D-Pre-Render-Walk für Tier-2-Boss — ADR 036 (2026-06-22).** Die offene ADR-035-Etappe
+„echte Helden-Animationen" gelöst — aber **anders als geplant**. Am Tier-2-Boss reihum
+durchgespielt und vom Nutzer als minderwertig verworfen: KI-Video (Ludo, matschig + erfand
+Brust-Blitz + graues Schachbrett im MP4), prozedurales `animate_walk` („Wackeln"), Cutout-Rig
+(scharf, aber Naht-Risse — flaches Bild kennt verdeckte Flächen nicht). **Gewinner: 3D-Pre-Render.**
+Pipeline: **Meshy.ai** (image-to-3D, liefert auto-gerigtes GLB **inkl. Walking/Running/Attack/
+Elbow_Strike** → Mixamo entfiel) → neues **`tools/blender_sprite_render.py`** (Blender 5.1
+headless: GLB importieren, **orthographische Frontalkamera** an Bounding-Box gefittet, Film
+transparent, EEVEE, Animations-Framebereich aus der Action → PNG-Sequenz; Flags `--test/--back/
+--res/--frames-step`) → `tools/frames_from_clip.py … --bg none --frames 12` (transparent → kein
+Keying, Fußpunkt-Anker) → **`assets/custom/tier2_boss_run.png`** (12 Frames). Loader zieht sie
+automatisch (`SPRITE_NAME="tier2_boss"`), **null Spielcode-Änderung**. **Verifiziert im Spiel**
+(F3 → Welle 60, Boss läuft scharf/lochfrei auf den Turm zu). 3D-Quellen `assets/custom/_meshy*/`
+(~39 MB) **gitignored**, nur der Strip kommt ins Repo. Neuer Verifikations-Treiber
+`.claude/skills/run-roguelite-clicker/driver_boss60.py` (F3→W60, Serien-Screenshots).
+**Offen:** Tier-1/Tier-3 + 3 SuperBosse hängen noch am prozeduralen `animate_walk` → gleiche
+Pipeline; Meshy-Attack-Clips ungenutzt (→ später `<name>_atk.png`); 12-Frame-Lauftempo im
+echten Feel ungeprüft; KI-Mesh ≠ exaktes Leonardo-Artwork (weichere Texturen); Flügel-/Waffen-
+Motive rigen beim Humanoid-Auto-Rig schlecht.
+
+> **Separates Experiment (NICHT in diesem Repo):** Aus demselben Meshy-Modell wurde ein
+> **Godot-3D-Projekt** (`C:\Users\kings\Desktop\Marshstalker3D\`) aufgesetzt — steuerbarer
+> Charakter (WASD laufen, Shift rennen, Maus-Orbit-Kamera + Scroll-Zoom, Maus/Leertaste
+> angreifen, 4K-Vollbild). Eigenes Spiel, eigener Ordner; berührt den Clicker nicht. Godot
+> beim Nutzer noch zu installieren.
+
+---
+
 **FX-/„Juice"-Layer: Partikel + Treffer-Flash + Turm-Animation + Screenshake (2026-06-22) — ADR 035.**
 Erster Schritt von „alles animieren, damit es professioneller aussieht". Vorab geklärt:
 **keine Multi-Ansichten** nötig (Seitenansicht-Kamera, L/R-Flip wie Vampire Survivors) —
@@ -283,6 +311,24 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-22 (Teil 21) — **3D-Pre-Render-Walk für Tier-2-Boss (ADR 036):**
+- **Vier Animations-Wege am Tier-2 durchprobiert**, drei vom Nutzer als minderwertig verworfen
+  (KI-Video/Ludo matschig + Blitz-Ende; prozedurales „Wackeln"; Cutout-Rig mit Naht-Rissen) →
+  Entscheidung **3D-Pre-Render** (klassisch „pre-rendered", DKC/Diablo).
+- **`tools/blender_sprite_render.py`** (neu): Blender-headless rendert ein animiertes GLB als
+  transparente Frontal-Sprite-Sequenz (Ortho-Kamera an BBox gefittet, EEVEE, `--test/--back/
+  --res/--frames-step`). Quelle = Meshy.ai-GLB (auto-gerigt, Walking/Attack/… fertig).
+- **Pack-Schritt** über bestehendes `frames_from_clip.py … --bg none --frames 12` → `assets/
+  custom/tier2_boss_run.png` (12 Frames). Loader unverändert (`SPRITE_NAME`), kein Spielcode.
+- **`.gitignore`:** `assets/custom/_meshy*/` (3D-Quellen ~39 MB) raus; nur der Strip ins Repo.
+- **Verifikation:** neuer Treiber `driver_boss60.py` (F3 → Welle 60, Serien-Screenshots) →
+  Boss läuft scharf, lochfrei, sauberer Loop auf den Turm zu. `imageio`+`imageio-ffmpeg`
+  installiert (für MP4-Input von `frames_from_clip`). Cutout-Experiment-Reste (`rig_walk.py`,
+  Temp-PNGs) wieder entfernt; Preview-GIF aus dem Repo-Root gelöscht.
+- **Separat (außerhalb Repo):** Godot-3D-Projekt `Desktop\Marshstalker3D\` aus demselben
+  Modell (spielbarer Charakter, laufen/angreifen, Orbit-Kamera/Zoom, 4K-Vollbild) — eigenes
+  Spiel, kein Teil des Clickers.
 
 2026-06-22 (Teil 20) — **FX-/„Juice"-Layer (ADR 035):**
 - **Frage des Nutzers vorab beantwortet:** Multi-Ansichten (4-/8-Richtungen) sind bei der

@@ -25,3 +25,7 @@ save_slot*.json
 assets/custom/*_static.png
 assets/custom/*_shot.png
 assets/custom/*_cast.png
+
+# 3D-Pipeline-Arbeitsdaten (Meshy-GLBs + Blender-Render-Frames) — Quellen, groß,
+# nicht versionieren. Nur der fertige <name>_run.png-Strip kommt ins Repo.
+assets/custom/_meshy*/
