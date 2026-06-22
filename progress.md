@@ -22,8 +22,11 @@ resolve`), **`sd_comfy.py`** (dünner Client: `is_up/load_workflow/set_inputs/ru
 Token-Ersetzung `%PROMPT%` etc., websocket- ODER History-Polling, `requests` lazy → dry-run
 braucht es nie), **`sd_gen.py`** (Orchestrator + CLI: N Kandidaten → Freistellen via
 `key_black_bg` Magenta ODER `--matte rembg` → Kontaktblatt → `--pick N` finalisiert),
-**`workflows/still_txt2img.json`** (txt2img-Graph mit Tokens), **`requirements-sd.txt`**
-(leichte Deps, kein torch), **`README-sd.md`** (Setup-Anleitung). `_sd_raw/` gitignored;
+**`workflows/still_txt2img.json`** (txt2img-Graph mit Tokens) **+ `workflows/still_ipadapter.json`**
+(IP-Adapter-Stilreferenz: `--ref` schaltet automatisch darauf um, `%IPWEIGHT%`/`--ip-weight`,
+KSampler-Modell aus der IPAdapter-Kette — braucht ComfyUI-Erweiterung `ComfyUI_IPAdapter_plus` +
+IP-Adapter/CLIP-Vision-Modelle), **`requirements-sd.txt`** (leichte Deps, kein torch),
+**`README-sd.md`** (Setup-Anleitung). `_sd_raw/` gitignored;
 `*_static.png` war schon gitignored. **Verifiziert (ohne GPU):** `sd_style`/`sd_gen --dry-run`
 lösen Prompts korrekt auf; `load_workflow`+`set_inputs` füllen alle Tokens typrichtig (seed=int,
 cfg=float), `_comment` wird entfernt, jeder Node hat `class_type`; alle Tools `py_compile` sauber;

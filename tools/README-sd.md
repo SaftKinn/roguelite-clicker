@@ -78,6 +78,9 @@ python tools/sd_gen.py --name skeleton_warrior --ckpt deinCheckpoint.safetensors
 python tools/sd_gen.py --name skeleton_warrior --pick 3
 #    → assets/custom/skeleton_warrior_static.png
 
+# 3b) Mit Stil-Referenz für einheitlichen Familien-Look (nutzt IP-Adapter automatisch):
+python tools/sd_gen.py --name imp_warrior --ref assets/custom/skeleton_warrior_static.png
+
 # 4) Animieren wie gewohnt (unverändert):
 python tools/animate_walk.py assets/custom/skeleton_warrior_static.png \
                              assets/custom/skeleton_warrior_run.png
