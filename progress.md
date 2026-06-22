@@ -53,8 +53,11 @@ F7-Karten→Sieg) **crashfrei**. **5 Leonardo-PNGs jetzt eingebaut** (Wappen + 4
 Master extern, via Pillow tight-cropped + Icons quadratisch zentriert → `assets/custom/
 menu_logo.png` + `icon_{red,blue,gold,white}.png`): Hauptmenü zeigt das Wappen über dem
 Schriftzug (Logo per Höhe+Breite-Box skaliert, Buttons tiefer), Karten zeigen je Gruppen-Icon.
-Live-Loop bestätigt. **Offen (optional):** Display-TTF nach `assets/fonts/` (sonst Arial).
-**Noch nicht committet** (Icons/Logo sind tracked — nicht von der `*_static/_shot/_cast`-
+Live-Loop bestätigt. **Display-TTF jetzt drin:** Cinzel (OFL, Variable-Font Regular/Bold/Black)
+unter `assets/fonts/Cinzel.ttf` (+ `OFL.txt`); `theme._find_display_font()` greift sie zur
+Importzeit → alle 8 `display=True`-Titel rendern in Roman-Versalien statt Arial (Menü- und
+Level-up-Titel im Screenshot bestätigt). **Kein Code nötig** (Wiring stand schon).
+**Noch nicht committet** (Icons/Logo/Font sind tracked — nicht von der `*_static/_shot/_cast`-
 gitignore-Regel erfasst, wie die Tier-Böden).
 
 ---
@@ -179,6 +182,18 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-22 (Teil 19) — **Display-Titel-Font eingesetzt (Folgeschritt zu ADR 033):**
+- **Cinzel** (Google Fonts, OFL 1.1 — darf gebündelt werden) nach `assets/fonts/Cinzel.ttf`
+  geladen, `OFL.txt` (Lizenz) dazu. Variable-Font; pygame/SDL_ttf lädt die Regular-Instanz.
+- **Kein Code geändert:** `theme.font(..., display=True)` + `_find_display_font()` (Verzeichnis-
+  Scan zur Importzeit) waren schon verdrahtet (8 Titel-Stellen: Hauptmenü, Slot-Auswahl,
+  Optionen, Lexikon, Pause/Overlays, Shop, In-Game-Sieg-Titel, Level-up-Karten). Untertexte/
+  Buttons bleiben bewusst Arial.
+- **Verifikation:** `theme._DISPLAY_FONT_FILE` zeigt auf Cinzel, Display-Font ≠ Arial (headless
+  geprüft); voller Treiber-Flow crashfrei, Menü- + Level-up-Titel in Roman-Versalien bestätigt
+  (`shots/01_menu.png`, `03_levelup.png`). **Noch nicht committet.**
+- Kein ADR (ADR 033 hatte die Display-TTF als optionalen, bereits entschiedenen Punkt vermerkt).
 
 2026-06-22 (Teil 18) — **Overdrive: erste aktivierbare Fähigkeit (ADR 034):**
 - **Leertaste → 5-s-Burst** (×2 Angriffstempo, ×1.5 Schaden), 18 s Cooldown ab Aktivierung.
