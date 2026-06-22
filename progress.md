@@ -7,6 +7,33 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
+**Lokaler SD-Standbild-Generator — ADR 037 (2026-06-22).** Antwort auf „kannst du eine KI
+bauen, die mir 2D-Asset-Sets generiert?". Geklärt im Dialog: Backend = **lokales Stable
+Diffusion**; Umfang nach Nachfrage bewusst auf **NUR Standbilder** eingegrenzt (SD's starke
+Seite), Animation bleibt bei `animate_walk`/3D-Prerender (ADR 036) — denn frame-genaue
+Konsistenz ist SD's Schwäche. SD ersetzt also nur den **Bild-Schritt** (vorher Leonardo),
+erzeugt `assets/custom/<name>_static.png` und rastet in den bestehenden Workflow
+(`sprite-prompts.md` Schritt 1→2) ein. **Architektur:** ComfyUI läuft als **separater Prozess**
+(bringt torch/CUDA mit), die Tools sprechen nur dessen HTTP-API auf `127.0.0.1:8188` an →
+**Spiel bleibt torch-frei** (`python main.py` unverändert). Neu unter `tools/` (rein additiv,
+kein Spielcode berührt): **`sd_style.py`** (Stil-Wahrheit: Prefix + Negative + 15 Motive aus
+`sprite-prompts.md`, BG auf Magenta `#FF00FF` für Keying, Sampler-Defaults, `build_prompt/
+resolve`), **`sd_comfy.py`** (dünner Client: `is_up/load_workflow/set_inputs/run`, Platzhalter-
+Token-Ersetzung `%PROMPT%` etc., websocket- ODER History-Polling, `requests` lazy → dry-run
+braucht es nie), **`sd_gen.py`** (Orchestrator + CLI: N Kandidaten → Freistellen via
+`key_black_bg` Magenta ODER `--matte rembg` → Kontaktblatt → `--pick N` finalisiert),
+**`workflows/still_txt2img.json`** (txt2img-Graph mit Tokens), **`requirements-sd.txt`**
+(leichte Deps, kein torch), **`README-sd.md`** (Setup-Anleitung). `_sd_raw/` gitignored;
+`*_static.png` war schon gitignored. **Verifiziert (ohne GPU):** `sd_style`/`sd_gen --dry-run`
+lösen Prompts korrekt auf; `load_workflow`+`set_inputs` füllen alle Tokens typrichtig (seed=int,
+cfg=float), `_comment` wird entfernt, jeder Node hat `class_type`; alle Tools `py_compile` sauber;
+kein `game/`-Modul importiert torch/SD-Tools → Spiel unberührt. **Offen / Nutzer-Schritt:**
+ComfyUI + Cartoon-Checkpoint + Tool-Deps auf der GPU-Maschine installieren (siehe `README-sd.md`),
+dann echter End-to-End-Lauf für `skeleton_warrior` (A/B gegen vorhandenes Standbild); optional
+IP-Adapter-Workflow für stärkeren Familien-Look; LoRA erst falls der Stil-Prompt nicht reicht.
+
+---
+
 **3D-Pre-Render-Walk für Tier-2-Boss — ADR 036 (2026-06-22).** Die offene ADR-035-Etappe
 „echte Helden-Animationen" gelöst — aber **anders als geplant**. Am Tier-2-Boss reihum
 durchgespielt und vom Nutzer als minderwertig verworfen: KI-Video (Ludo, matschig + erfand
@@ -311,6 +338,34 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-22 (Teil 23) — **Meshy-3D-Gegner-Prompt-Kit + Beleuchtung in den Backlog:**
+- **`docs/prompts/gegner-meshy-3d.md`** angelegt: fertige Leonardo-Prompts für alle 21 Gegner als
+  **Input-PNG für Meshy.ai (Image-to-3D)**, anschließend ADR-036-Pipeline (GLB → Blender → Strip).
+  An das Roster (`enemy.py`) verankert: Tier-Farben + Proportionen je Rolle. Look-Profil =
+  **realistischer 3D-Render** (aus einem vom Nutzer favorisierten Referenzbild abgeleitet), nicht
+  Cartoon; 19 Gegner **frontal**, 2 Vierbeiner (hellhound/wyrmling) in **Seitenansicht** mit eigenem
+  Negative. Archer tragen jetzt **Armbrust** (zweihändig vorm Körper — umgeht Bogen/Sehne/Links-
+  Rechts-Bugs). Pipeline-Settings: Phoenix · „3D Render" · Hochformat 3:4 · Guidance 8 · Universal
+  Upscaler · `rembg`.
+- **Prompt-Erkenntnisse** als Memory `leonardo-prompt-techniken` festgehalten (Vollbild=Hochformat,
+  Verneinung nur im Negative, Hand über Bildseite, kein „reference sheet", Pose=Auswahl-Problem).
+- **Beleuchtung im Spiel** als geplantes Feature in den neuen Abschnitt „Geplante Features / Backlog"
+  aufgenommen (additive 2D-Light-Layer im Geist von ADR 035, noch kein ADR).
+- Kein Spielcode berührt; reine Doku/Asset-Workflow-Arbeit.
+
+2026-06-22 (Teil 22) — **Lokaler SD-Standbild-Generator (ADR 037):**
+- Auf „kannst du eine KI bauen, die 2D-Asset-Sets generiert?" im Dialog Scope geschärft:
+  Backend **lokales Stable Diffusion**, bewusst **nur Standbilder** (SD-Stärke), Animation
+  bleibt `animate_walk`/3D-Prerender (ADR 036). SD ersetzt nur den Bild-Schritt (vorher Leonardo).
+- **ADR 037** geschrieben (Abgrenzung zu 036: 036 = Animation, 037 = Bild-Erzeugung).
+- Neu unter `tools/` (additiv, kein Spielcode): `sd_style.py` (Stil/Prompt-Wahrheit, 15 Motive),
+  `sd_comfy.py` (ComfyUI-HTTP-Client, Token-Ersetzung), `sd_gen.py` (Orchestrator + CLI:
+  Kandidaten → Freistellen → Kontaktblatt → `--pick`), `workflows/still_txt2img.json`,
+  `requirements-sd.txt`, `README-sd.md`. ComfyUI als separater Prozess → **Spiel bleibt torch-frei**.
+- **Verifiziert ohne GPU:** Prompt-Auflösung + `--dry-run`, Token-Füllung typrichtig, Workflow-
+  Nodes valide, `py_compile` sauber, kein `game/`-Import von torch/SD-Tools. Echter Lauf =
+  Nutzer-Schritt (ComfyUI-Setup, siehe Next concrete step).
 
 2026-06-22 (Teil 21) — **3D-Pre-Render-Walk für Tier-2-Boss (ADR 036):**
 - **Vier Animations-Wege am Tier-2 durchprobiert**, drei vom Nutzer als minderwertig verworfen
@@ -774,6 +829,18 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 
 ## Next concrete step
 
+**ComfyUI auf der GPU-Maschine aufsetzen und den SD-Generator end-to-end testen (ADR 037).**
+ComfyUI installieren (eigenes venv, CUDA-torch), einen gepflegten Cartoon-/Stylized-SD-1.5-
+Checkpoint nach `ComfyUI/models/checkpoints/` legen, `pip install -r tools/requirements-sd.txt`.
+Dann `python tools/sd_comfy.py` (Erreichbarkeit) → `python tools/sd_gen.py --name skeleton_warrior
+--ckpt <datei>` → Kontaktblatt `assets/custom/_sd_raw/skeleton_warrior_contact.png` ansehen →
+`--pick N` → `assets/custom/skeleton_warrior_static.png`. **A/B gegen das vorhandene Standbild**
+entscheidet, ob „professionell genug". Voll dokumentiert in `tools/README-sd.md`.
+
+**Danach offen (separater Strang, ADR 027):** die 12 Fernkämpfer-Angriffs-PNGs (`_shot`/`_cast`)
+— Prompt-Kit im Plan-File `~/.claude/plans/ich-m-chte-f-r-die-twinkling-candy.md`. Details unten
+im alten Eintrag aufgehoben:
+
 **Die 12 Fernkämpfer-Angriffs-PNGs erzeugen (Leonardo.ai) und einsetzen (ADR 027).**
 Pro der 6 spawnenden Tier-Fernkämpfer (`skeleton_archer`, `lich`, `demon_caster`,
 `demon_summoner`, `drake_archer`, `dragon_priest`): ein Geschoss `<name>_shot.png`
@@ -843,6 +910,18 @@ Datentabellen-Eintrag mehr).
   aktive Spannung? **Teil-Antwort (ADR 034):** erste aktivierbare Fähigkeit **Overdrive**
   (Leertaste, Burst). Folge-Fragen: reicht eine Fähigkeit, oder braucht es mehrere (Meteor/
   Schockwelle waren die Alternativen)? Ist das Timing-Fenster spürbar? — offen bis Playtest.
+
+## Geplante Features / Backlog
+
+- **Beleuchtung im Spiel** (geplant, Visual-Polish-Strang im Geist von ADR 035 „Juice"). Ziel:
+  dynamisches Licht für mehr Atmosphäre/Tiefe — z. B. ein weiches Licht/Glow am Turm, leuchtende
+  Projektile/Mündungsblitze, ein dunkleres Arena-Vignetting mit Lichtinseln, ggf. tier-eigene
+  Lichtstimmung (Friedhof kühl, Lava warm/rot, Eis blau). **Ansatz (zu klären):** 2D-Light-Layer
+  als additive Surface (`BLEND_RGB_ADD`) über `world_surf` gerendert — passt zum bestehenden
+  FX-Muster (`game/fx.py`, additive Partikel) und braucht keinen Shader. Offene Punkte: Umfang
+  (nur Turm/Projektile vs. voll dynamisch), Performance bei Zeitraffer x20, Lesbarkeit der
+  Gegner-Sprites bei abgedunkelter Szene. Noch kein ADR — entsteht beim Umsetzen, sobald
+  Abwägung (Look ↔ Performance ↔ Lesbarkeit) ansteht.
 
 ## Decision log
 
