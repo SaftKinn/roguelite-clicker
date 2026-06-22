@@ -17,3 +17,11 @@ media/clips/
 
 # Slot-Speicherstände (wie save.json: lokale Spielerdaten)
 save_slot*.json
+
+# Generierte/Quell-Sprite-PNGs — Master liegen extern ("aselfmade assets"), nicht im Repo.
+# _static = Quell-Standbilder für tools/animate_walk.py (nie zur Laufzeit geladen);
+# _shot/_cast = Geschoss-/Cast-Sprites (geladen, aber Goldpfeil-Fallback). Das Spiel
+# läuft lokal weiter (Dateien bleiben auf der Platte); frische Clones nutzen Fallbacks.
+assets/custom/*_static.png
+assets/custom/*_shot.png
+assets/custom/*_cast.png
