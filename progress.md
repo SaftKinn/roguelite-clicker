@@ -7,7 +7,35 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
-**Gegner-Roster-Erweiterung (Tier-System) + Welle 150 stehen — ADR 024.** Gameplay-
+**Playtest läuft (2026-06-22) — zwei Fixes eingespielt, Balance der neuen XP-Kurve offen.**
+- **Necromancer/Lich-Soft-Lock behoben (D40):** Beschwörer kitete auf `ATTACK_RANGE = 240`,
+  knapp JENSEITS der Turm-Reichweite (~236 px) → unerreichbar, sobald letzter Gegner + `SUMMON_MAX`
+  erreicht (Spieler meldete „hört auf zu beschwören UND Turm greift nicht mehr an" = Soft-Lock).
+  Fix: `ATTACK_RANGE → 220` + **Übergangs-Pfeilangriff** (`SHOOT_EVERY = 110`, `pop_shots()`, reicht
+  via `EnemyProjectile(..., sprite=SPRITE_NAME)` sein eigenes Geschoss-Sprite mit, ADR 027). Vererbt
+  sich auf alle Tier-Summoner via `_CustomSummoner`; `main.py` sammelt die Pfeile im Necro-Zweig.
+- **XP-Kurve quadratisch (ADR 028):** `xp_to_next = 8 + 1.0·(level-1)² + 10·wave` (war linear
+  `+7/Stufe +2/Welle`). **Level 100 ≈ 10000 XP** (war ~850), Modell-Endlevel **~72/Lauf** (war ~195,
+  194 → 71 Levelups). Bewusster Tradeoff (Option A, vom Nutzer gewählt): „10000@100" und „bis Level
+  100 kommen" schließen sich beim XP-Budget (~161.800) aus → Level 100 wird Fernziel. **Noch nicht im
+  echten Lauf getestet** — Hebel `XP_PER_LEVEL_SQ` (↓ = mehr Level); Wechselwirkung mit Boss-DPS-Wand.
+
+---
+
+**Fernkämpfer-Geschosse: eigenes Sprite je Schütze + Mündungs-Flash — ADR 027.**
+Code-Wiring steht, **12 PNGs fehlen noch** (extern via Leonardo.ai). Bisher feuerten
+alle Fernkämpfer denselben Goldpfeil; jetzt reicht jeder Schütze sein `SPRITE_NAME` ans
+`EnemyProjectile` (`sprite=getattr(self,"SPRITE_NAME",None)`), das daraus
+`assets/custom/<name>_shot.png` (Geschoss, rotiert zur Flugrichtung) + `<name>_cast.png`
+(Mündungs-Flash, an die Projektil-Lebenszeit gekoppelt, fadet über `MUZZLE_TICKS=7`)
+lädt. Loader `sprite_loader.load_enemy_shot`/`load_enemy_muzzle`. **`main.py`
+unangetastet.** Fallback-Kette: eigenes Sprite → Goldpfeil → Kreise (Golden Rule 5,
+verifiziert: voller Treiber-Flow crashfrei ohne PNGs). Betroffen: die **6 spawnenden
+Tier-Fernkämpfer** (`skeleton_archer`, `lich`, `demon_caster`, `demon_summoner`,
+`drake_archer`, `dragon_priest`). **Prompt-Kit** (2 Stil-Blöcke + Negative + je 6
+`_shot`/`_cast`-Zeilen) im Plan-File `ich-m-chte-f-r-die-twinkling-candy`.
+
+**Davor — Gegner-Roster-Erweiterung (Tier-System) + Welle 150 — ADR 024.** Gameplay-
 Grundgerüst steht (jetzt **Wellen 1–150**, Sieg, XP/Level, Karten, Shop, Elites, Meta-Gate
 ADR 018). Diese Session kam die **15-Gegner-Tier-Welle** dazu:
 - **3 Wellen-Tiers × 5 Archetypen = 15 reskinnte Gegner** (ADR 024): Tier 1 Untote (W1–50),
@@ -38,6 +66,34 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-22 (Teil 15) — **Playtest-Fixes: Necromancer-Soft-Lock + XP-Kurve (ADR 028):**
+- **Necromancer/Lich greift wieder an (D40):** Wurzel war `Necromancer.ATTACK_RANGE = 240` >
+  `PLAYER_ATTACK_RANGE ≈ 236,6` ((720/2)/1.4·0.92) → der Kiter parkte ~3,4 px außerhalb der
+  Turm-Reichweite, unkillbar als letzter Gegner nach `SUMMON_MAX`. Fix: `ATTACK_RANGE → 220` +
+  Pfeilangriff (`SHOOT_EVERY = 110`, `_shots`/`pop_shots()`, `EnemyProjectile(..., sprite=SPRITE_NAME)`).
+  `main.py` Necro-Zweig sammelt `pop_shots()` zusätzlich zu `pop_summons()`. Vererbt auf alle Tier-Summoner.
+- **XP-Kurve linear → quadratisch (ADR 028):** `xp_to_next = XP_BASE + XP_PER_LEVEL_SQ·(level-1)² +
+  XP_PER_WAVE·wave`; `XP_PER_LEVEL_SQ = 1.0`, `XP_PER_WAVE 2→10`. Level 100 = 10809 XP (war 851),
+  Modell 194→71 Levelups (Endlevel ~195→~72). Option A vom Nutzer gewählt (Tradeoff dokumentiert in ADR).
+  `tools/balance_model.py`-Print auf `PER_LEVEL_SQ` angepasst.
+- **Verifikation:** `xp_to_next(100,100)=10809`; Modell-Endlevel ~72; voller Treiber-Flow bis Sieg
+  crashfrei (auch nach der externen `EnemyProjectile`-Sprite-Änderung der Parallel-Session/Teil 14).
+- **Doku-Sync:** ADR 028 + README-Index; `architecture.md` Necromancer-Eintrag (ATTACK_RANGE 220 +
+  Pfeil) + §5 XP-Formel + §11 Level-Inflation-Update; D40 im Decision-Log. **Committet diese Session.**
+
+2026-06-22 (Teil 14) — **Fernkämpfer-Geschosse: Code-Wiring (ADR 027):**
+- `EnemyProjectile` (`game/enemy.py`) lernt `sprite`-Parameter + Per-Name-Caches
+  (`_shot_cache`/`_muzzle_cache`), Modul-Konstante `MUZZLE_TICKS=7`; `draw()` blendet
+  Cast-Flash am Abschussort aus und blittet das eigene/rotierte Geschoss (Fallback-Kette).
+- `sprite_loader._load_single` + `load_enemy_shot`/`load_enemy_muzzle` (Einzel-PNG,
+  zugeschnitten/skaliert wie `load_cannonball`).
+- Schützen reichen `SPRITE_NAME` durch (Archer 3 Stellen + Necromancer 1 Stelle); die
+  6 Tier-Reskins unverändert (haben `SPRITE_NAME` schon).
+- **Offen:** 12 PNGs (6 `_shot` + 6 `_cast`) müssen noch generiert werden — Prompts im
+  Plan-File. Bis dahin überall Goldpfeil-Fallback. **Noch nicht committet.**
+- Verifikation: `ast.parse` ok; voller Treiber-Flow (→ Welle 99/100 Tier-2-Dämonen →
+  Sieg) crashfrei.
 
 2026-06-21 (Teil 13) — **15 Tier-Sprites importiert (Leonardo.ai → Spiel):**
 - 15 generierte Bilder den Gegnern zugeordnet (Sichtprüfung), je **freigestellt** mit
@@ -379,13 +435,22 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 
 ## Next concrete step
 
-**Die 15 Tier-Sprite-PNGs erzeugen (Leonardo.ai) und einsetzen.** Prompt-Kit (Stil-Block +
-Negative-Prompt + 15 Subjekt-Zeilen) liegt im Plan-File `~/.claude/plans/ich-will-mehr-png-s-
-virtual-balloon.md`. Pro Gegner: Einzel-Standbild (1:1, transparent, Seitenansicht rechts, Füße
-unten) → `assets/custom/<name>_static.png` → `python tools/animate_walk.py <static> <name>_run.png`
-(Presets je Archetyp: Tank `--bob 0.04 --squash 0.10`, Beschwörer `--bounces 1 --squash 0`,
-Schwarm `--bob 0.08`). Jede PNG ersetzt lautlos ihren Fallback-Kreis. Danach: **Balance von
-W101–150** beobachten (Tier 3 ungetestet — HP-Wand-Risiko; Hebel `ENEMY_HP_PER_WAVE_SQ`).
+**Die 12 Fernkämpfer-Angriffs-PNGs erzeugen (Leonardo.ai) und einsetzen (ADR 027).**
+Pro der 6 spawnenden Tier-Fernkämpfer (`skeleton_archer`, `lich`, `demon_caster`,
+`demon_summoner`, `drake_archer`, `dragon_priest`): ein Geschoss `<name>_shot.png`
+(1:1, transparent, zeigt nach RECHTS) + ein Cast-Flash `<name>_cast.png` (radial) nach
+`assets/custom/`. **Keine** `animate_walk.py`-Stufe (Standbilder, kein Strip). Prompt-Kit
+(2 Stil-Blöcke + Negative-Prompt + je 6 `_shot`/`_cast`-Subjektzeilen, thematisch je
+Gegner: Knochenpfeil/grüner Seelenschädel/Höllen-Feuerball/rotes Siegel/Drachen-Bolt/
+Gold-Orb) im Plan-File `~/.claude/plans/ich-m-chte-f-r-die-twinkling-candy.md`. Jede PNG
+ersetzt lautlos den Goldpfeil-Fallback. Danach im Spiel gegenchecken (F2/F3 → Tier-Fern-
+kämpfer, Cast-Flash + Geschoss-Optik prüfen).
+
+(Die 15 Tier-**Lauf**-Sprite-PNGs sind seit Teil 13 importiert — Prompt-Kit für etwaige
+Nachzügler im Plan-File `~/.claude/plans/ich-will-mehr-png-s-virtual-balloon.md`, Workflow
+Einzel-Standbild → `python tools/animate_walk.py <static> <name>_run.png` mit Archetyp-Preset.)
+Danach: **Balance von W101–150** beobachten (Tier 3 ungetestet — HP-Wand-Risiko; Hebel
+`ENEMY_HP_PER_WAVE_SQ`).
 
 (Davor unverändert offen:) **Echter Playtest des 5-Läufe-Meta-Gates (ADR 018).** Kernfrage:
 stimmt „~5 Läufe bis Welle 100" *im echten Spiel* — oder sind die ×10-zähen Normalgegner (v. a.
@@ -469,6 +534,18 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
   abgeleitet (Kills im Bild); Pause→Hauptmenü bucht `gs["coins"]`.
 - **D38** — **SessionStart-Hook** → **ADR 021**. `tools/session_status.py` + `.claude/settings.json`
   speisen den Projekt-Status (Current focus/Next step + neuestes ADR) bei jedem Start ein.
+- **D39** — **Doc-Drift behoben (reine Doku, keine Abwägung), Commit `5830dfa`:** ADR-Index
+  (`docs/decisions/README.md`) um **023–026** ergänzt; `roadmap.md` Sieg-Welle **100→150** (ADR 024)
+  + Gate-Dev-Taste F3→F4; `architecture.md` §11 Boss-HP auf aktuelle **×5-Werte** (`BOSS_HP_MULT 60` /
+  `SUPERBOSS_HP_MULT 100`, Quelle `balance.py:77-78`) + Dev-Tasten **F4/F5** ergänzt. Historie der
+  alten Werte (ADR 013/018) bewusst stehen gelassen.
+- **D40** — **Necromancer/Lich-Soft-Lock behoben (Bugfix, Playtest):** `ATTACK_RANGE 240→220`
+  (musste `< PLAYER_ATTACK_RANGE ≈ 236,6` werden, sonst kitete der Beschwörer außer Turm-Reichweite
+  → unkillbar als letzter Gegner nach `SUMMON_MAX`) + **Übergangs-Pfeilangriff** (`SHOOT_EVERY=110`,
+  `pop_shots()`, eigenes Geschoss-Sprite via ADR 027). Reiner Fix, kein ADR.
+- **D41** — **XP-Kurve linear → quadratisch** → **ADR 028**. `xp_to_next = 8 + 1.0·(level-1)² +
+  10·wave`; Level 100 ≈ 10000 XP (war ~850), Modell-Endlevel ~72 statt ~195. Option A (10000 wörtlich,
+  Level 100 = Fernziel) vom Nutzer gegen Option B/C gewählt; Tradeoff-Abwägung im ADR.
 - **D1** — Doku-Sprache: Deutsch (Code-Bezeichner bleiben Englisch).
 - **D2** — Projektziel: Lernen mit echter Veröffentlichungs-Absicht später.
 - **D3** — Zielplattform: Windows-Desktop `.exe` (z. B. itch.io). Browser/Mac/Linux

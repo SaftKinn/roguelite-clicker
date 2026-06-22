@@ -7,6 +7,7 @@ from game.constants    import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE, BG_COLOR
 from game.player       import Player, RADIUS as PLAYER_RADIUS, MAX_HP
 from game.enemy        import (Warrior, Archer, Lancer, Monk, Goblin, OrcBerserker,
                               Necromancer, Boss, SuperBoss, EnemyProjectile,
+                              UndeadSuperBoss, DemonSuperBoss, DragonSuperBoss,
                               SkeletonWarrior, BoneSwarmling, SkeletonArcher, BoneColossus, Lich,
                               ImpWarrior, Hellhound, DemonCaster, PitBrute, DemonSummoner,
                               DrakeWarrior, Wyrmling, DrakeArcher, ScaleTitan, DragonPriest,
@@ -70,11 +71,15 @@ def tier_for_wave(wave: int) -> int:
     return min((wave - 1) // 50, len(TIER_ROSTER) - 1)
 
 
+# Pro Tier ein eigener SuperBoss (W50/W100/W150) — parallel zu TIER_ROSTER.
+TIER_SUPERBOSS = [UndeadSuperBoss, DemonSuperBoss, DragonSuperBoss]
+
+
 def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
     base_hp    = enemy_hp_for_wave(wave, hp_mult)
     base_speed = enemy_speed_for_wave(wave)
     if wave % 50 == 0:
-        return SuperBoss(base_speed, base_hp)
+        return TIER_SUPERBOSS[tier_for_wave(wave)](base_speed, base_hp)
     if wave % 10 == 0:
         return Boss(base_speed, base_hp)
     if wave < 3:
@@ -838,6 +843,7 @@ def main():
                         e.heal_nearby(gs["enemies"])
                     elif isinstance(e, Necromancer):
                         new_summons += e.pop_summons()   # erst nach der Schleife anhängen
+                        gs["enemy_projectiles"] += e.pop_shots()   # Übergangs-Pfeilangriff
                 if new_summons:
                     gs["enemies"] += new_summons
                 for p in gs["projectiles"]:        p.update()

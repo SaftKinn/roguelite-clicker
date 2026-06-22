@@ -8,13 +8,22 @@ from . import balance
 # Feind-Projektil (Archer-Pfeil)
 # ---------------------------------------------------------------------------
 
+MUZZLE_TICKS = 7   # Frames, die der Abschuss-/Cast-Flash am Schützen sichtbar ist
+
+
 class EnemyProjectile:
     SPEED        = 3.5
     RADIUS       = 4
     DAMAGE       = 16   # Archer-Pfeilschaden (tödlicher, ADR 008)
+    SHOT_PX      = 18   # Zielgröße eigenes Geschoss-Sprite
+    MUZZLE_PX    = 40   # Zielgröße Cast-Flash
     _COLOR_OUTER = (180, 130,  40)
     _COLOR_INNER = (255, 210, 100)
     _arrow_surf  = None
+    # Per-Name-Caches: jeder Fernkämpfer (SPRITE_NAME) bekommt sein eigenes Geschoss/
+    # seinen eigenen Mündungs-Flash. Fehlt die PNG → Wert False → alter Pfeil-Fallback.
+    _shot_cache   = {}
+    _muzzle_cache = {}
 
     @classmethod
     def _get_arrow(cls):
@@ -26,26 +35,65 @@ class EnemyProjectile:
                 cls._arrow_surf = False
         return cls._arrow_surf if cls._arrow_surf else None
 
+    @classmethod
+    def _get_shot(cls, name: str):
+        """Eigenes Geschoss-Sprite eines Schützen (gecacht je Name). None, wenn die
+        PNG fehlt → Aufrufer fällt auf den Standard-Pfeil zurück (Golden Rule 5)."""
+        if name not in cls._shot_cache:
+            try:
+                from . import sprite_loader
+                cls._shot_cache[name] = sprite_loader.load_enemy_shot(name, cls.SHOT_PX)
+            except Exception:
+                cls._shot_cache[name] = False
+        surf = cls._shot_cache[name]
+        return surf if surf else None
+
+    @classmethod
+    def _get_muzzle(cls, name: str):
+        """Cast-/Mündungs-Flash eines Schützen (gecacht je Name). None, wenn die PNG fehlt."""
+        if name not in cls._muzzle_cache:
+            try:
+                from . import sprite_loader
+                cls._muzzle_cache[name] = sprite_loader.load_enemy_muzzle(name, cls.MUZZLE_PX)
+            except Exception:
+                cls._muzzle_cache[name] = False
+        surf = cls._muzzle_cache[name]
+        return surf if surf else None
+
     def __init__(self, pos: pygame.math.Vector2, target: pygame.math.Vector2,
-                 damage: int | None = None):
-        self.pos    = pygame.math.Vector2(pos)
-        self.alive  = True
-        self.damage = self.DAMAGE if damage is None else damage   # vom Schützen skaliert (Wellen-Härte)
-        direction   = target - self.pos
-        self.vel    = (direction.normalize() * self.SPEED
-                       if direction.length() > 0 else pygame.math.Vector2(0, 0))
+                 damage: int | None = None, sprite: str | None = None):
+        self.pos     = pygame.math.Vector2(pos)
+        self.alive   = True
+        self.damage  = self.DAMAGE if damage is None else damage   # vom Schützen skaliert (Wellen-Härte)
+        self._sprite = sprite                       # SPRITE_NAME des Schützen (oder None → Standard-Pfeil)
+        self._spawn  = pygame.math.Vector2(pos)     # Abschussort für den Mündungs-Flash
+        self._age    = 0
+        direction    = target - self.pos
+        self.vel     = (direction.normalize() * self.SPEED
+                        if direction.length() > 0 else pygame.math.Vector2(0, 0))
+        self._angle  = -math.degrees(math.atan2(self.vel.y, self.vel.x))
 
     def update(self) -> None:
         self.pos += self.vel
+        self._age += 1
         if not (0 <= self.pos.x <= SCREEN_WIDTH and 0 <= self.pos.y <= SCREEN_HEIGHT):
             self.alive = False
 
     def draw(self, screen: pygame.Surface) -> None:
-        arrow = self._get_arrow()
         p = (int(self.pos.x), int(self.pos.y))
+        # (1) Abschuss-/Cast-Flash: kurz am Abschussort, fadet über MUZZLE_TICKS aus.
+        if self._sprite and self._age < MUZZLE_TICKS:
+            muzzle = self._get_muzzle(self._sprite)
+            if muzzle:
+                muzzle = muzzle.copy()
+                muzzle.set_alpha(int(255 * (1 - self._age / MUZZLE_TICKS)))
+                screen.blit(muzzle, (int(self._spawn.x) - muzzle.get_width() // 2,
+                                     int(self._spawn.y) - muzzle.get_height() // 2))
+        # (2) Geschoss: eigenes Sprite → Standard-Pfeil → gezeichnete Kreise.
+        shot = self._get_shot(self._sprite) if self._sprite else None
+        arrow = shot or self._get_arrow()
         if arrow:
-            angle = -math.degrees(math.atan2(self.vel.y, self.vel.x))
-            rotated = pygame.transform.rotate(arrow, angle)
+            rotated = pygame.transform.rotate(arrow, self._angle)
             screen.blit(rotated, (p[0] - rotated.get_width() // 2,
                                    p[1] - rotated.get_height() // 2))
         else:
@@ -269,7 +317,7 @@ class Archer(Warrior):
                     self._shoot_anim_tk   = 0
                 else:
                     # Kein Sprite geladen → sofort feuern (Fallback).
-                    self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult)))
+                    self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult), sprite=getattr(self, "SPRITE_NAME", None)))
         if self._is_shooting:
             self._shoot_anim_tk += 1
             if self._shoot_anim_tk >= _ANIM_PERIOD:
@@ -278,13 +326,13 @@ class Archer(Warrior):
                 # Beim Erreichen des Release-Frames (Bogen am höchsten Punkt)
                 # den Pfeil auf die aktuelle Zielposition abschießen.
                 if self._pending_release and self._shoot_anim_fr >= self.SHOOT_RELEASE_FRAME:
-                    self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult)))
+                    self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult), sprite=getattr(self, "SPRITE_NAME", None)))
                     self._pending_release = False
                 shoot_len = len(self._shoot_frames_r) if self._shoot_frames_r else 0
                 if self._shoot_anim_fr >= shoot_len:
                     # Animation vorbei: Sicherung, falls Release-Frame > Länge.
                     if self._pending_release:
-                        self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult)))
+                        self._shots.append(EnemyProjectile(self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult), sprite=getattr(self, "SPRITE_NAME", None)))
                         self._pending_release = False
                     self._is_shooting = False
         self._anim_tick += 1
@@ -622,7 +670,11 @@ class Necromancer(Warrior):
     Offensives Gegenstück zum Monk-Heiler. main.py holt frische Beschwörungen via
     pop_summons() (analog Archer.pop_shots). Fallback = lila Kreis + Beschwör-Aura."""
     RADIUS        = 11
-    ATTACK_RANGE  = 240
+    # ATTACK_RANGE muss < PLAYER_ATTACK_RANGE (~236 px) bleiben, sonst kitet der
+    # Beschwörer JENSEITS der Turm-Reichweite und ist unerreichbar → Soft-Lock,
+    # sobald er der letzte Gegner ist und SUMMON_MAX erreicht hat.
+    ATTACK_RANGE  = 220
+    SHOOT_EVERY   = 110     # Ticks zwischen Pfeilschüssen (Übergangs-Angriff)
     SUMMON_EVERY  = 240     # Ticks zwischen Beschwörungen (~4 s bei 60 FPS)
     SUMMON_COUNT  = 2       # Beschwörungen pro Welle
     SUMMON_MAX    = 6       # lebenslanges Limit pro Nekromant (gegen Runaway-Spawn)
@@ -642,6 +694,8 @@ class Necromancer(Warrior):
         self._summon_timer = random.randint(60, self.SUMMON_EVERY)
         self._summoned     = 0
         self._summons: list = []   # frisch beschworene Goblins; main.py leert die Liste
+        self._shoot_timer  = random.randint(30, self.SHOOT_EVERY)
+        self._shots: list[EnemyProjectile] = []   # Pfeile; main.py holt sie via pop_shots
         self._aura_timer   = 0
         # Roh-Wellenwerte merken, um beschworene Goblins passend zur Welle zu skalieren.
         self._base_speed   = base_speed
@@ -670,13 +724,24 @@ class Necromancer(Warrior):
     def update(self, target: pygame.math.Vector2) -> None:
         direction = target - self.pos
         dist      = direction.length()
-        if dist > self.ATTACK_RANGE:
+        in_range  = dist <= self.ATTACK_RANGE
+        if not in_range:
             vel = direction.normalize() * self.speed
             if abs(vel.x) > 0.05:
                 self.facing_left = vel.x < 0
             self.pos += vel
         elif dist > 0:
             self.facing_left = direction.x < 0
+        # Übergangs-Angriff (Nutzerwunsch): in Reichweite feuert der Beschwörer
+        # zusätzlich einen Pfeil wie der Archer. Hält ihn aktiv, auch nachdem
+        # SUMMON_MAX erreicht ist — sonst stünde er nur noch untätig herum.
+        if in_range:
+            self._shoot_timer -= 1
+            if self._shoot_timer <= 0:
+                self._shoot_timer = self.SHOOT_EVERY
+                self._shots.append(EnemyProjectile(
+                    self.pos, target, round(EnemyProjectile.DAMAGE * self.dmg_mult),
+                    sprite=getattr(self, "SPRITE_NAME", None)))
         self._summon_timer -= 1
         if self._summon_timer <= 0 and self._summoned < self.SUMMON_MAX:
             self._summon_timer = self.SUMMON_EVERY
@@ -702,6 +767,11 @@ class Necromancer(Warrior):
         summons = list(self._summons)
         self._summons.clear()
         return summons
+
+    def pop_shots(self) -> list[EnemyProjectile]:
+        shots = list(self._shots)
+        self._shots.clear()
+        return shots
 
     def draw(self, screen: pygame.Surface) -> None:
         self._load_sprites()
@@ -935,6 +1005,9 @@ class SuperBoss(Warrior):
     ATTACK_LUNGE_PX   = 46     # Spitzen-Versatz des Lunge Richtung Turm (Pixel)
     ATTACK_SCALE      = 1.16   # Spitzen-Vergrößerung des Sprites im Angriffsmoment
 
+    # None → bestehender Seitenansicht-Drache (load_drache_superboss). Eine Subklasse
+    # setzt einen Namen → Reskin aus assets/custom/<SPRITE_NAME>_run.png (animate_walk).
+    SPRITE_NAME       = None
     _frames_r         = None
     _frames_l         = None
 
@@ -960,9 +1033,12 @@ class SuperBoss(Warrior):
             return
         try:
             from . import sprite_loader
-            cls._frames_r, cls._frames_l = sprite_loader.load_drache_superboss(cls.SPRITE_PX)
+            if cls.SPRITE_NAME:   # Tier-Reskin (Untoter/Dämon) aus assets/custom/<name>_run.png
+                cls._frames_r, cls._frames_l = sprite_loader.load_custom_enemy(cls.SPRITE_NAME, cls.SPRITE_PX)
+            else:                 # Original-Drache (Seitenansicht-Walk)
+                cls._frames_r, cls._frames_l = sprite_loader.load_drache_superboss(cls.SPRITE_PX)
         except Exception as exc:
-            print(f"[SuperBoss] Sprites: {exc}")
+            print(f"[{cls.__name__}] Sprites: {exc}")
             cls._frames_r = cls._frames_l = []
 
     def _draw_hp_bar(self, screen, pos) -> None:
@@ -1015,3 +1091,29 @@ class SuperBoss(Warrior):
             screen.blit(frame, (cx - frame.get_width() // 2, cy - frame.get_height() // 2))
         else:
             pygame.draw.circle(screen, self.COLOR_BODY, (cx, cy), self.radius)
+
+
+# Tier-SuperBosse (ADR 024): je 50-Wellen-Abschnitt ein eigener Endgegner.
+# Jede Subklasse braucht EIGENE _frames_r/_frames_l (sonst teilen sie sich den
+# Klassen-Cache der Basis). Sprite-/Mechanik-Erbe von SuperBoss bleibt identisch;
+# nur Optik (SPRITE_NAME → assets/custom/<name>_run.png) und Fallback-Farben tauschen.
+class UndeadSuperBoss(SuperBoss):     # Welle 50 — Knochen-Lord
+    SPRITE_NAME   = "undead_boss"
+    _frames_r     = None
+    _frames_l     = None
+    COLOR_BODY    = (210, 210, 225)
+    COLOR_OUTLINE = (150, 165, 205)
+    COLOR_HP_BAR  = (170, 185, 225)
+
+class DemonSuperBoss(SuperBoss):      # Welle 100 — Archdämon
+    SPRITE_NAME   = "demon_boss"
+    _frames_r     = None
+    _frames_l     = None
+    COLOR_BODY    = ( 70,  10,  15)
+    COLOR_OUTLINE = (235,  85,  35)
+    COLOR_HP_BAR  = (255,  95,  40)
+
+class DragonSuperBoss(SuperBoss):     # Welle 150 — Drachen-Overlord (Original-Seitenansicht)
+    SPRITE_NAME   = None              # → bestehender drache_superboss_walk.png
+    _frames_r     = None
+    _frames_l     = None

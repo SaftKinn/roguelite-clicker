@@ -65,3 +65,5 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 024 — Tier-Roster: 15 reskinnte Gegner (3 Tiers × 5 Rollen) + Welle 150](024-tier-roster-15-gegner-und-welle-150.md)
 - [ADR 025 — Karten-Farbgruppen (ROT/BLAU/GOLD/WEISS) + neue Effekt-Karten](025-karten-farbgruppen-neue-effekte.md)
 - [ADR 026 — Shop-Ausbau: neue Dauer-Stats, globale Meta-Multiplikatoren, 4-Gruppen-Layout](026-shop-ausbau-vier-gruppen.md)
+- [ADR 027 — Fernkämpfer-Geschosse: eigenes Sprite je Schütze + Mündungs-Flash](027-fernkaempfer-eigene-geschosse-muendungs-fx.md)
+- [ADR 028 — XP-Kurve quadratisch: Level 100 kostet ~10000 XP (revidiert ADR 008)](028-xp-kurve-quadratisch.md)

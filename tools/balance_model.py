@@ -188,7 +188,7 @@ if __name__ == "__main__":
     print("nicht gegen Einzel-Boss). XP/Kill = Klassen-Basis (1/3, x5 Elite) x Wellenfaktor")
     print(f"(1+wave//{B.XP_WAVE_DIV}, ADR 014). 'WAND' = Boss-TTK ueber dem Walk-Budget.")
     print(f"  ENEMY_HP_PER_WAVE_SQ={B.ENEMY_HP_PER_WAVE_SQ}  ELITE_REWARD_MULT={B.ELITE_REWARD_MULT}"
-          f"  XP_WAVE_DIV={B.XP_WAVE_DIV}  XP_BASE={B.XP_BASE}/PER_LEVEL={B.XP_PER_LEVEL}/PER_WAVE={B.XP_PER_WAVE}")
+          f"  XP_WAVE_DIV={B.XP_WAVE_DIV}  XP_BASE={B.XP_BASE}/PER_LEVEL_SQ={B.XP_PER_LEVEL_SQ}/PER_WAVE={B.XP_PER_WAVE}")
 
     print(f"\n##### IST-ZUSTAND (live aus balance.py: Boss x{B.BOSS_HP_MULT}"
           f" / SuperBoss x{B.SUPERBOSS_HP_MULT}, XP-Fix div={B.XP_WAVE_DIV}) #####")

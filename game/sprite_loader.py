@@ -239,6 +239,28 @@ def load_custom_enemy(name: str, px: int = _ENEMY_PX):
     return _both_dirs(_load_custom_strip(f"{name}_run.png", px))
 
 
+def _load_single(filename: str, target_px: int) -> pygame.Surface:
+    """Eine transparente Einzel-PNG aus assets/custom/ — auf opake Pixel zugeschnitten,
+    dann auf Zielgröße skaliert (Muster wie load_cannonball). Für Geschoss-/Cast-VFX
+    der Fernkämpfer, die KEINE Lauf-Animation sind (Standbild, kein Strip)."""
+    path = os.path.join(_CUSTOM_BASE, filename)
+    surf = pygame.image.load(path).convert_alpha()
+    bounds = surf.get_bounding_rect(min_alpha=1)
+    if bounds.width and bounds.height:
+        surf = surf.subsurface(bounds).copy()
+    return pygame.transform.smoothscale(surf, (_px(target_px), _px(target_px)))
+
+
+def load_enemy_shot(name: str, px: int = 18) -> pygame.Surface:
+    """Eigenes Geschoss eines Fernkämpfers: assets/custom/<name>_shot.png (nach RECHTS)."""
+    return _load_single(f"{name}_shot.png", px)
+
+
+def load_enemy_muzzle(name: str, px: int = 40) -> pygame.Surface:
+    """Abschuss-/Cast-Flash eines Fernkämpfers: assets/custom/<name>_cast.png (radial)."""
+    return _load_single(f"{name}_cast.png", px)
+
+
 def load_cannonball(size: int = 20):
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "assets", "Tiny Swords (Free Pack)", "Cannonball.png")

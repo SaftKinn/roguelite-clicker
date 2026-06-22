@@ -183,8 +183,12 @@ Gegnertypen:
   ruft periodisch Goblins (`SUMMON_EVERY`/`SUMMON_COUNT`, gedeckelt durch `SUMMON_MAX`).
   `main.py` holt frische Beschwörungen via `pop_summons()` (analog `Archer.pop_shots()`)
   und hängt sie **nach** der Update-Schleife an `gs["enemies"]` an (kein Mutieren während
-  der Iteration). Spawn-Key „necro". Sprite `assets/custom/necromancer_run.png`,
-  Fallback = lila Kreis + Beschwör-Aura.
+  der Iteration). **`ATTACK_RANGE = 220`** (war 240) — muss `< PLAYER_ATTACK_RANGE` (~236 px)
+  bleiben, sonst kitet der Beschwörer JENSEITS der Turm-Reichweite → unerreichbar → Soft-Lock,
+  sobald er der letzte Gegner ist und `SUMMON_MAX` erreicht hat (D40). **Übergangs-Pfeilangriff**
+  (`SHOOT_EVERY = 110`, `pop_shots()` wie der Archer): feuert in Reichweite zusätzlich einen Pfeil,
+  damit er nach dem Summon-Limit aktiv bleibt statt untätig herumzustehen. Spawn-Key „necro".
+  Sprite `assets/custom/necromancer_run.png`, Fallback = lila Kreis + Beschwör-Aura.
 - `Boss` (alle 10 Wellen) — nutzt die Lancer-Sprites, tötet mit einem Treffer.
 - `SuperBoss` (Drache, alle 50 Wellen, ADR 016) — **geerdeter Walk-Zyklus**
   (`assets/custom/drache_superboss_walk.png`, 8-Frame-Strip, fußverankert prozedural animiert,
@@ -228,9 +232,11 @@ Pro Frame im `PLAYING`-State (vereinfacht):
    bleiben bei Berührung sofort tödlich.
 4. **Münzen/FX:** Kills geben Münzen (`coin_value_for_wave()`, optional ×1.5 bei
    `gold_boost`), erzeugen `DamageNumber`-FX.
-5. **XP/Level (ADR 008, 014):** Jeder Kill gibt XP (`enemy.coin_value * xp_wave_mult(wave)`
+5. **XP/Level (ADR 008, 014, 028):** Jeder Kill gibt XP (`enemy.coin_value * xp_wave_mult(wave)`
    — Klassen-Basis × Wellenfaktor `1+wave//XP_WAVE_DIV`, ADR 014); erreicht `xp` die
-   wellenabhängige Schwelle `xp_to_next(level, wave)`, gibt es einen Levelup
+   **quadratisch in der Stufe** wachsende Schwelle `xp_to_next(level, wave) = XP_BASE +
+   XP_PER_LEVEL_SQ·(level-1)² + XP_PER_WAVE·wave` (ADR 028: Level 100 ≈ 10000 XP, Modell-Endlevel
+   ~72/Lauf — bewusst langsames Leveln gegen die wellenskalierte XP-Einnahme), gibt es einen Levelup
    (`pending_levelups`). Bei offenem Levelup geht `PLAYING` → `UPGRADE` (1-aus-3-Karte,
    **keine** Wellen-Erhöhung) und danach zurück. Karten kommen **nur** aus Level-ups.
 6. **Wellen-Ende:** keine Gegner mehr + `spawn_remaining == 0` → `WAVE_CLEAR` → nach
@@ -391,7 +397,10 @@ Dämpfungsfaktor.
   XP-Fix landet er im Modell bei ~Level 98 und legt **alle Bosse im Walk-Budget** (W90 4,3 s /
   Budget 4,7 s; W100 6,5 s / 8,2 s). **Schlüssel-Mechanik:** Bosse one-shotten bei Kontakt und
   der Turm ist stationär → der Bosskampf ist ein **DPS-Rennen gegen die Anlaufzeit**, HP/Lifesteal
-  helfen nicht.
+  helfen nicht. **Update (ADR 028):** Die XP-Kostenkurve ist inzwischen quadratisch (Level 100 ≈
+  10000 XP) → Modell-Endlevel **~72 statt ~98**. Damit weniger Schaden-Karten → höhere Boss-TTK;
+  ob die späten Bosse mit dem niedrigeren End-Build noch im Walk-Budget liegen, ist **offen
+  (Playtest)** — Wechselwirkung mit den Boss-Multiplikatoren im Auge behalten.
 - **Meta-Gate „~5 Läufe bis Welle 100" (ADR 018, revidiert ADR 013/014).** Das „fairer
   Einzellauf"-Ziel ist bewusst aufgegeben: Die **Boss-Wand wurde wieder eingeführt**
   (`BOSS_HP_MULT 2→6`, `SUPERBOSS_HP_MULT 3→10`; **später per Nutzerwunsch auf ×5 angehoben:

@@ -136,13 +136,19 @@ COIN_GAIN_MULT = 1.5   # globaler Münz-Faktor je Kill (+50%, Nutzerwunsch)
 # (ersetzt das frühere Karten-Picken pro Welle). Die nötige XP wächst mit Stufe
 # UND Welle — späte Wellen verlangen mehr XP pro Levelup.
 
-XP_BASE      = 8    # Grund-XP für den ersten Levelup
-XP_PER_LEVEL = 7    # zusätzliche XP je bereits erreichter Stufe (steiler: bremst schnelles Hochleveln)
-XP_PER_WAVE  = 2    # zusätzliche XP je Welle (macht spätere Levelups teurer)
+XP_BASE         = 8     # Grund-XP für den ersten Levelup
+# Quadratisch im Level (ADR 027, Nutzerwunsch): Level 100 soll ~10000 XP kosten.
+# Vorher linear (7/Stufe) → Level 100 kostete nur ~850 XP, der Spieler levelte viel
+# zu schnell (Endlevel ~195/Lauf). Mit 1.0·(100-1)² ≈ 9801 + Wellenterm landet der
+# Level-100-Schritt bei ~10000-11000. Bewusste Folge (vom Nutzer gewählt): man
+# erreicht nur noch ~Level 72/Lauf — Level 100 wird ein Fernziel (Shop-Boni/starker
+# Build/langes Überleben). Hebel gegen zu hart: XP_PER_LEVEL_SQ senken.
+XP_PER_LEVEL_SQ = 1.0   # XP-Faktor je (Stufe-1)² — Hauptbremse gegen schnelles Leveln
+XP_PER_WAVE     = 10    # zusätzliche XP je Welle (von 2 erhöht: stärkere Wellen-Skalierung)
 
 def xp_to_next(level: int, wave: int) -> int:
-    """Nötige XP für den nächsten Levelup, abhängig von Stufe und Welle."""
-    return round(XP_BASE + (level - 1) * XP_PER_LEVEL + wave * XP_PER_WAVE)
+    """Nötige XP für den nächsten Levelup — quadratisch in der Stufe, linear in der Welle."""
+    return round(XP_BASE + XP_PER_LEVEL_SQ * (level - 1) ** 2 + XP_PER_WAVE * wave)
 
 # XP pro Kill skaliert mit der Welle (ADR 014, Wurzel-Fix gegen die Endgame-Wand):
 # Vorher gab ein Kill nur die flache Klassen-Basis `enemy.coin_value` (1/3, ×5 Elite) —
