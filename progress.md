@@ -7,6 +7,23 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
+**Eigene Boss- & SuperBoss-Sprites pro Tier (2026-06-22) — ADR 032.** Alle 6 Endgegner
+haben jetzt eigene Leonardo-Sprites (frontale Pose, transparent freigestellt):
+- **Reguläre Bosse** (alle 10 Wellen): `Tier1Boss`/`Tier2Boss`/`Tier3Boss` (`enemy.py`) setzen
+  `SPRITE_NAME` → `assets/custom/tier{1,2,3}_boss_run.png`; `Boss` ist tier-fähig gemacht
+  (`SPRITE_NAME`/`SPRITE_PX`-Felder, `_load_sprites`-Verzweigung, Black-Lancer als Fallback).
+  Spawn via neuer Liste `TIER_BOSS` in `main.py` (statt pauschal `Boss(...)`).
+- **SuperBosse:** `UndeadSuperBoss`/`DemonSuperBoss` greifen automatisch (`SPRITE_NAME` war schon
+  gesetzt). `DragonSuperBoss` von Seitenansicht **auf frontalen `dragon_boss` umgestellt** (alter
+  Seitenansicht-Drache bleibt als `SPRITE_NAME=None`-Fallback).
+- **Animation:** `tools/animate_walk.py` → 8-Frame-Walk je Boss; geflügelte SuperBosse mit
+  `--fill 0.80-0.82 --tilt 1.2` (extra Rand gegen Flügel-Clip), reguläre `--fill 0.86 --tilt 2.0`.
+- **Flügel-Crop gelöst im Prompt:** Motiv ~40-45 % der Leinwand + Flügel angelegt (Memory
+  `leonardo-winged-boss-framing`). **Verifiziert:** alle 6 laden 8 Frames, Render-Montage korrekt
+  (`shots/boss_*.png`), Live-Flow W10/50/150 crashfrei. Master-`*_static.png` bleiben extern.
+
+---
+
 **Boden-Schärfe + Lancer/Monk-Reskins (2026-06-22) — ADR 030/031.**
 - **Boden scharf (ADR 031):** Der 1,4×-Kamera-Zoom hatte die Boden-Textur hochskaliert → leicht
   unscharf. Jetzt wird der Boden **nativ direkt auf `screen`** gezeichnet, nur die Gameplay-Ebene

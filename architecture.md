@@ -195,14 +195,19 @@ Gegnertypen:
   (`SHOOT_EVERY = 110`, `pop_shots()` wie der Archer): feuert in Reichweite zusätzlich einen Pfeil,
   damit er nach dem Summon-Limit aktiv bleibt statt untätig herumzustehen. Spawn-Key „necro".
   Sprite `assets/custom/necromancer_run.png`, Fallback = lila Kreis + Beschwör-Aura.
-- `Boss` (alle 10 Wellen) — nutzt die Lancer-Sprites, tötet mit einem Treffer.
-- `SuperBoss` (Drache, alle 50 Wellen, ADR 016) — **geerdeter Walk-Zyklus**
-  (`assets/custom/drache_superboss_walk.png`, 8-Frame-Strip, fußverankert prozedural animiert,
-  `smoothscale`, Seitenverhältnis erhalten) — der Drache **läuft** am Boden (Wippen im Sprite,
-  kein Schweben). Plus rein-visuelle **Angriffs-Lunge** (sin-Hüllkurve: Vorstoß + Scale +
-  Aura-Clench; `self.pos` bleibt für die Logik fix). Betritt das Bild als Seitenansicht **nur
-  vom Ost-/Westrand**; tötet mit einem Treffer. (Löst das statische Pixel-Standbild ADR 015 und
-  die zwischenzeitliche Flug-Variante ab.)
+- `Boss` (alle 10 Wellen) — tötet mit einem Treffer. **Pro Tier eigenes Sprite** (ADR 032):
+  `Tier1Boss`/`Tier2Boss`/`Tier3Boss` setzen `SPRITE_NAME` → `assets/custom/tier{1,2,3}_boss_run.png`
+  (frontale Helden-Pose, `animate_walk.py`-Strip). Ohne eigenes PNG fällt die Basis auf den
+  Tiny-Swords-Black-Lancer (mit 5-Richtungs-Stoß-Animation) zurück (Golden Rule 5). Spawn nach
+  Tier über `TIER_BOSS` in `main.py` (parallel zu `TIER_ROSTER`).
+- `SuperBoss` (alle 50 Wellen, ADR 016/024/032) — **geerdeter Walk-Zyklus** mit rein-visueller
+  **Angriffs-Lunge** (sin-Hüllkurve: Vorstoß + Scale + Aura-Clench; `self.pos` bleibt für die Logik
+  fix), betritt das Bild **nur vom Ost-/Westrand**, tötet mit einem Treffer. **Pro Tier ein eigener
+  Endgegner** (`TIER_SUPERBOSS`): `UndeadSuperBoss` (W50), `DemonSuperBoss` (W100), `DragonSuperBoss`
+  (W150) — alle drei mit eigenem **frontalen** Sprite `assets/custom/{undead,demon,dragon}_boss_run.png`
+  via `SPRITE_NAME` (ADR 032). Jede Subklasse hat einen eigenen `_frames_r/_frames_l`-Cache. Der alte
+  Seitenansicht-Drache (`drache_superboss_walk.png`, `SPRITE_NAME=None`-Pfad) bleibt als Fallback
+  erhalten. (Löst das statische Pixel-Standbild ADR 015 und die zwischenzeitliche Flug-Variante ab.)
 
 Wave-Skalierung über die `*_for_wave()`-Funktionen oben in `main.py`. Einhängen
 neuer Gegner in `spawn_enemy_for_wave()`.

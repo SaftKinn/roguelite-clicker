@@ -7,6 +7,7 @@ from game.constants    import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE, BG_COLOR
 from game.player       import Player, RADIUS as PLAYER_RADIUS, MAX_HP
 from game.enemy        import (Warrior, Archer, Lancer, Monk, Goblin, OrcBerserker,
                               Necromancer, Boss, SuperBoss, EnemyProjectile,
+                              Tier1Boss, Tier2Boss, Tier3Boss,
                               UndeadSuperBoss, DemonSuperBoss, DragonSuperBoss,
                               SkeletonWarrior, BoneSwarmling, SkeletonArcher, BoneColossus, Lich,
                               ImpWarrior, Hellhound, DemonCaster, PitBrute, DemonSummoner,
@@ -80,6 +81,9 @@ def tier_for_wave(wave: int) -> int:
 # Pro Tier ein eigener SuperBoss (W50/W100/W150) — parallel zu TIER_ROSTER.
 TIER_SUPERBOSS = [UndeadSuperBoss, DemonSuperBoss, DragonSuperBoss]
 
+# Pro Tier ein eigener regulärer Boss (alle 10 Wellen) — parallel zu TIER_ROSTER.
+TIER_BOSS = [Tier1Boss, Tier2Boss, Tier3Boss]
+
 
 def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
     base_hp    = enemy_hp_for_wave(wave, hp_mult)
@@ -87,7 +91,7 @@ def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
     if wave % 50 == 0:
         return TIER_SUPERBOSS[tier_for_wave(wave)](base_speed, base_hp)
     if wave % 10 == 0:
-        return Boss(base_speed, base_hp)
+        return TIER_BOSS[tier_for_wave(wave)](base_speed, base_hp)
     if wave < 3:
         kinds, weights = ["basic"],                                            [1]
     elif wave < 5:

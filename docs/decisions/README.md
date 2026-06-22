@@ -67,3 +67,7 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 026 — Shop-Ausbau: neue Dauer-Stats, globale Meta-Multiplikatoren, 4-Gruppen-Layout](026-shop-ausbau-vier-gruppen.md)
 - [ADR 027 — Fernkämpfer-Geschosse: eigenes Sprite je Schütze + Mündungs-Flash](027-fernkaempfer-eigene-geschosse-muendungs-fx.md)
 - [ADR 028 — XP-Kurve quadratisch: Level 100 kostet ~10000 XP (revidiert ADR 008)](028-xp-kurve-quadratisch.md)
+- [ADR 029 — Tier-Boden-Texturen: bildschirmfüllend gebacken statt Kachel-Raster](029-tier-boden-texturen.md)
+- [ADR 030 — Tanker/Monk pro Tier reskinbar (nur Lauf-Frames, Spezial-Anims bleiben)](030-tanker-monk-tier-reskins.md)
+- [ADR 031 — Boden nativ auf `screen` statt gezoomt (Schärfe beim 1.4×-Zoom)](031-boden-scharf-nativ-statt-gezoomt.md)
+- [ADR 032 — Eigene Boss- & SuperBoss-Sprites pro Tier (frontale Pose)](032-eigene-boss-superboss-sprites.md)

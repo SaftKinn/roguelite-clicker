@@ -984,12 +984,18 @@ class DrakeMonk(_MonkReskin):
 # ---------------------------------------------------------------------------
 
 class Boss(Warrior):
-    """Boss — alle 10 Wellen. Tötet Spieler mit einem Treffer."""
+    """Boss — alle 10 Wellen. Tötet Spieler mit einem Treffer.
+
+    Ohne SPRITE_NAME: Tiny-Swords Black-Lancer als Platzhalter (mit Stoß-Animation).
+    Eine Tier-Subklasse setzt SPRITE_NAME → eigenes Boss-Sprite (frontale Pose) aus
+    assets/custom/<name>_run.png; dann entfällt die Lancer-Stoß-Anim (Walk reicht)."""
     RADIUS        = 34
     COLOR_BODY    = (160,  65,  10)
     COLOR_OUTLINE = (255, 155,  25)
     COLOR_HP_BAR  = (255, 140,  20)
 
+    SPRITE_NAME       = None    # None → Lancer-Platzhalter; gesetzt → Tier-Reskin
+    SPRITE_PX         = 96      # Zielgröße (wie der bisherige Lancer-Boss)
     _frames_r         = None
     _frames_l         = None
     _lancer_atk       = None
@@ -1015,10 +1021,14 @@ class Boss(Warrior):
             return
         try:
             from . import sprite_loader
-            cls._frames_r, cls._frames_l = sprite_loader.load_black_lancer_run(96)
-            cls._lancer_atk               = sprite_loader.load_black_lancer_attacks(96)
+            if cls.SPRITE_NAME:   # Tier-Reskin: eigenes Boss-Sprite (frontale Pose)
+                cls._frames_r, cls._frames_l = sprite_loader.load_custom_enemy(cls.SPRITE_NAME, cls.SPRITE_PX)
+                cls._lancer_atk = []          # eigenes Sprite hat keine Lancer-Stoß-Anim → Walk-Frames reichen
+            else:                 # Platzhalter: Tiny-Swords Black-Lancer (mit Stoß-Animation)
+                cls._frames_r, cls._frames_l = sprite_loader.load_black_lancer_run(cls.SPRITE_PX)
+                cls._lancer_atk               = sprite_loader.load_black_lancer_attacks(cls.SPRITE_PX)
         except Exception as exc:
-            print(f"[Boss] Sprites: {exc}")
+            print(f"[{cls.__name__}] Sprites: {exc}")
             cls._frames_r = cls._frames_l = []
             cls._lancer_atk = []
 
@@ -1066,6 +1076,38 @@ class Boss(Warrior):
                                       pos[1] - frames[fr].get_height() // 2))
         elif not self._blit_sprite(screen):
             pygame.draw.circle(screen, self.COLOR_BODY, pos, self.radius)
+
+
+# Tier-Bosse (alle 10 Wellen): je 50-Wellen-Abschnitt ein eigenes Boss-Sprite
+# (frontale Pose, assets/custom/tier{1,2,3}_boss_run.png). Jede Subklasse braucht
+# EIGENE _frames_r/_frames_l (sonst teilen sie sich den Klassen-Cache der Basis);
+# nur Optik (SPRITE_NAME) und Fallback-Farben tauschen, Mechanik bleibt identisch.
+class Tier1Boss(Boss):     # Welle 10/20/30/40 — Untoter Champion
+    SPRITE_NAME   = "tier1_boss"
+    _frames_r     = None
+    _frames_l     = None
+    _lancer_atk   = None
+    COLOR_BODY    = (200, 205, 225)
+    COLOR_OUTLINE = (150, 165, 205)
+    COLOR_HP_BAR  = (170, 185, 225)
+
+class Tier2Boss(Boss):     # Welle 60/70/80/90 — Dämonen Champion
+    SPRITE_NAME   = "tier2_boss"
+    _frames_r     = None
+    _frames_l     = None
+    _lancer_atk   = None
+    COLOR_BODY    = ( 70,  10,  15)
+    COLOR_OUTLINE = (235,  85,  35)
+    COLOR_HP_BAR  = (255,  95,  40)
+
+class Tier3Boss(Boss):     # Welle 110/120/130/140 — Drachen-Brut Champion
+    SPRITE_NAME   = "tier3_boss"
+    _frames_r     = None
+    _frames_l     = None
+    _lancer_atk   = None
+    COLOR_BODY    = ( 90, 140, 200)
+    COLOR_OUTLINE = (140, 200, 240)
+    COLOR_HP_BAR  = (150, 205, 240)
 
 
 # ---------------------------------------------------------------------------
@@ -1199,7 +1241,10 @@ class DemonSuperBoss(SuperBoss):      # Welle 100 — Archdämon
     COLOR_OUTLINE = (235,  85,  35)
     COLOR_HP_BAR  = (255,  95,  40)
 
-class DragonSuperBoss(SuperBoss):     # Welle 150 — Drachen-Overlord (Original-Seitenansicht)
-    SPRITE_NAME   = None              # → bestehender drache_superboss_walk.png
+class DragonSuperBoss(SuperBoss):     # Welle 150 — Drachen-Overlord (frontaler Eis-Drache)
+    SPRITE_NAME   = "dragon_boss"     # → assets/custom/dragon_boss_run.png (SPRITE_NAME=None: alter Seitenansicht-Drache)
     _frames_r     = None
     _frames_l     = None
+    COLOR_BODY    = ( 90, 140, 200)
+    COLOR_OUTLINE = (140, 200, 240)
+    COLOR_HP_BAR  = (150, 205, 240)
