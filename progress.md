@@ -587,6 +587,11 @@ Trivia-Entscheidungen (echte Abwägungen → ADR in `docs/decisions/`):
 - **D41** — **XP-Kurve linear → quadratisch** → **ADR 028**. `xp_to_next = 8 + 1.0·(level-1)² +
   10·wave`; Level 100 ≈ 10000 XP (war ~850), Modell-Endlevel ~72 statt ~195. Option A (10000 wörtlich,
   Level 100 = Fernziel) vom Nutzer gegen Option B/C gewählt; Tradeoff-Abwägung im ADR.
+- **D42** — **Quell-/Geschoss-Sprite-PNGs aus Git genommen (Commit `91db61f`):** Master liegen extern
+  in `C:\Users\kings\Desktop\aselfmade assets`; `.gitignore` ignoriert `assets/custom/*_static.png`
+  (Tool-Quellen) + `*_shot.png`/`*_cast.png` (Geschosse/Cast). 31 Dateien via `git rm --cached`
+  untrackt (lokal bleiben sie). Getrackt bleiben `_run`/`tier*_ground`/`player_tower`/`drache_*`.
+  Folge: frische Clones zeigen für Geschosse den Goldpfeil-Fallback (Golden Rule 5).
 - **D1** — Doku-Sprache: Deutsch (Code-Bezeichner bleiben Englisch).
 - **D2** — Projektziel: Lernen mit echter Veröffentlichungs-Absicht später.
 - **D3** — Zielplattform: Windows-Desktop `.exe` (z. B. itch.io). Browser/Mac/Linux
