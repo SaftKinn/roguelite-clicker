@@ -78,10 +78,12 @@ Spieler-Tasten (im `PLAYING`-State): **C** blendet die eigenen Stats ein/aus (Ov
 (oben rechts) wählt x1/x2/x3/x5/x10/x20. Das Pause-Menü (ESC) hat einen **„Steuerung"-Button**
 mit der vollen Tastenübersicht.
 
-Dev-Tasten (nur im `PLAYING`-State): **F1** alle Gegner töten · **F2** zu Welle 9
-· **F3** zu Welle 49 · **F4** zu `WIN_WAVE`−1 (Welle 149 → finaler SuperBoss/​Sieg testen;
-friert Level/Stats ein → **kein** Endgame-Balance-Test) · **F5** Levelup erzwingen (Karten testen) ·
-**F11** Fullscreen · **ESC** Pause/zurück.
+Dev-Tasten (nur im `PLAYING`-State): **F1–F6** springen zur jeweiligen Boss-Welle —
+**F1** W10 (Tier-1 Boss) · **F2** W50 (Untoter SuperBoss) · **F3** W60 (Tier-2 Boss) ·
+**F4** W100 (Dämon SuperBoss) · **F5** W110 (Tier-3 Boss) · **F6** W150 (Drache SuperBoss).
+Sprünge frieren Level/Stats ein → **kein** Endgame-Balance-Test. Weiter: **F7** Levelup
+erzwingen (Karten testen) · **F8** alle Gegner töten · **U** Unverwundbarkeit an/aus
+(hebelt auch den Boss-Oneshot aus) · **F11** Fullscreen · **ESC** Pause/zurück.
 
 ---
 

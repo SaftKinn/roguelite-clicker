@@ -109,8 +109,8 @@ def flow_full(outdir):
     time.sleep(1.0)
     shot("02_playing.png", outdir)
 
-    print("[3] F5 → Levelup → Karten-Auswahl (UPGRADE)")
-    key(pygame.K_F5)
+    print("[3] F7 → Levelup → Karten-Auswahl (UPGRADE)")
+    key(pygame.K_F7)         # Dev-Levelup liegt jetzt auf F7 (F1–F6 = Boss-Wellen-Sprünge)
     time.sleep(0.8)          # Karten-Fade abwarten (klickbar ab fade≥120)
     shot("03_levelup.png", outdir)
 
@@ -119,10 +119,10 @@ def flow_full(outdir):
     time.sleep(0.8)
     shot("04_after_levelup.png", outdir)
 
-    print("[5] F4 → Welle 99 → Clear → Welle 100, dann F1 → VICTORY")
-    key(pygame.K_F4)
-    time.sleep(1.6)          # WAVE_CLEAR_DELAY (70f ≈ 0.9s) + Puffer → Welle 100
-    key(pygame.K_F1)
+    print("[5] F6 → Welle 150 (Drache-SuperBoss), dann F8 (alle töten) → VICTORY")
+    key(pygame.K_F6)         # Sprung auf Welle 150
+    time.sleep(1.6)          # WAVE_CLEAR_DELAY (70f ≈ 0.9s) + Puffer → Welle 150 spawnt
+    key(pygame.K_F8)         # alle Gegner töten → Welle 150 geräumt → Sieg
     time.sleep(0.8)
     shot("05_victory.png", outdir)
 

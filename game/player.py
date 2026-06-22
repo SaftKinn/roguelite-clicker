@@ -53,8 +53,11 @@ class Player:
         self.hp_regen       = 0.0   # HP/Sekunde (Regeneration)
         self.lifesteal_flat = 0     # flache HP/Treffer zusätzlich zur Basis
         self.lifesteal_pct  = 0.0   # Anteil des Treffer-Schadens als HP
+        self.invuln         = False # Dev-Schalter (Taste U): nimmt keinen Schaden
 
     def take_damage(self, amount: int) -> None:
+        if self.invuln:            # Dev-Unverwundbarkeit (Taste U): kompletten Treffer ignorieren
+            return
         # Ausweichen: mit `dodge`-Chance kompletten Treffer vermeiden (greift NICHT gegen
         # den Boss-Oneshot, der in main.py player.hp direkt auf 0 setzt — ADR 025).
         if self.dodge and random.random() < self.dodge:

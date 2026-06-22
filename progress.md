@@ -7,6 +7,37 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
+**UI-Redesign „Glass-Hybrid" + zentrales Theme-Modul (2026-06-22) — ADR 033.** Das ganze
+Front-End wurde von flach-gezeichnet auf einen modernen, kohärenten Look gehoben. Neu:
+**`game/theme.py`** als einzige Quelle des UI-Looks — Palette + gecachte „Glass"-Primitive
+(`backdrop`+Vignette, `panel` mit Verlauf/Highlight, `drop_shadow`/`accent_glow` via
+smoothscale-Blur, `text`/`text_center` mit Schatten, `pill`, `font` mit optionaler
+Display-TTF, Fallback Arial). Die geteilte **`Button`-Klasse** (`main_menu.py`) nutzt sie →
+**alle** Menü-Buttons gehoben an einer Stelle. Umgestellt: Hauptmenü (Backdrop, Logo-PNG mit
+Fallback, Münz-/Rekord-Pills), Shop (Glass-Slots + Gruppen-Chips), Level-up-Karten (Glass +
+Schatten/Glow, **4 Gruppen-Icons** statt 2 geteilte, Fallback auf Tiny-Swords-Icons),
+Slot-Auswahl, Optionen, Lexikon, sowie In-Game-Overlays (Pause/Game-Over/Sieg/„Welle
+geschafft" als zentrierte Glass-Card mit Glow-Titel). Gruppen-Farben bleiben in `balance.py`.
+**Verifiziert:** Headless-Renders aller Screens + voller Treiber-Flow (Slot→Menü→PLAYING→
+F7-Karten→Sieg) **crashfrei**. **Offen (extern):** 5 Leonardo-PNGs noch zu generieren —
+`assets/custom/menu_logo.png` + `icon_{red,blue,gold,white}.png` (Prompts+Settings im
+Plan-File `ich-m-chte-f-r-die-inherited-floyd`); optionale Display-TTF nach `assets/fonts/`.
+Bis dahin greifen Fallbacks (nichts crasht). **Noch nicht committet.**
+
+---
+
+**Dev-Controls umbelegt + Unverwundbarkeit (2026-06-22).** Dev-Tasten neu, damit man
+gezielt jede Boss-Welle testen kann: **F1–F6** springen zu W10/50/60/100/110/150
+(`DEV_WAVE_KEYS`-Dict in `main.py`, einheitlicher Sprung „Ziel−1 + Clear erzwingen"),
+**F7** = Levelup erzwingen (war F5), **F8** = alle Gegner töten (war F1), **U** =
+Unverwundbarkeit an/aus (`player.invuln`: early-return in `Player.take_damage` + Guard am
+Boss-Oneshot in `check_enemy_contact`; grüner „UNVERWUNDBAR"-Indikator unten links).
+CONTROLS-Overlay + CLAUDE.md + Skill-`driver.py` (Levelup→F7, Sieg-Flow F6→F8) nachgezogen.
+**Verifiziert:** DEV_WAVE_KEYS-Mapping + Invuln (take_damage & Oneshot geblockt) per Unit-Test;
+voller Treiber-Flow crashfrei (F7→Karten „Ausweichen", F6→F8→SIEG Welle 150). Dev-only, kein ADR.
+
+---
+
 **Eigene Boss- & SuperBoss-Sprites pro Tier (2026-06-22) — ADR 032.** Alle 6 Endgegner
 haben jetzt eigene Leonardo-Sprites (frontale Pose, transparent freigestellt):
 - **Reguläre Bosse** (alle 10 Wellen): `Tier1Boss`/`Tier2Boss`/`Tier3Boss` (`enemy.py`) setzen
@@ -115,6 +146,22 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-22 (Teil 17) — **UI-Redesign „Glass-Hybrid" (ADR 033):**
+- **Neues `game/theme.py`** (Palette + gecachte Glass-Primitive: `backdrop`/`backdrop_region`,
+  `panel`, `drop_shadow`, `accent_glow`, `text`/`text_center`, `pill`, `header_band`, `font`).
+  Schatten/Glows via Down-/Upscale-Blur (`smoothscale`), pro Form gecacht.
+- **`Button`-Klasse** (`main_menu.py`) auf Theme umgestellt → alle Menü-Buttons gehoben.
+- **Reskins:** Hauptmenü (Logo-PNG-Fallback, Pills), Shop (Glass-Slots + Gruppen-Chips),
+  Karten (Glass + Schatten/Glow + **4 Gruppen-Icons** mit Tiny-Swords-Fallback), Slot-Auswahl,
+  Optionen, Lexikon (Backdrop-Region als Scroll-Maske), End-Overlays (`_draw_end_overlay` —
+  Glass-Card + Glow-Titel; `★` entfernt, da Arial-Fallback es als Kästchen rendert).
+- **Bug gefunden+behoben:** weißer Hover-Overlay via `pygame.draw.rect` auf SRCALPHA-Karte
+  **überschrieb** das Alpha (draw blendet nicht) → Karteninhalt grau ausgewaschen; entfernt,
+  Hover signalisiert jetzt `accent_glow` + dickerer Rahmen.
+- **Verifikation:** Headless-Renders aller Screens (`media/_ui_*.png`) + voller Treiber-Flow
+  crashfrei (`shots/`). 5 Leonardo-PNGs (Logo + 4 Icons) + optionale Display-TTF noch offen
+  (extern), Fallbacks aktiv. **Noch nicht committet.**
 
 2026-06-22 (Teil 16) — **Player-Turm-Sprite getauscht + Fernkämpfer-Geschosse importiert (ADR 027):**
 - **Neuer Turm:** kristallgekrönte Stein-Bastion (Leonardo, `key_black_bg` freigestellt) →

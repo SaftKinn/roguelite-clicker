@@ -23,6 +23,8 @@ from game.fx           import DamageNumber, COLOR_COIN
 from game.terrain      import Terrain
 from game import save_data  as sd
 from game import ui_loader
+from game import theme
+from game import balance
 from game.balance     import (MELEE_REACH,
                               WIN_WAVE, MAX_CONCURRENT_ENEMIES, CAMERA_ZOOM,
                               enemies_for_wave, spawn_interval_ticks, enemy_hp_for_wave, wave_tier_mult,
@@ -83,6 +85,17 @@ TIER_SUPERBOSS = [UndeadSuperBoss, DemonSuperBoss, DragonSuperBoss]
 
 # Pro Tier ein eigener regulärer Boss (alle 10 Wellen) — parallel zu TIER_ROSTER.
 TIER_BOSS = [Tier1Boss, Tier2Boss, Tier3Boss]
+
+# Dev-Sprungtasten F1–F6 → zur jeweiligen Boss-Welle springen (je Tier: Boss + SuperBoss).
+# Mechanik: gs["wave"] = Ziel−1 + Wave-Clear erzwingen → nächster Clear spawnt die Ziel-Welle.
+DEV_WAVE_KEYS = {
+    pygame.K_F1:  10,   # Tier-1 Boss
+    pygame.K_F2:  50,   # Untoter SuperBoss
+    pygame.K_F3:  60,   # Tier-2 Boss
+    pygame.K_F4: 100,   # Dämon SuperBoss
+    pygame.K_F5: 110,   # Tier-3 Boss
+    pygame.K_F6: 150,   # Drache SuperBoss
+}
 
 
 def spawn_enemy_for_wave(wave: int, hp_mult: float) -> Warrior:
@@ -238,7 +251,8 @@ def check_enemy_contact(enemies: list, player: Player,
             if isinstance(enemy, (Boss, SuperBoss)):
                 # Bosse töten den Spieler bei Berührung mit einem Treffer — bewusst ungemindert
                 # (Armor/Dodge greifen NICHT, sonst trivialisieren sie Bosse, ADR 025).
-                if enemy.melee_attack():
+                # Dev-Unverwundbarkeit (Taste U) hebelt auch den Boss-Oneshot aus.
+                if enemy.melee_attack() and not player.invuln:
                     player.hp = 0
             elif (dmg := enemy.melee_attack()):
                 player.take_damage(dmg)
@@ -398,50 +412,52 @@ def draw_stats_panel(screen: pygame.Surface, font: pygame.font.Font,
         ty += line_h
 
 
-def draw_game_over(screen, font_big, font, wave, coins_earned, best_wave, new_record):
+def _draw_end_overlay(screen, font, title_txt, title_color, accent, tint, lines):
+    """Gemeinsames End-Overlay (Game-Over/Sieg): abgedunkeltes Spiel + zentrierte Glass-Karte."""
     overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 200))
+    overlay.fill(tint)
     screen.blit(overlay, (0, 0))
     cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
 
-    rows = [
-        (font_big.render("GAME OVER",                     True, (220,  50,  50)), cy - 90),
-        (font.render(f"Welle {wave} erreicht",            True, (220, 220, 220)), cy - 15),
-        (font.render(f"+{coins_earned} Münzen verdient",  True, COLOR_COIN),      cy + 22),
-    ]
-    if new_record:
-        rows.append((font.render("★  NEUER REKORD!  ★",  True, (255, 220, 60)),  cy + 58))
-    else:
-        rows.append((font.render(f"Rekord: Welle {best_wave}",
-                                  True, (130, 130, 150)),                          cy + 58))
-    rows.append((font.render("R — Neustart   |   M — Hauptmenü",
-                              True, (120, 120, 140)),                              cy + 96))
+    card = pygame.Rect(0, 0, 460, 320)
+    card.center = (cx, cy)
+    theme.accent_glow(screen, card, accent, radius=theme.PANEL_RADIUS, spread=22, alpha=70)
+    theme.panel(screen, card, accent=accent)
 
-    for surf, y in rows:
-        screen.blit(surf, (cx - surf.get_width() // 2, y))
+    font_title = theme.font(58, bold=True, display=True)
+    glow = font_title.render(title_txt, True, theme._lerp(title_color, theme.INK, 0.4))
+    screen.blit(glow, (cx - glow.get_width() // 2 + 2, card.y + 36 + 2))
+    theme.text_center(screen, font_title, title_txt,
+                      (cx, card.y + 36 + glow.get_height() // 2), color=title_color)
+
+    y = card.y + 130
+    for text_s, color in lines:
+        theme.text_center(screen, font, text_s, (cx, y), color=color, shadow=False)
+        y += 36
+
+
+def draw_game_over(screen, font_big, font, wave, coins_earned, best_wave, new_record):
+    record = (("NEUER REKORD!", theme.GOLD) if new_record
+              else (f"Rekord: Welle {best_wave}", theme.TEXT_FAINT))
+    _draw_end_overlay(
+        screen, font, "GAME OVER", (224, 72, 72),
+        balance.GROUP_COLORS[balance.GROUP_RED], (0, 0, 0, 200),
+        [(f"Welle {wave} erreicht", theme.TEXT),
+         (f"+{coins_earned} Münzen verdient", COLOR_COIN),
+         record,
+         ("R — Neustart   |   M — Hauptmenü", theme.TEXT_FAINT)])
 
 
 def draw_victory(screen, font_big, font, wave, coins_earned, best_wave, new_record):
-    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-    overlay.fill((10, 12, 30, 205))
-    screen.blit(overlay, (0, 0))
-    cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
-
-    rows = [
-        (font_big.render("SIEG!",                         True, (255, 220,  60)), cy - 100),
-        (font.render(f"SuperBoss in Welle {WIN_WAVE} bezwungen", True, (220, 220, 240)), cy - 24),
-        (font.render(f"+{coins_earned} Münzen verdient",  True, COLOR_COIN),      cy + 14),
-    ]
-    if new_record:
-        rows.append((font.render("★  NEUER REKORD!  ★",  True, (255, 220, 60)),  cy + 52))
-    else:
-        rows.append((font.render(f"Rekord: Welle {best_wave}",
-                                  True, (130, 130, 150)),                          cy + 52))
-    rows.append((font.render("R — Neuer Lauf   |   M — Hauptmenü",
-                              True, (120, 120, 140)),                              cy + 92))
-
-    for surf, y in rows:
-        screen.blit(surf, (cx - surf.get_width() // 2, y))
+    record = (("NEUER REKORD!", theme.GOLD) if new_record
+              else (f"Rekord: Welle {best_wave}", theme.TEXT_FAINT))
+    _draw_end_overlay(
+        screen, font, "SIEG!", theme.GOLD,
+        balance.GROUP_COLORS[balance.GROUP_GOLD], (10, 12, 30, 205),
+        [(f"SuperBoss in Welle {WIN_WAVE} bezwungen", theme.TEXT),
+         (f"+{coins_earned} Münzen verdient", COLOR_COIN),
+         record,
+         ("R — Neuer Lauf   |   M — Hauptmenü", theme.TEXT_FAINT)])
 
 
 def draw_boss_bar(screen: pygame.Surface, font: pygame.font.Font,
@@ -510,6 +526,7 @@ def main():
     font     = pygame.font.SysFont("Arial", 22, bold=True)
     font_big = pygame.font.SysFont("Arial", 56, bold=True)
     font_dmg = pygame.font.SysFont("Arial", 15, bold=True)
+    _title_font = theme.font(56, bold=True, display=True)   # einheitlicher Gold-Titel (In-Game)
 
     save         = sd.load(1)      # vorläufig Slot 1; der echte Slot wird vor dem Menü gewählt
     main_menu    = MainMenu()
@@ -549,7 +566,9 @@ def main():
         ("C",            "Eigene Stats ein-/ausblenden"),
         ("ESC",          "Pause / zurück"),
         ("F11",          "Vollbild umschalten"),
-        ("F1–F5",        "Dev: Welle leeren / →W10 / →W50 / →W100 / Levelup"),
+        ("F1–F6",        "Dev: zu Boss-Welle springen (10 / 50 / 60 / 100 / 110 / 150)"),
+        ("F7 / F8",      "Dev: Levelup erzwingen / alle Gegner töten"),
+        ("U",            "Dev: Unverwundbarkeit an/aus"),
     ]
     controls_back_btn = Button(
         pygame.Rect(_pcx - _pbw // 2, SCREEN_HEIGHT - _pbh - 30, _pbw, _pbh), "Zurück", (60, 160, 220))
@@ -633,30 +652,23 @@ def main():
 
                 # --- Dev-Tasten (nur im laufenden Spiel) ---
                 if state == "PLAYING" and gs:
-                    if event.key == pygame.K_F1:
-                        # Alle Gegner sofort töten → normaler Wave-Clear
+                    if event.key in DEV_WAVE_KEYS:
+                        # F1–F6: zur Boss-Welle springen (Ziel−1 setzen + Clear erzwingen)
+                        gs["wave"]            = DEV_WAVE_KEYS[event.key] - 1
                         for e in gs["enemies"]: e.alive = False
                         gs["spawn_remaining"] = 0
-                    elif event.key == pygame.K_F2:
-                        # Auf Welle 9 springen (nächste Clear → Boss Welle 10)
-                        gs["wave"]            = 9
-                        for e in gs["enemies"]: e.alive = False
-                        gs["spawn_remaining"] = 0
-                    elif event.key == pygame.K_F3:
-                        # Auf Welle 49 springen (nächste Clear → SuperBoss Welle 50)
-                        gs["wave"]            = 49
-                        for e in gs["enemies"]: e.alive = False
-                        gs["spawn_remaining"] = 0
-                    elif event.key == pygame.K_F4:
-                        # Auf WIN_WAVE-1 springen (nächste Clear → finaler SuperBoss → Sieg)
-                        gs["wave"]            = WIN_WAVE - 1
-                        for e in gs["enemies"]: e.alive = False
-                        gs["spawn_remaining"] = 0
-                    elif event.key == pygame.K_F5:
+                    elif event.key == pygame.K_F7:
                         # Dev: einen Levelup erzwingen (Karten-Auswahl testen)
                         gs["level"]            += 1
                         gs["pending_levelups"] += 1
                         gs["xp_to_next"]        = xp_to_next(gs["level"], gs["wave"])
+                    elif event.key == pygame.K_F8:
+                        # Dev: alle Gegner sofort töten → normaler Wave-Clear
+                        for e in gs["enemies"]: e.alive = False
+                        gs["spawn_remaining"] = 0
+                    elif event.key == pygame.K_u:
+                        # Dev: Unverwundbarkeit an/aus (hebelt auch den Boss-Oneshot aus)
+                        player.invuln = not player.invuln
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if state == "SLOT_SELECT":
@@ -977,7 +989,7 @@ def main():
                     gs["spawn_timer"]     = 0
                     # Biom-Wechsel bei Tier-Grenze (W50→51, W100→101): gegen den
                     # tatsächlich geladenen Boden prüfen, nicht alte/neue Welle —
-                    # so greift es auch nach Dev-Sprüngen (F3/F4).
+                    # so greift es auch nach Dev-Sprüngen (F1–F6).
                     if terrain and terrain.tier != tier_for_wave(gs["wave"]):
                         terrain = Terrain(tier=tier_for_wave(gs["wave"]))
                     if gs["wave"] % 50 == 0:
@@ -1067,29 +1079,33 @@ def main():
                 draw_stats_panel(screen, font, gs["stats"], player, LIFESTEAL_PER_HIT)
             # Dev-Hint (linke untere Ecke)
             if gs and state == "PLAYING":
-                hint = font_dmg.render("C Stats   F1 Clear  F2→W10  F3→W50  F4→W100  F5 Lvl+", True, (55, 55, 75))
+                hint = font_dmg.render(
+                    "C Stats   F1-6 Boss-Wellen 10/50/60/100/110/150   F7 Lvl+   F8 Clear   U Unverwundbar",
+                    True, (55, 55, 75))
                 screen.blit(hint, (6, SCREEN_HEIGHT - hint.get_height() - 6))
+                if player and player.invuln:   # aktiver Unverwundbarkeits-Schalter sichtbar machen
+                    inv = font_dmg.render("● UNVERWUNDBAR (U)", True, (90, 230, 120))
+                    screen.blit(inv, (6, SCREEN_HEIGHT - hint.get_height() * 2 - 10))
             if options_menu.show_fps:
                 fps_surf = font.render(f"FPS  {int(clock.get_fps())}", True, (80, 80, 100))
                 screen.blit(fps_surf, (SCREEN_WIDTH - fps_surf.get_width() - 12,
                                        SCREEN_HEIGHT - fps_surf.get_height() - 10))
 
             if state == "WAVE_CLEAR":
-                msg = font_big.render("Welle geschafft!", True, (255, 220, 60))
-                screen.blit(msg, (SCREEN_WIDTH  // 2 - msg.get_width()  // 2,
-                                   SCREEN_HEIGHT // 2 - msg.get_height() // 2))
+                theme.text_center(screen, _title_font, "Welle geschafft!",
+                                  (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), color=theme.GOLD)
             elif state == "PAUSED":
                 screen.blit(pause_overlay, (0, 0))
-                ptitle = font_big.render("PAUSE", True, (255, 220, 60))
-                screen.blit(ptitle, (_pcx - ptitle.get_width() // 2, _ptop - 90))
+                theme.text_center(screen, _title_font, "PAUSE",
+                                  (_pcx, _ptop - 64), color=theme.GOLD)
                 pause_btn_continue.draw(screen, font, mouse_pos)
                 pause_btn_options.draw(screen,  font, mouse_pos)
                 pause_btn_controls.draw(screen, font, mouse_pos)
                 pause_btn_menu.draw(screen,     font, mouse_pos)
             elif state == "CONTROLS":
                 screen.blit(pause_overlay, (0, 0))
-                ctitle = font_big.render("Steuerung", True, (255, 220, 60))
-                screen.blit(ctitle, (_pcx - ctitle.get_width() // 2, 70))
+                theme.text_center(screen, _title_font, "Steuerung", (_pcx, 90),
+                                  color=theme.GOLD)
                 ry = 180
                 for keyname, desc in CONTROLS_LINES:
                     ks = font.render(keyname, True, (255, 220, 120))
