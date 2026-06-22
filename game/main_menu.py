@@ -212,6 +212,12 @@ _LOGO_MAX_W   = 420   # Logo-Wappen: proportional in diese Box (Breite × Höhe)
 _LOGO_MAX_H   = 150
 _LOGO_TOP     = 40    # y-Oberkante des Wappens
 
+# Optionaler Bild-Hintergrund (assets/custom/menu_bg.png, Leonardo). Fehlt er, greift der
+# gezeichnete Verlauf `theme.backdrop` als Fallback (Golden Rule 5: nie ohne Asset crashen).
+_BG_PATH      = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "assets", "custom", "menu_bg.png")
+
 
 class MainMenu:
     def __init__(self):
@@ -229,6 +235,7 @@ class MainMenu:
                                        _GEAR_SIZE, _GEAR_SIZE)
         self._gear_surf  = None
         self._logo_surf  = None   # None bis Lade-Versuch; False = nicht vorhanden
+        self._bg_surf    = None   # None bis Lade-Versuch; False = nicht vorhanden
 
     def _load_fonts(self) -> None:
         if not self._fonts_ready:
@@ -238,7 +245,16 @@ class MainMenu:
             raw = ui_loader._img("Icons/Icon_12.png")
             self._gear_surf = pygame.transform.smoothscale(raw, (_GEAR_SIZE, _GEAR_SIZE))
             self._load_logo()
+            self._load_bg()
             self._fonts_ready = True
+
+    def _load_bg(self) -> None:
+        """Hintergrund-PNG lazy laden, auf Bildschirmgröße skaliert. False = fehlt → Verlauf-Fallback."""
+        try:
+            raw = pygame.image.load(_BG_PATH).convert()
+            self._bg_surf = pygame.transform.smoothscale(raw, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        except Exception:
+            self._bg_surf = False
 
     def _load_logo(self) -> None:
         """Logo-PNG lazy laden; proportional in die Box (_LOGO_MAX_W × _LOGO_MAX_H). False = fehlt."""
@@ -265,7 +281,15 @@ class MainMenu:
     def draw(self, screen: pygame.Surface, mouse_pos: tuple,
              save: dict, run_active: bool = False, best_wave: int = 0) -> None:
         self._load_fonts()
-        theme.backdrop(screen)
+        # Bild-Hintergrund (Leonardo) falls vorhanden, sonst gezeichneter Verlauf (Fallback,
+        # Golden Rule 5). Über das Bild: Vignette (Ränder) + Titel-Scrim (oben), damit der
+        # Gold-Titel auch über dem hellen Himmel kontrastiert.
+        if self._bg_surf:
+            screen.blit(self._bg_surf, (0, 0))
+            theme.vignette(screen)
+            screen.blit(theme.top_scrim(SCREEN_WIDTH, SCREEN_HEIGHT), (0, 0))
+        else:
+            theme.backdrop(screen)
 
         cx = SCREEN_WIDTH // 2
         # Wappen-PNG (falls vorhanden) oben, darunter der Gold-Schriftzug; ohne PNG nur Schriftzug.

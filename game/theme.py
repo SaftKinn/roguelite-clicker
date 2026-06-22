@@ -116,6 +116,18 @@ def _blur(surf: pygame.Surface, factor: int) -> pygame.Surface:
 # Backdrop — voller Bildschirm-Hintergrund (Verlauf + Vignette), einmal gebacken
 # ---------------------------------------------------------------------------
 _backdrop_surf: pygame.Surface | None = None
+_vignette_surf: pygame.Surface | None = None
+_scrim_cache:   dict = {}
+
+
+def _build_vignette(w: int, h: int) -> pygame.Surface:
+    """Dunkler Rahmen, der zur Mitte ausblendet (geblurrtes Rechteck-Loch) — als Overlay-Surface."""
+    vig = pygame.Surface((w, h), pygame.SRCALPHA)
+    vig.fill((*INK, 165))
+    inner = pygame.Rect(0, 0, int(w * 0.82), int(h * 0.82))
+    inner.center = (w // 2, h // 2)
+    pygame.draw.rect(vig, (0, 0, 0, 0), inner, border_radius=min(inner.w, inner.h) // 3)
+    return _blur(vig, 8)
 
 
 def backdrop(screen: pygame.Surface) -> None:
@@ -124,17 +136,33 @@ def backdrop(screen: pygame.Surface) -> None:
     w, h = screen.get_size()
     if _backdrop_surf is None or _backdrop_surf.get_size() != (w, h):
         base = vgradient(w, h, BACKDROP_HI, BACKDROP_LO).copy()
-        # Vignette: dunkler Rahmen, der zur Mitte ausblendet (geblurrtes Rechteck-Loch).
-        vig = pygame.Surface((w, h), pygame.SRCALPHA)
-        vig.fill((*INK, 165))
-        inner = pygame.Rect(0, 0, int(w * 0.82), int(h * 0.82))
-        inner.center = (w // 2, h // 2)
-        pygame.draw.rect(vig, (0, 0, 0, 0), inner,
-                         border_radius=min(inner.w, inner.h) // 3)
-        vig = _blur(vig, 8)
-        base.blit(vig, (0, 0))
+        base.blit(_build_vignette(w, h), (0, 0))
         _backdrop_surf = base
     screen.blit(_backdrop_surf, (0, 0))
+
+
+def vignette(screen: pygame.Surface) -> None:
+    """Nur die weiche Vignette über das aktuelle Bild legen (für Bild-Hintergründe statt `backdrop`)."""
+    global _vignette_surf
+    w, h = screen.get_size()
+    if _vignette_surf is None or _vignette_surf.get_size() != (w, h):
+        _vignette_surf = _build_vignette(w, h)
+    screen.blit(_vignette_surf, (0, 0))
+
+
+def top_scrim(w: int, h: int, frac: float = 0.42, alpha: int = 160) -> pygame.Surface:
+    """Dunkles Verlaufsband von oben (deckend → transparent), das den Gold-Titel über einem
+    hellen Bild-Hintergrund abhebt (gecacht)."""
+    key = (w, h, frac, alpha)
+    s = _scrim_cache.get(key)
+    if s is None:
+        s = pygame.Surface((w, h), pygame.SRCALPHA)
+        bh = max(1, int(h * frac))
+        for y in range(bh):
+            a = int(alpha * (1.0 - y / bh))
+            pygame.draw.line(s, (*INK, a), (0, y), (w, y))
+        _scrim_cache[key] = s
+    return s
 
 
 def backdrop_region(screen: pygame.Surface, rect: pygame.Rect) -> None:

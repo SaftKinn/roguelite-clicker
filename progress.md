@@ -7,6 +7,20 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
+**Bild-Hintergrund im Hauptmenü (2026-06-22).** Leonardo-Key-Art (Turm auf Hügel, Sonnenuntergang,
+drei Tier-Reiche am Horizont) als `assets/custom/menu_bg.png` (1280×720, aus externem Master
+`aselfmade assets\rougelite clicker assets\cover\` via Pillow/System.Drawing skaliert). In
+`game/theme.py` die Vignette in `_build_vignette()` ausgelagert und zwei Primitive ergänzt:
+`vignette()` (Overlay über ein Bild) + `top_scrim()` (dunkles Verlaufsband oben, hebt den
+Gold-Titel ab; Default frac 0.42 / alpha 160). `MainMenu` lädt das PNG lazy (`_load_bg`,
+`_bg_surf`) und zeichnet **nur im Hauptmenü** Bild → Vignette → Titel-Scrim, mit **Fallback** auf
+`theme.backdrop` (Golden Rule 5). Andere Screens behalten den prozeduralen Verlauf. **Verifiziert:**
+direkter `MainMenu.draw`-Render headless → Bild/Titel/Buttons sauber (`shots/menu_bg_test.png`).
+Neue Memory-Regel für Szenen-/Menü-Hintergrund-Prompts angelegt. **Offen:** ggf. Scrim-Stärke
+nachschärfen, falls „CLICKER" über dem hellsten Himmel zu schwach wirkt. **Noch nicht committet.**
+
+---
+
 **Overdrive — erste aktivierbare Spieler-Fähigkeit (2026-06-22) — ADR 034.** Gegen den rein
 passiven Auto-Combat (ADR 010, offene Genre-Frage „woher kommt aktive Spannung?"): **Leertaste**
 zündet einen 5-s-Burst mit **×2 Angriffstempo + ×1.5 Schaden**, danach 18 s Cooldown (ab
