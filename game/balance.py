@@ -56,6 +56,13 @@ ATTACK_RANGE_FRAC = 0.92
 SPRITE_SCALE = 1.1    # zusätzliche Vergrößerung aller Einheiten-/Geschoss-Sprites beim Laden
 ENEMY_SPRITE_SCALE = 1.25  # Gegner-Körper zusätzlich vergrößert (etwas größer als der Turm); Turm bleibt _TOWER_SIZE
 
+# Screenshake (Juice, ADR 035): max. Pixel-Versatz der Gameplay-Ebene beim Boss-Tod.
+# Klein halten (≤8 px), damit der Versatz keine sichtbaren Ränder erzeugt. Pro Sub-Tick
+# um SHAKE_DECAY abklingend → zeitraffer-stabil wie die übrigen Timer.
+SHAKE_BOSS_DEATH = 8.0   # SuperBoss-Tod: kräftiger Wumms
+SHAKE_BOSS_HIT   = 5.0   # normaler Boss-Tod: leichteres Beben
+SHAKE_DECAY      = 0.5   # Pixel, die der Shake pro Sub-Tick verliert
+
 
 # ---------------------------------------------------------------------------
 # Sieg & Wellen-Caps (Phase 2, ADR 004/006; Mengen ADR 007)

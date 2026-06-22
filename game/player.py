@@ -1,3 +1,4 @@
+import math
 import os
 import random
 import pygame
@@ -14,6 +15,14 @@ MAX_HP   = 120   # Basis-HP des Turms (knackiger/tödlicher, ADR 008; HP kommt n
 _TURM_PATH  = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                             "assets", "custom", "player_tower.png")
 _TOWER_SIZE = round(135 * balance.SPRITE_SCALE)   # Turm-Sprite global mitskaliert (SPRITE_SCALE)
+
+# Turm-Animation (Juice, ADR 035): rein über Transform/Tint des vorhandenen Sprites.
+_IDLE_PULSE_PERIOD = 90       # Ticks für einen Atem-Zyklus
+_IDLE_PULSE_SCALE  = 0.03     # ±3 % Scale-Wabern (Idle-„Atmen")
+_RECOIL_TICKS      = 7        # Dauer des Rückstoß-Pops nach einem Schuss
+_RECOIL_SCALE      = 0.10     # Scale-Dip beim Schuss (federt zurück)
+_RECOIL_OFFSET_PX  = 6        # Versatz entgegen der Schussrichtung (in Sprite-Pixeln)
+_OVERDRIVE_TINT    = (70, 45, 0)   # additiver Glüh-Ton während Overdrive (pulsierend)
 
 _SENTINEL   = object()
 _tower_surf = None
@@ -54,6 +63,11 @@ class Player:
         self.lifesteal_flat = 0     # flache HP/Treffer zusätzlich zur Basis
         self.lifesteal_pct  = 0.0   # Anteil des Treffer-Schadens als HP
         self.invuln         = False # Dev-Schalter (Taste U): nimmt keinen Schaden
+        # Turm-Animation (Juice, ADR 035)
+        self._anim_t        = 0                              # globaler Tick-Zähler (Idle-Puls)
+        self._recoil        = 0                              # Rest-Ticks des Rückstoß-Pops
+        self._recoil_dir    = pygame.math.Vector2(0, -1)     # Schussrichtung (für Versatz)
+        self._overdrive_on  = False                          # von main je Frame gespiegelt
 
     def take_damage(self, amount: int) -> None:
         if self.invuln:            # Dev-Unverwundbarkeit (Taste U): kompletten Treffer ignorieren
@@ -69,8 +83,18 @@ class Player:
     def alive(self) -> bool:
         return self.hp > 0
 
-    def update(self) -> None:
-        pass
+    def update(self, overdrive: bool = False) -> None:
+        self._anim_t      += 1
+        self._overdrive_on = overdrive
+        if self._recoil > 0:
+            self._recoil -= 1
+
+    def trigger_recoil(self, direction: pygame.math.Vector2 | None = None) -> None:
+        """Vom Game-Loop bei jedem Turm-Schuss gerufen: startet den Rückstoß-Pop
+        und merkt sich die Schussrichtung für den Versatz."""
+        self._recoil = _RECOIL_TICKS
+        if direction is not None and direction.length() > 0:
+            self._recoil_dir = direction.normalize()
 
     def _draw_hp_bar(self, screen: pygame.Surface) -> None:
         bar_w = _TOWER_SIZE + 20
@@ -90,8 +114,28 @@ class Player:
         tower = _get_tower()
 
         if tower:
-            screen.blit(tower, (pos[0] - tower.get_width()  // 2,
-                                pos[1] - tower.get_height() // 2))
+            # Idle-Puls (sanftes Atmen) + Recoil-Dip als kombinierter Scale; der Recoil
+            # versetzt das Sprite zusätzlich kurz entgegen der Schussrichtung.
+            pulse = math.sin(self._anim_t * (2 * math.pi / _IDLE_PULSE_PERIOD)) * _IDLE_PULSE_SCALE
+            rec   = self._recoil / _RECOIL_TICKS if self._recoil > 0 else 0.0
+            scale = (1.0 + pulse) * (1.0 - _RECOIL_SCALE * rec)
+            ox    = int(-self._recoil_dir.x * _RECOIL_OFFSET_PX * rec)
+            oy    = int(-self._recoil_dir.y * _RECOIL_OFFSET_PX * rec)
+
+            img = tower
+            if abs(scale - 1.0) > 0.001:
+                w = max(1, int(tower.get_width()  * scale))
+                h = max(1, int(tower.get_height() * scale))
+                img = pygame.transform.smoothscale(tower, (w, h))
+            if self._overdrive_on:
+                if img is tower:        # gecachte Surface nie in-place tönen → Kopie
+                    img = img.copy()
+                glow = 0.55 + 0.45 * abs(math.sin(self._anim_t * 0.15))   # pulsierend
+                img.fill(tuple(int(c * glow) for c in _OVERDRIVE_TINT),
+                         special_flags=pygame.BLEND_RGB_ADD)
+
+            screen.blit(img, (pos[0] - img.get_width()  // 2 + ox,
+                              pos[1] - img.get_height() // 2 + oy))
         else:
             pygame.draw.circle(screen, COLOR_BODY,  pos, RADIUS)
             pygame.draw.circle(screen, COLOR_INNER, pos, RADIUS - 6)

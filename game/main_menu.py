@@ -812,13 +812,16 @@ class ImprovementsMenu:
             else:
                 save["upgrades"][e["id"]] = save["upgrades"].get(e["id"], 0) + 1
             sd.save(save)
-            return None
+            return "bought"
         return None
 
     # ------------------------------------------------------------------
 
+    _ICON_SIZE = 50   # Shop-Symbol je Slot (links)
+
     def _draw_slot(self, screen, mouse_pos, rect: pygame.Rect,
-                   color, name_txt, desc_txt, cost_txt, state: str) -> None:
+                   color, name_txt, desc_txt, cost_txt, state: str,
+                   entry_id: str, group: str) -> None:
         bought_like = state in ("bought", "maxed")
         hovered = rect.collidepoint(mouse_pos) and not bought_like
         active  = bought_like or hovered
@@ -832,22 +835,29 @@ class ImprovementsMenu:
                          border_top_left_radius=10, border_top_right_radius=10)
 
         rx, ry = rect.x, rect.y
+        # Symbol links, vertikal zentriert; gekaufte/maxed Slots leicht abgedunkelt wirken
+        # über die Textfarbe — das Icon bleibt voll, damit es erkennbar bleibt.
+        icon_cx = rx + 16 + self._ICON_SIZE // 2
+        ui_loader.draw_shop_icon(screen, entry_id, group, icon_cx, ry + rect.height // 2,
+                                 self._ICON_SIZE)
+        tx = rx + 16 + self._ICON_SIZE + 14   # Textspalte rechts vom Icon
+
         name_c = color if bought_like else theme.TEXT
-        theme.text(screen, self.font, name_txt, (rx + 14, ry + 14), color=name_c)
-        theme.text(screen, self.font_sm, desc_txt, (rx + 14, ry + 40),
+        theme.text(screen, self.font, name_txt, (tx, ry + 14), color=name_c)
+        theme.text(screen, self.font_sm, desc_txt, (tx, ry + 40),
                    color=theme.TEXT_DIM, shadow=False)
 
         sy = ry + rect.height - 24
         if bought_like:
             theme.text(screen, self.font_sm,
                        "Gekauft" if state == "bought" else "Max ausgebaut",
-                       (rx + 14, sy), color=color, shadow=False)
+                       (tx, sy), color=color, shadow=False)
         elif state == "locked":
             theme.text(screen, self.font_sm, f"{cost_txt}  (zu teuer)",
-                       (rx + 14, sy), color=(190, 96, 96), shadow=False)
+                       (tx, sy), color=(190, 96, 96), shadow=False)
         else:  # buyable
             txt = "→ Klicken zum Kaufen" if hovered else cost_txt
-            theme.text(screen, self.font_sm, txt, (rx + 14, sy),
+            theme.text(screen, self.font_sm, txt, (tx, sy),
                        color=color if hovered else theme.GOLD_DIM, shadow=False)
 
     def draw(self, screen: pygame.Surface, mouse_pos: tuple, save: dict) -> None:
@@ -888,6 +898,7 @@ class ImprovementsMenu:
             else:
                 name_txt, desc_txt = e["name"], e["desc"]
             cost_txt = "" if cost is None else f"{cost} Münzen"
-            self._draw_slot(screen, mouse_pos, rect, color, name_txt, desc_txt, cost_txt, state)
+            self._draw_slot(screen, mouse_pos, rect, color, name_txt, desc_txt,
+                            cost_txt, state, e["id"], e["group"])
 
         self.back_btn.draw(screen, self.font, mouse_pos)

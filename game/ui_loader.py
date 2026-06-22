@@ -1,10 +1,15 @@
 import os
 import pygame
 
-_UI_BASE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "assets", "Tiny Swords (Free Pack)", "UI Elements", "UI Elements"
+_ASSETS  = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets"
 )
+_UI_BASE = os.path.join(
+    _ASSETS, "Tiny Swords (Free Pack)", "UI Elements", "UI Elements"
+)
+_TS_ROOT    = os.path.join(_ASSETS, "Tiny Swords (Free Pack)")
+_CUSTOM_DIR = os.path.join(_ASSETS, "custom")
+_SHOP_ICON_DIR = os.path.join(_CUSTOM_DIR, "shop_icons")   # eigene Overrides je Eintrag
 
 _img_cache:  dict = {}
 _surf_cache: dict = {}
@@ -245,6 +250,63 @@ def draw_coin_icon(screen: pygame.Surface,
         _surf_cache[key] = _scale(_img("Icons/Icon_03.png"), size, size)
     icon = _surf_cache[key]
     screen.blit(icon, (cx - size // 2, cy - size // 2))
+
+
+# ---------------------------------------------------------------------------
+# Shop-Symbole  (eine Iconquelle je Verbesserungs-Eintrag)
+# ---------------------------------------------------------------------------
+
+# Standard-Iconquelle je Shop-Eintrag aus vorhandenen Packs (absolute Datei).
+# Reihenfolge der Auflösung pro Eintrag: custom/shop_icons/<id>.png (Override) →
+# diese Pack-Quelle → Gruppen-Emblem (icon_<group>.png) → nichts (Golden Rule 5).
+# „interim" = brauchbarer Platzhalter, bis ein eigenes Leonardo-Icon existiert.
+_SHOP_ICON_SRC = {
+    "start_damage":       os.path.join(_CUSTOM_DIR, "icon_red.png"),       # Schwert
+    "start_bullet_size":  os.path.join(_TS_ROOT,    "Cannonball.png"),     # Kanonenkugel
+    "start_lifesteal":    os.path.join(_UI_BASE, "Icons", "Icon_04.png"),  # Fleisch = Heilung
+    "doppelschuss":       os.path.join(_UI_BASE, "Icons", "Icon_05.png"),  # Doppel-Schwerter
+    "start_hp":           os.path.join(_CUSTOM_DIR, "icon_blue.png"),      # Schild
+    "coin_mult":          os.path.join(_CUSTOM_DIR, "icon_gold.png"),      # Geldsack
+    "gold_boost":         os.path.join(_UI_BASE, "Icons", "Icon_03.png"),  # Münze
+    "xp_mult":            os.path.join(_CUSTOM_DIR, "icon_white.png"),     # Buch
+    "start_attack_speed": os.path.join(_UI_BASE, "Icons", "Icon_08.png"),  # interim: Pfeil
+    "free_rerolls":       os.path.join(_UI_BASE, "Icons", "Icon_08.png"),  # interim: Pfeil
+    "extra_card":         os.path.join(_CUSTOM_DIR, "icon_white.png"),     # interim: Buch
+}
+_GROUP_EMBLEM = {"red": "icon_red.png", "blue": "icon_blue.png",
+                 "gold": "icon_gold.png", "white": "icon_white.png"}
+
+
+def _load_scaled(path: str, size: int):
+    """Lädt + skaliert ein PNG quadratisch; None bei Fehler/fehlender Datei."""
+    try:
+        return _scale(pygame.image.load(path).convert_alpha(), size, size)
+    except (pygame.error, FileNotFoundError):
+        return None
+
+
+def draw_shop_icon(screen: pygame.Surface, entry_id: str, group: str,
+                   cx: int, cy: int, size: int = 52) -> None:
+    """Symbol eines Shop-Eintrags zentriert an (cx, cy). Auflösungskette:
+    eigenes Override → registrierte Pack-Quelle → Gruppen-Emblem. Findet sich
+    nichts, wird einfach nichts gezeichnet (kein Crash, Golden Rule 5)."""
+    key = ("shopicon", entry_id, size)
+    if key not in _surf_cache:
+        candidates = [os.path.join(_SHOP_ICON_DIR, f"{entry_id}.png")]
+        if entry_id in _SHOP_ICON_SRC:
+            candidates.append(_SHOP_ICON_SRC[entry_id])
+        candidates.append(os.path.join(_CUSTOM_DIR,
+                                       _GROUP_EMBLEM.get(group, "icon_red.png")))
+        surf = None
+        for path in candidates:
+            if os.path.exists(path):
+                surf = _load_scaled(path, size)
+                if surf is not None:
+                    break
+        _surf_cache[key] = surf
+    surf = _surf_cache[key]
+    if surf is not None:
+        screen.blit(surf, (cx - size // 2, cy - size // 2))
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,94 @@ den Projektzustand — am Ende jeder Session aktualisieren.
 
 ## Current focus
 
+**FX-/„Juice"-Layer: Partikel + Treffer-Flash + Turm-Animation + Screenshake (2026-06-22) — ADR 035.**
+Erster Schritt von „alles animieren, damit es professioneller aussieht". Vorab geklärt:
+**keine Multi-Ansichten** nötig (Seitenansicht-Kamera, L/R-Flip wie Vampire Survivors) —
+„professionell" kommt aus Bewegung + Wucht. Umgesetzt als lose `fx`-Liste in `main.py`
+**parallel zu `dmg_numbers`** (nicht an `gs`, kein FXManager — spiegelt das vorhandene
+`DamageNumber`/Monk-`_heal_effects`-Muster), Update an den 3 Sub-Tick-Stellen, Draw in
+`world_surf` vor `blit_world_zoomed`. Neu in **`game/fx.py`**: `Particle`/`MuzzleFlash`/
+`TrailDot` + Spawner (`spawn_death_poof/_muzzle_flash/_trail/_dust`), FX-Konstanten.
+Effekte: **Death-Poof** (Kill-Schleife, Boss größer/farbig), **Treffer-Flash** (`Warrior.
+_hit_flash` + `_apply_hit_flash` via `BLEND_RGB_ADD`-Kopie → kein Halo; in `_blit_sprite`
+**und** allen Spezial-Frame-Blits Archer/Lancer/Monk/Boss/SuperBoss), **Turm-Animation**
+(`player.py`: Idle-Puls, `trigger_recoil` an beiden Schussstellen, Overdrive-Glühen — reine
+Transform/Tint), **Mündungsblitz** (Turm), **Projektil-Trail**, **Screenshake** (`balance.
+SHAKE_*`, Boss-Tod, Offset im `blit_world_zoomed`, an allen 3 FX-Stellen abklingend).
+**Verifiziert:** `py_compile` sauber; FX-Optik isoliert gerendert (Poof/Muzzle/Trail
+korrekt fadend, Treffer-Flash mit erhaltener Silhouette, Turm Idle/Recoil/Overdrive
+unterscheidbar); voller Treiber-Flow (Menü→Levelup→W150→Sieg) **mehrfach crashfrei**;
+Overdrive-Turm-Glühen im Live-Combat-Screenshot bestätigt. Betroffen: `game/fx.py`,
+`game/enemy.py`, `game/player.py`, `game/balance.py`, `main.py`. **Noch nicht committet.**
+**Offen:** echte KI-Frames für Helden-Motive (Bosse/Turm) als nächste Etappe (gleiches
+Strip-Format `_load_custom_strip`, kein Code nötig); optional Lauf-Staub/Gegner-Muzzle;
+Hintergrund-Animation zuletzt. FX-Tuning (Partikelzahl/Shake-Amplitude) ungeprüft im
+echten Lauf-Feel.
+
+---
+
+**Audio-Pipeline für echte SFX + zwei neue Musik-Tracks (2026-06-22).** `game/sounds.py`
+auf einen daten­getriebenen SFX-Loader umgestellt: `_SFX_FILES` (dict name→Dateiname) +
+`_SFX_DIR`; die `__init__`-Schleife lädt jede vorhandene Datei aus `assets/audio/sfx/` und
+überschreibt den prozeduralen Default, fehlt sie bleibt der synthetisierte Klang (Golden
+Rule 5). **Zehn SFX-Slots** sind damit für echte ElevenLabs-Dateien vorbereitet:
+`shoot/hit/kill/kill_tanker/wave_clear/overdrive/game_over/boss_intro/kill_boss/kill_superboss.ogg`
+(plus bestehende `shop_buy.ogg`, `zipclick.flac`). Zwei neue Musik-Methoden:
+`start_victory_music()` (Pfad `Music/Victory.ogg`) + `start_shop_music()` (`Music/Shop.ogg`).
+**Verdrahtung in `main.py`:** Sieg (W150 geräumt) ruft `start_victory_music()`; Eintritt in
+den **IMPROVEMENTS**-Meta-Shop ruft `start_shop_music()`, „Zurück" stellt Menü-Musik wieder
+her. Bewusst **nicht** an den In-Run-`UPGRADE`-Karten-Pick gehängt (feuert pro Levelup →
+ständiger Track-Neustart wäre störend). Alles über `_play_music`-Fallback: fehlt eine
+Track-Datei, ist der Aufruf ein No-Op (kein Crash, Menü-/Run-Musik läuft weiter).
+**Verifiziert:** `py_compile` sauber + voller Headless-Treiber-Flow bis VICTORY ohne
+Fehler (Victory-Musik-Aufruf dispatcht). **Offen:** der User generiert die 10 SFX +
+`Victory.ogg`/`Shop.ogg` in ElevenLabs (Prompts geliefert); ElevenLabs liefert MP3 →
+für SFX (`mixer.Sound`) nach **.ogg/.wav konvertieren** (ffmpeg), dann liegen sie nur noch
+im Ordner. **Noch nicht committet.**
+
+---
+
+**Shop-Symbole + restliche UI-Klicks (2026-06-22).** Jeder Shop-Slot zeigt jetzt links
+ein 50px-Symbol. Neuer Loader `ui_loader.draw_shop_icon(entry_id, group, …)` mit
+Auflösungskette: `assets/custom/shop_icons/<id>.png` (Override) → registrierte Pack-Quelle
+(`_SHOP_ICON_SRC`) → Gruppen-Emblem `icon_<group>.png` → nichts (Golden Rule 5).
+Pack-Mapping: Schwert/Schild/Geldsack/Buch (`icon_red/blue/gold/white`), `Cannonball.png`
+(Kugelgröße), Tiny-Swords-Icons 03/04/05/08. `_draw_slot` um `entry_id`+`group` erweitert,
+Text um Icon-Breite nach rechts gerückt. **3 echte Lücken** (Start-Tempo, Glückshand, Vierte
+Karte teilen sich Interim-Icons) → Leonardo-Prompts in `docs/shop_icon_prompts.md` (Stil an
+4 Gruppen-Emblemen, Magenta-BG). Asset-Suchregel als Memory `asset-search-folders`.
+Außerdem `ui_click` ergänzt für **Shop-Zurück**, **Lauf-Starten**, **Quit** (Quit mit
+`pygame.time.delay(140)`, damit der Klick vorm Schließen hörbar bleibt). **Verifiziert:**
+headless Shop-Render (`shots/_shop_icons.png`, alle 11 Slots mit Icon) + `py_compile`.
+**Noch nicht committet.**
+
+---
+
+**Klicksound `zipclick` + Shop-Kaufsound (2026-06-22).** UI-Klick: externer Master
+`…\sounds\zipclick.flac` → `assets/audio/sfx/zipclick.flac`, ersetzt im `SoundManager`
+den prozeduralen `ui_click`-Slot (Load mit `os.path.exists` + `try/except`; fehlt die
+Datei, bleibt der prozedurale Sinus → Golden Rule 5). **Nur ein Klick gleichzeitig:**
+`play("ui_click")` merkt sich den von `Sound.play()` zurückgegebenen Channel und ruft
+beim nächsten Klick `stop()`, falls noch `get_busy()` → schnelle Klicks überlagern sich
+nicht. Datei-Load läuft jetzt über eine Schleife `(("shop_buy", …), ("ui_click", …))`.
+**Verifiziert:** headless Load (beide im Dict, `ui_click` ist die längere Datei),
+Doppel-`play` ohne Crash, `py_compile`. **Noch nicht committet.**
+
+---
+
+**Shop-Kaufsound (2026-06-22).** Externer Master `aselfmade assets\rougelite clicker
+assets\sounds\shop_buysound.ogg` → kopiert nach `assets/audio/sfx/shop_buy.ogg` (erste
+**echte** SFX-Datei; alle anderen Effekte sind prozedural). `SoundManager.__init__` lädt
+sie lazy mit `os.path.exists`-Guard + `try/except pygame.error` → fehlt sie, bleibt der
+Slot leer und `play("shop_buy")` ist No-Op (Golden Rule 5). Trigger über das vorhandene
+Rückgabe-Signal-Muster: `ImprovementsMenu.handle_click` gibt bei erfolgreichem Kauf jetzt
+`"bought"` zurück (statt `None`); `main.py` (State `IMPROVEMENTS`) spielt darauf
+`snd.play("shop_buy")` — Audio bleibt in der Game-Loop zentralisiert. **Verifiziert:**
+headless `SoundManager`-Load (`shop_buy` im Dict, `play` ohne Crash) + `py_compile` der
+drei geänderten Module. **Noch nicht committet.**
+
+---
+
 **Bild-Hintergrund im Hauptmenü (2026-06-22).** Leonardo-Key-Art (Turm auf Hügel, Sonnenuntergang,
 drei Tier-Reiche am Horizont) als `assets/custom/menu_bg.png` (1280×720, aus externem Master
 `aselfmade assets\rougelite clicker assets\cover\` via Pillow/System.Drawing skaliert). In
@@ -182,6 +270,31 @@ v. a. Defensiv-Build (Armor+Dodge+Regen+Dornen) gegen die Endgame-Wand. Neue Kar
 `Icon_05/06` (eigene Icons fehlen).
 
 ## Last session
+
+2026-06-22 (Teil 20) — **FX-/„Juice"-Layer (ADR 035):**
+- **Frage des Nutzers vorab beantwortet:** Multi-Ansichten (4-/8-Richtungen) sind bei der
+  Seitenansicht-Kamera unnötig (L/R-Flip via `_both_dirs()` reicht; vgl. Vampire Survivors).
+  Plan: FX-Layer zuerst, danach echte KI-Frames für Helden, Turm-Animation — prozeduraler
+  Ausbau bewusst weggelassen.
+- **`game/fx.py`:** neue Klassen `Particle`/`MuzzleFlash`/`TrailDot` (Protokoll wie
+  `DamageNumber`) + Spawner + FX-Konstanten. Additive Effekte skalieren RGB mit der
+  Restlebensdauer (`BLEND_RGB_ADD` ignoriert Quell-Alpha).
+- **`main.py`:** lose `fx`-Liste + `shake`-Float neben `dmg_numbers` (nonlocal in `start_run`,
+  Update/Filter an den 3 Sub-Tick-Stellen, Draw in `world_surf`). Death-Poof in der
+  Kill-Schleife (Boss/SuperBoss größer/farbig + Shake), Mündungsblitz + `trigger_recoil` an
+  beiden Schussstellen, Trail pro Geschoss, `player.update(od_on)` pro Sub-Tick,
+  Shake-Offset im `blit_world_zoomed` (neuer `offset`-Param).
+- **`game/enemy.py`:** `Warrior._hit_flash` (Set in `take_damage`, Decrement in `update`) +
+  Helfer `_apply_hit_flash` (weiße `BLEND_RGB_ADD`-Kopie, Silhouette erhalten); eingehängt in
+  `_blit_sprite` **und** den 5 Spezial-Frame-Blits (Archer/Lancer/Monk/Boss/SuperBoss).
+- **`game/player.py`:** Turm nicht mehr statisch — Idle-Puls (sin-Scale), Recoil-Pop +
+  Versatz (`trigger_recoil`), Overdrive-Glühen; reine Transform/Tint des `player_tower.png`,
+  Fallback-Kreis bleibt.
+- **`game/balance.py`:** `SHAKE_BOSS_DEATH/_HIT/_DECAY` (Render-Feel-Sektion).
+- **Verifikation:** `py_compile` aller Module; isolierte Direkt-Renders (FX-Primitive,
+  Treffer-Flash an echtem Goblin-Sprite, Turm-Zustände) optisch korrekt; voller Treiber-Flow
+  mehrfach crashfrei bis Sieg; Overdrive-Turm-Glühen im Live-Combat bestätigt. Ad-hoc-Test-
+  skripte nach Gebrauch entfernt. **Noch nicht committet.**
 
 2026-06-22 (Teil 19) — **Display-Titel-Font eingesetzt (Folgeschritt zu ADR 033):**
 - **Cinzel** (Google Fonts, OFL 1.1 — darf gebündelt werden) nach `assets/fonts/Cinzel.ttf`

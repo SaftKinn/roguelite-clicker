@@ -107,6 +107,7 @@ RADIUS = 14   # Modul-Konstante für Rückwärtskompatibilität
 
 _ANIM_PERIOD = 6   # Ticks zwischen Animations-Frames (~10 FPS bei 60 FPS)
 _PLAYER_RADIUS = 18   # spiegelt player.RADIUS — Nahkämpfer stoppen davor statt hineinzulaufen
+_HIT_FLASH_TICKS = 5   # Treffer-Flash (Juice, ADR 035): Sprite blitzt so viele Ticks weiß auf
 
 
 class Warrior:
@@ -144,6 +145,7 @@ class Warrior:
         self._atk_tk       = 0
         self._atk_alt      = False
         self._attack_cd    = 0   # Cooldown bis zum nächsten Nahkampf-Treffer
+        self._hit_flash    = 0   # Rest-Ticks des weißen Treffer-Flashs (Juice, ADR 035)
 
     @staticmethod
     def _random_edge_pos() -> tuple:
@@ -201,9 +203,12 @@ class Warrior:
             self._anim_tick = 0
             if self._frames_r:
                 self._anim_frame = (self._anim_frame + 1) % len(self._frames_r)
+        if self._hit_flash > 0:
+            self._hit_flash -= 1
 
     def take_damage(self, amount: int) -> None:
         self.hp -= amount
+        self._hit_flash = _HIT_FLASH_TICKS   # weißer Aufblitz bei jedem Treffer (Juice)
         if self.hp <= 0:
             self.alive = False
 
@@ -228,12 +233,22 @@ class Warrior:
         pygame.draw.rect(screen, self.COLOR_HP_BAR,
                          (bar_x, bar_y, int(bar_w * ratio), bar_h))
 
+    def _apply_hit_flash(self, frame: pygame.Surface) -> pygame.Surface:
+        """Gibt eine weiß aufgehellte Kopie zurück, solange der Treffer-Flash läuft —
+        sonst das Original. BLEND_RGB_ADD respektiert die Alpha-Maske (kein Halo)."""
+        if self._hit_flash <= 0:
+            return frame
+        tinted = frame.copy()
+        k = int(180 * self._hit_flash / _HIT_FLASH_TICKS)
+        tinted.fill((k, k, k), special_flags=pygame.BLEND_RGB_ADD)
+        return tinted
+
     def _blit_sprite(self, screen: pygame.Surface) -> bool:
         self._load_sprites()
         frames = self._frames_l if self.facing_left else self._frames_r
         if not frames:
             return False
-        frame = frames[self._anim_frame % len(frames)]
+        frame = self._apply_hit_flash(frames[self._anim_frame % len(frames)])
         screen.blit(frame, (int(self.pos.x) - frame.get_width()  // 2,
                              int(self.pos.y) - frame.get_height() // 2))
         return True
@@ -246,8 +261,9 @@ class Warrior:
             frames_l = self._atk2_frames_l if self._atk_alt else self._atk1_frames_l
             frames   = frames_l if self.facing_left else frames_r
             fr       = min(self._atk_fr, len(frames) - 1)
-            screen.blit(frames[fr], (pos[0] - frames[fr].get_width() // 2,
-                                      pos[1] - frames[fr].get_height() // 2))
+            af       = self._apply_hit_flash(frames[fr])
+            screen.blit(af, (pos[0] - af.get_width() // 2,
+                             pos[1] - af.get_height() // 2))
         elif not self._blit_sprite(screen):
             pygame.draw.circle(screen, self.COLOR_OUTLINE, pos, self.radius + 2)
             pygame.draw.circle(screen, self.COLOR_BODY,    pos, self.radius)
@@ -352,8 +368,9 @@ class Archer(Warrior):
         if self._is_shooting and self._shoot_frames_r:
             frames = self._shoot_frames_l if self.facing_left else self._shoot_frames_r
             fr = min(self._shoot_anim_fr, len(frames) - 1)
-            screen.blit(frames[fr], (pos[0] - frames[fr].get_width() // 2,
-                                      pos[1] - frames[fr].get_height() // 2))
+            af = self._apply_hit_flash(frames[fr])
+            screen.blit(af, (pos[0] - af.get_width() // 2,
+                             pos[1] - af.get_height() // 2))
         elif not self._blit_sprite(screen):
             pygame.draw.circle(screen, self.COLOR_OUTLINE, pos, self.radius + 1)
             pygame.draw.circle(screen, self.COLOR_BODY,    pos, self.radius)
@@ -433,8 +450,9 @@ class Lancer(Warrior):
             frames_r, frames_l = self._lancer_atk[self._lancer_atk_dir]
             frames = frames_l if self.facing_left else frames_r
             fr     = min(self._lancer_atk_fr, len(frames) - 1)
-            screen.blit(frames[fr], (pos[0] - frames[fr].get_width() // 2,
-                                      pos[1] - frames[fr].get_height() // 2))
+            af = self._apply_hit_flash(frames[fr])
+            screen.blit(af, (pos[0] - af.get_width() // 2,
+                             pos[1] - af.get_height() // 2))
         elif not self._blit_sprite(screen):
             pygame.draw.circle(screen, self.COLOR_OUTLINE, pos, self.radius + 5, width=4)
             pygame.draw.circle(screen, self.COLOR_BODY,    pos, self.radius)
@@ -561,8 +579,9 @@ class Monk(Warrior):
         if self._heal_anim_active and self._heal_frames_r:
             frames = self._heal_frames_l if self.facing_left else self._heal_frames_r
             fr = min(self._heal_anim_fr, len(frames) - 1)
-            screen.blit(frames[fr], (pos[0] - frames[fr].get_width() // 2,
-                                      pos[1] - frames[fr].get_height() // 2))
+            af = self._apply_hit_flash(frames[fr])
+            screen.blit(af, (pos[0] - af.get_width() // 2,
+                             pos[1] - af.get_height() // 2))
         elif not self._blit_sprite(screen):
             pygame.draw.circle(screen, self.COLOR_OUTLINE, pos, self.radius + 2)
             pygame.draw.circle(screen, self.COLOR_BODY,    pos, self.radius)
@@ -1072,8 +1091,9 @@ class Boss(Warrior):
             frames_r, frames_l = self._lancer_atk[self._lancer_atk_dir]
             frames = frames_l if self.facing_left else frames_r
             fr     = min(self._lancer_atk_fr, len(frames) - 1)
-            screen.blit(frames[fr], (pos[0] - frames[fr].get_width() // 2,
-                                      pos[1] - frames[fr].get_height() // 2))
+            af = self._apply_hit_flash(frames[fr])
+            screen.blit(af, (pos[0] - af.get_width() // 2,
+                             pos[1] - af.get_height() // 2))
         elif not self._blit_sprite(screen):
             pygame.draw.circle(screen, self.COLOR_BODY, pos, self.radius)
 
@@ -1216,6 +1236,7 @@ class SuperBoss(Warrior):
                 scale = 1 + env * (self.ATTACK_SCALE - 1)
                 frame = pygame.transform.smoothscale(
                     frame, (int(frame.get_width() * scale), int(frame.get_height() * scale)))
+            frame = self._apply_hit_flash(frame)
             screen.blit(frame, (cx - frame.get_width() // 2, cy - frame.get_height() // 2))
         else:
             pygame.draw.circle(screen, self.COLOR_BODY, (cx, cy), self.radius)

@@ -34,6 +34,7 @@ from game.upgrade_menu import UpgradeMenu
 from game.main_menu    import (MainMenu, OptionsMenu, ImprovementsMenu, BestiaryMenu,
                                SlotSelectMenu, IMPROVEMENTS, Button)
 from game.fx           import DamageNumber, COLOR_COIN
+from game             import fx as fxmod
 from game.terrain      import Terrain
 from game import save_data  as sd
 from game import ui_loader
@@ -521,7 +522,8 @@ def draw_boss_bar(screen: pygame.Surface, font: pygame.font.Font,
 # Kamera-Zoom (ADR 007)
 # ---------------------------------------------------------------------------
 
-def blit_world_zoomed(screen: pygame.Surface, world: pygame.Surface, zoom: float) -> None:
+def blit_world_zoomed(screen: pygame.Surface, world: pygame.Surface, zoom: float,
+                      offset: tuple = (0, 0)) -> None:
     """Skaliert den zentralen 1/zoom-Ausschnitt der GAMEPLAY-Ebene formatfüllend auf den
     Screen und blittet sie alpha-erhaltend über den bereits gezeichneten (scharfen) Boden.
 
@@ -531,13 +533,13 @@ def blit_world_zoomed(screen: pygame.Surface, world: pygame.Surface, zoom: float
     bleibt der darunterliegende Boden sichtbar. HUD/Menüs kommen danach unskaliert drauf.
     """
     if zoom == 1.0:
-        screen.blit(world, (0, 0))
+        screen.blit(world, offset)
         return
     w, h   = world.get_size()
     cw, ch = int(w / zoom), int(h / zoom)
     x, y   = (w - cw) // 2, (h - ch) // 2
     crop   = world.subsurface((x, y, cw, ch))
-    screen.blit(pygame.transform.smoothscale(crop, (w, h)), (0, 0))
+    screen.blit(pygame.transform.smoothscale(crop, (w, h)), offset)
 
 
 # ---------------------------------------------------------------------------
@@ -626,6 +628,8 @@ def main():
     gs          = None
     terrain     = None
     dmg_numbers = []
+    fx          = []                    # Juice-Layer: Partikel/Blitze/Schweife (ADR 035)
+    shake       = 0.0                   # Screenshake-Restamplitude in Pixeln (Boss-Tod)
     diff_mod    = options_menu.get_modifiers()
     new_record          = False
     prev_state          = None
@@ -636,13 +640,15 @@ def main():
     state               = "SLOT_SELECT"  # zuerst Speicherstand wählen, dann Hauptmenü
 
     def start_run():
-        nonlocal player, pc, gs, terrain, dmg_numbers, diff_mod
+        nonlocal player, pc, gs, terrain, dmg_numbers, fx, shake, diff_mod
         diff_mod    = options_menu.get_modifiers()
         player      = Player()
         pc          = pygame.math.Vector2(player.x, player.y)
         gs          = fresh_game_state()
         terrain     = Terrain(tier=tier_for_wave(gs["wave"]))
         dmg_numbers = []
+        fx          = []
+        shake       = 0.0
         apply_permanent_bonuses(player, gs["stats"], save)
         snd.start_run_music()
 
@@ -737,15 +743,22 @@ def main():
                 elif state == "MAIN_MENU":
                     action = main_menu.handle_click(mouse_pos, run_active=gs is not None)
                     if action == "start":
+                        snd.play("ui_click")
                         start_run()
                         state = "PLAYING"
                     elif action == "options":
                         snd.play("ui_click")
                         options_return_to = "MAIN_MENU"
                         state = "OPTIONS"
-                    elif action == "improvements": snd.play("ui_click"); state = "IMPROVEMENTS"
+                    elif action == "improvements":
+                        snd.play("ui_click")
+                        snd.start_shop_music()   # ruhiger Shop-Loop (Fallback: Menü-Musik läuft weiter)
+                        state = "IMPROVEMENTS"
                     elif action == "bestiary":     snd.play("ui_click"); state = "BESTIARY"
-                    elif action == "quit":         running = False
+                    elif action == "quit":
+                        snd.play("ui_click")
+                        pygame.time.delay(140)   # Klick noch hörbar, bevor das Fenster schließt
+                        running = False
 
                 elif state == "OPTIONS":
                     # Drag auf Lautstärke-Balken starten
@@ -768,8 +781,13 @@ def main():
                             sd.save(save)
 
                 elif state == "IMPROVEMENTS":
-                    if impr_menu.handle_click(mouse_pos, save) == "back":
+                    res = impr_menu.handle_click(mouse_pos, save)
+                    if res == "back":
+                        snd.play("ui_click")
+                        snd.start_menu_music()   # zurück zur Menü-Musik
                         state = "MAIN_MENU"
+                    elif res == "bought":
+                        snd.play("shop_buy")
 
                 elif state == "BESTIARY":
                     if bestiary_menu.handle_click(mouse_pos) == "back":
@@ -886,6 +904,7 @@ def main():
                 od_on   = gs["overdrive_active"] > 0
                 od_dmg  = balance.OVERDRIVE_DAMAGE_MULT if od_on else 1.0
                 od_atk  = balance.OVERDRIVE_ATTACK_MULT if od_on else 1.0
+                player.update(od_on)   # Turm-Animation: Idle-Puls/Recoil/Overdrive-Glühen (ADR 035)
 
                 # Auto-Feuer beim Halten der Maustaste, getaktet vom Angriffstempo (ADR 009)
                 if gs["fire_timer"] > 0:
@@ -898,6 +917,8 @@ def main():
                     if aim:
                         gs["projectiles"] += spawn_projectiles(pc, aim, gs["stats"], od_dmg)
                         snd.play("shoot")
+                        player.trigger_recoil(pygame.math.Vector2(aim) - pc)   # Turm-Rückstoß (ADR 035)
+                        fx += fxmod.spawn_muzzle_flash(pc.x, pc.y)             # Mündungsblitz
                         # Doppelschuss-Stufe (0–2): je Stufe ein zusätzlicher, verzögerter Schuss
                         # gerade aufs Ziel (Stufe 1 = 2 Schuss, Stufe 2 = 3 Schuss "Dreifachschuss").
                         ds_level = save.get("upgrades", {}).get("doppelschuss", 0)
@@ -913,6 +934,8 @@ def main():
                     if delay <= 0:
                         gs["projectiles"] += spawn_projectiles(pc, mp, gs["stats"], od_dmg)
                         snd.play("shoot")
+                        player.trigger_recoil(pygame.math.Vector2(mp) - pc)   # Turm-Rückstoß je Folgeschuss
+                        fx += fxmod.spawn_muzzle_flash(pc.x, pc.y)            # Mündungsblitz
                     else:
                         next_pending.append((delay, mp))
                 gs["pending_shots"] = next_pending
@@ -929,7 +952,10 @@ def main():
                         gs["enemy_projectiles"] += e.pop_shots()   # Übergangs-Pfeilangriff
                 if new_summons:
                     gs["enemies"] += new_summons
-                for p in gs["projectiles"]:        p.update()
+                for p in gs["projectiles"]:
+                    p.update()
+                    if p.alive:
+                        fx += fxmod.spawn_trail(p.pos.x, p.pos.y)   # Projektil-Schweif (ADR 035)
                 for ep in gs["enemy_projectiles"]: ep.update()
 
                 kills    = []
@@ -957,11 +983,21 @@ def main():
                     if isinstance(enemy, SuperBoss):
                         snd.play("kill_superboss")
                         snd.start_run_music()
+                        fx += fxmod.spawn_death_poof(enemy.pos.x, enemy.pos.y,
+                                                     color=(255, 120, 60),
+                                                     count=fxmod.POOF_COUNT * 2)
+                        shake = max(shake, balance.SHAKE_BOSS_DEATH)
                     elif isinstance(enemy, Boss):
                         snd.play("kill_boss")
                         snd.start_run_music()
-                    elif isinstance(enemy, Lancer):     snd.play("kill_tanker")
-                    else:                               snd.play("kill")
+                        fx += fxmod.spawn_death_poof(enemy.pos.x, enemy.pos.y,
+                                                     color=(255, 165, 80),
+                                                     count=int(fxmod.POOF_COUNT * 1.6))
+                        shake = max(shake, balance.SHAKE_BOSS_HIT)
+                    else:
+                        if isinstance(enemy, Lancer):   snd.play("kill_tanker")
+                        else:                           snd.play("kill")
+                        fx += fxmod.spawn_death_poof(enemy.pos.x, enemy.pos.y)
                     val = int(coin_value_for_wave(gs["wave"]) * enemy.coin_value * gold_mult * COIN_GAIN_MULT)
                     gs["coins"] += val
                     # XP-Drop = Klassen-Basis × Wellenfaktor (ADR 008 + ADR 014) × globaler
@@ -986,6 +1022,9 @@ def main():
 
                 for dn in dmg_numbers: dn.update()
                 dmg_numbers = [dn for dn in dmg_numbers if dn.alive]
+                for f in fx: f.update()
+                fx = [f for f in fx if f.alive]
+                shake = max(0.0, shake - balance.SHAKE_DECAY)
 
                 # HP-Regeneration (BLAU, ADR 025): zeitbasiert, an die Live-FPS gekoppelt
                 # (wie spawn_interval); im Sub-Tick-Loop → Zeitraffer skaliert automatisch mit.
@@ -1017,6 +1056,7 @@ def main():
                         sd.save(save)
                         snd.stop_music()
                         snd.play("wave_clear")
+                        snd.start_victory_music()
                         state = "VICTORY"
                     else:
                         snd.play("wave_clear")
@@ -1039,6 +1079,9 @@ def main():
                 gs["enemy_projectiles"]  = [ep for ep in gs["enemy_projectiles"]  if ep.alive]
                 for dn in dmg_numbers: dn.update()
                 dmg_numbers = [dn for dn in dmg_numbers if dn.alive]
+                for f in fx: f.update()
+                fx = [f for f in fx if f.alive]
+                shake = max(0.0, shake - balance.SHAKE_DECAY)
 
                 gs["wave_clear_timer"] += 1
                 if gs["wave_clear_timer"] >= WAVE_CLEAR_DELAY:
@@ -1067,6 +1110,9 @@ def main():
                 gs["projectiles"] = [p for p in gs["projectiles"] if p.alive]
                 for dn in dmg_numbers: dn.update()
                 dmg_numbers = [dn for dn in dmg_numbers if dn.alive]
+                for f in fx: f.update()
+                fx = [f for f in fx if f.alive]
+                shake = max(0.0, shake - balance.SHAKE_DECAY)
                 upgrade_menu.tick()
 
         # --- Draw ---
@@ -1100,9 +1146,18 @@ def main():
                 for ep in gs["enemy_projectiles"]:  ep.draw(world_surf)
             if player:
                 player.draw(world_surf, mouse_pos)
+            for f in fx:
+                f.draw(world_surf)
             for dn in dmg_numbers:
                 dn.draw(world_surf, font_dmg)
-            blit_world_zoomed(screen, world_surf, CAMERA_ZOOM)
+            # Screenshake (Boss-Tod): Gameplay-Ebene um kleinen Zufalls-Offset versetzt
+            # über den (statischen) Boden blitten — der Boden füllt die Ränder, kein Loch.
+            if shake >= 1.0:
+                amp     = int(shake)
+                sh_off  = (random.randint(-amp, amp), random.randint(-amp, amp))
+            else:
+                sh_off  = (0, 0)
+            blit_world_zoomed(screen, world_surf, CAMERA_ZOOM, sh_off)
 
             # --- HUD & Overlays unskaliert obendrauf ---
             if gs and player:

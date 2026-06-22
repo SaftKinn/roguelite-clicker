@@ -73,3 +73,4 @@ Was folgt daraus — positiv und negativ. Was bindet das für spätere Arbeit?
 - [ADR 032 — Eigene Boss- & SuperBoss-Sprites pro Tier (frontale Pose)](032-eigene-boss-superboss-sprites.md)
 - [ADR 033 — UI-Redesign: zentrales Theme-Modul, „Glass"-Hybrid-Look](033-ui-redesign-theme-glass-hybrid.md)
 - [ADR 034 — Overdrive: aktivierbare Spieler-Fähigkeit (Leertaste, offensiver Burst)](034-overdrive-aktive-faehigkeit.md)
+- [ADR 035 — FX-/„Juice"-Layer: Partikel, Treffer-Flash, Turm-Animation, Screenshake](035-fx-juice-layer.md)

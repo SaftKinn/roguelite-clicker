@@ -5,9 +5,30 @@ import pygame
 
 SAMPLE_RATE = 22050
 _DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_MUSIC_RUN  = os.path.join(_DIR, "assets", "audio", "Music", "Run music.ogg")
-_MUSIC_BOSS = os.path.join(_DIR, "assets", "audio", "Music", "Epic boss Battle.ogg")
-_MUSIC_MENU = os.path.join(_DIR, "assets", "audio", "Music", "Mainmenu Music.ogg")
+_MUSIC_RUN     = os.path.join(_DIR, "assets", "audio", "Music", "Run music.ogg")
+_MUSIC_BOSS    = os.path.join(_DIR, "assets", "audio", "Music", "Epic boss Battle.ogg")
+_MUSIC_MENU    = os.path.join(_DIR, "assets", "audio", "Music", "Mainmenu Music.ogg")
+_MUSIC_VICTORY = os.path.join(_DIR, "assets", "audio", "Music", "Victory.ogg")
+_MUSIC_SHOP    = os.path.join(_DIR, "assets", "audio", "Music", "Shop.ogg")
+_SFX_DIR       = os.path.join(_DIR, "assets", "audio", "sfx")
+
+# Optionale echte SFX-Dateien (z. B. aus ElevenLabs). Liegt die Datei in
+# assets/audio/sfx/, überschreibt sie den prozeduralen Default; fehlt sie,
+# bleibt der synthetisierte Klang stehen (Golden Rule 5 — nie ein Crash).
+_SFX_FILES = {
+    "shoot":          "shoot.ogg",
+    "hit":            "hit.ogg",
+    "kill":           "kill.ogg",
+    "kill_tanker":    "kill_tanker.ogg",
+    "wave_clear":     "wave_clear.ogg",
+    "overdrive":      "overdrive.ogg",
+    "game_over":      "game_over.ogg",
+    "boss_intro":     "boss_intro.ogg",
+    "kill_boss":      "kill_boss.ogg",
+    "kill_superboss": "kill_superboss.ogg",
+    "shop_buy":       "shop_buy.ogg",
+    "ui_click":       "zipclick.flac",
+}
 _BOSS_VOL_MULT = 0.70   # Boss-Musik etwas leiser als Run-Musik
 
 
@@ -104,6 +125,20 @@ class SoundManager:
                            )),
         }
 
+        # Echte Audio-Dateien statt prozedural. Fehlt eine, bleibt der prozedurale
+        # Wert bzw. der Slot leer → play(...) ist dann ein No-Op (Golden Rule 5).
+        for name, fname in _SFX_FILES.items():
+            path = os.path.join(_SFX_DIR, fname)
+            try:
+                if os.path.exists(path):
+                    self.sounds[name] = pygame.mixer.Sound(path)
+            except pygame.error:
+                pass
+
+        # Eigener Kanal nur für Klicks: jeder neue Klick stoppt den vorigen,
+        # so erklingt nie mehr als EIN Klicksound gleichzeitig.
+        self._ui_channel: pygame.mixer.Channel | None = None
+
         self._apply_sfx()
 
     # --- Lautstärke ---
@@ -128,8 +163,15 @@ class SoundManager:
     # --- Wiedergabe ---
 
     def play(self, name: str) -> None:
-        if name in self.sounds:
-            self.sounds[name].play()
+        if name not in self.sounds:
+            return
+        if name == "ui_click":
+            # Vorigen Klick abbrechen → immer nur ein Klicksound zugleich.
+            if self._ui_channel is not None and self._ui_channel.get_busy():
+                self._ui_channel.stop()
+            self._ui_channel = self.sounds[name].play()
+            return
+        self.sounds[name].play()
 
     def _play_music(self, path: str, vol_mult: float = 1.0) -> None:
         if os.path.exists(path):
@@ -146,6 +188,12 @@ class SoundManager:
 
     def start_boss_music(self) -> None:
         self._play_music(_MUSIC_BOSS, _BOSS_VOL_MULT)
+
+    def start_victory_music(self) -> None:
+        self._play_music(_MUSIC_VICTORY)
+
+    def start_shop_music(self) -> None:
+        self._play_music(_MUSIC_SHOP)
 
     def stop_music(self) -> None:
         pygame.mixer.music.stop()
